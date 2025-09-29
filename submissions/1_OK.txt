@@ -1,0 +1,10 @@
+# Problem 1. Two Sum (correct)
+
+def twoSum(nums, target):
+    pos = {}
+    for i, x in enumerate(nums):
+        d = target - x
+        if d in pos:
+            return [pos[d], i]
+        pos[x] = i
+    return []
