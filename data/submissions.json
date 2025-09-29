@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "problem_id": 1,
+    "title": "Two Sum",
+    "tags": ["array", "hash map"],
+    "knowledge": ["hash map lookup"],
+    "status": "Accepted",
+    "language": "python",
+    "error_parts": [],
+    "notes": "Used dictionary to track complements.",
+    "difficulty": "Easy"
+  },
+  {
+    "id": 2,
+    "problem_id": 121,
+    "title": "Best Time to Buy and Sell Stock",
+    "tags": ["array", "dp"],
+    "knowledge": ["prefix minima", "state tracking"],
+    "status": "Wrong Answer",
+    "language": "python",
+    "error_parts": ["min price tracking", "edge case: all decreasing"],
+    "notes": "Did not update min before computing profit in the same iteration.",
+    "difficulty": "Easy"
+  },
+  {
+    "id": 3,
+    "problem_id": 20,
+    "title": "Valid Parentheses",
+    "tags": ["stack", "string"],
+    "knowledge": ["stack push/pop"],
+    "status": "Accepted",
+    "language": "python",
+    "error_parts": [],
+    "notes": "Standard stack solution.",
+    "difficulty": "Easy"
+  },
+  {
+    "id": 4,
+    "problem_id": 21,
+    "title": "Merge Two Sorted Lists",
+    "tags": ["linked list"],
+    "knowledge": ["pointer manipulation"],
+    "status": "Wrong Answer",
+    "language": "python",
+    "error_parts": ["not attaching remaining tail", "null pointer handling"],
+    "notes": "Forgot to connect the rest of the non-empty list.",
+    "difficulty": "Easy"
+  },
+  {
+    "id": 5,
+    "problem_id": 704,
+    "title": "Binary Search",
+    "tags": ["binary search", "array"],
+    "knowledge": ["two-pointer search", "mid computation"],
+    "status": "Accepted",
+    "language": "python",
+    "error_parts": [],
+    "notes": "Classic binary search.",
+    "difficulty": "Easy"
+  },
+  {
+    "id": 6,
+    "problem_id": 3,
+    "title": "Longest Substring Without Repeating Characters",
+    "tags": ["sliding window", "hash map", "string"],
+    "knowledge": ["window shrink on duplicate"],
+    "status": "Time Limit Exceeded",
+    "language": "python",
+    "error_parts": ["did not shrink window on duplicate", "quadratic scan"],
+    "notes": "Recomputed window each time instead of updating left pointer.",
+    "difficulty": "Medium"
+  },
+  {
+    "id": 7,
+    "problem_id": 200,
+    "title": "Number of Islands",
+    "tags": ["dfs", "bfs", "graph", "grid"],
+    "knowledge": ["mark visited", "bounds checks"],
+    "status": "Wrong Answer",
+    "language": "python",
+    "error_parts": ["visited marking missing", "recounts same island"],
+    "notes": "Forgot to mark grid cells visited before recursion.",
+    "difficulty": "Medium"
+  },
+  {
+    "id": 8,
+    "problem_id": 322,
+    "title": "Coin Change",
+    "tags": ["dp"],
+    "knowledge": ["bottom-up dp", "unbounded knapsack pattern"],
+    "status": "Wrong Answer",
+    "language": "python",
+    "error_parts": ["dp initialization to 0 instead of inf", "off-by-one"],
+    "notes": "Initialized dp with zeros causing invalid minima.",
+    "difficulty": "Medium"
+  },
+  {
+    "id": 9,
+    "problem_id": 146,
+    "title": "LRU Cache",
+    "tags": ["design", "hash map", "linked list"],
+    "knowledge": ["doubly linked list", "O(1) operations"],
+    "status": "Runtime Error",
+    "language": "python",
+    "error_parts": ["remove node pointers", "head/tail updates"],
+    "notes": "Pointer unlinking errors on eviction.",
+    "difficulty": "Medium"
+  },
+  {
+    "id": 10,
+    "problem_id": 167,
+    "title": "Two Sum II - Input Array Is Sorted",
+    "tags": ["two pointers", "array"],
+    "knowledge": ["two pointers converge"],
+    "status": "Accepted",
+    "language": "python",
+    "error_parts": [],
+    "notes": "Used left/right pointers.",
+    "difficulty": "Medium"
+  }
+]
