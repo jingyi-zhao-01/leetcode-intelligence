@@ -1,4 +1,4 @@
-from simplepy import greet
+from src import greet
 
 
 def test_greet_default():

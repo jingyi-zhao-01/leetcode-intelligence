@@ -3,25 +3,22 @@ requires = ["poetry-core>=1.8.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "simplepy"
+name = "leetcode-qa"
 version = "0.1.0"
-description = "A simple Python project example"
+description = "A LeetCode Q&A system using LlamaIndex"
 authors = ["OpenHands <openhands@all-hands.dev>"]
 readme = "README.md"
 license = "MIT"
-packages = [{ include = "simplepy", from = "src" }]
+package-mode = false
 
 [tool.poetry.dependencies]
-python = ">=3.9,<4.0"
+python = "^3.12"
 llama-index = "*"
 llama-index-llms-openai = "*"
 llama-index-readers-file = "*"
+llama-index-vector-stores-chroma = "*"
 python-dotenv = "*"
+chromadb = "^1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
-
-[tool.poetry.scripts]
-simplepy = "simplepy.cli:main"
-simplepy-qa = "simplepy.qa:main"
-simplepy-mentor = "simplepy.mentor:main"
