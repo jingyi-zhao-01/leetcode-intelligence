@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "leetcode-qa": {
+      "type": "stdio",
+      "command": "poetry",
+      "args": ["run", "mcp-server-stdio"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      }
+    }
+  }
+}

@@ -5,20 +5,33 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "leetcode-qa"
 version = "0.1.0"
-description = "A LeetCode Q&A system using LlamaIndex"
+description = "A LeetCode Q&A"
 authors = ["OpenHands <openhands@all-hands.dev>"]
 readme = "README.md"
 license = "MIT"
-package-mode = false
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
 llama-index = "*"
-llama-index-llms-openai = "*"
 llama-index-readers-file = "*"
-llama-index-vector-stores-chroma = "*"
 python-dotenv = "*"
 chromadb = "^1.2.1"
+requests = "^2.32.5"
+pydantic = "^2.12.3"
+prisma = "^0.15.0"
+fastapi = "^0.119.1"
+uvicorn = "^0.38.0"
+fastapi-mcp = "^0.4.0"
+fastmcp = "^2.12.5"
+openai = "^2.6.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
+pytest-cov = "^7.0.0"
+
+[tool.poetry.scripts]
+submission-saver = "src.submissions.submission_saver:main"
+ingest-problems = "src.problems.run_ingest:run"
+mcp-server = "src.mcp.server:main"
+mcp-server-stdio = "src.mcp.server:main_stdio"
