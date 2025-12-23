@@ -25,6 +25,8 @@ uvicorn = "^0.38.0"
 fastapi-mcp = "^0.4.0"
 fastmcp = "^2.12.5"
 openai = "^2.6.0"
+colorama = "^0.4.6"
+tabulate = "^0.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
@@ -32,6 +34,8 @@ pytest-cov = "^7.0.0"
 
 [tool.poetry.scripts]
 submission-saver = "src.submissions.submission_saver:main"
+submission-stats = "src.submissions.submission_stats:main"
+problem-graph = "src.submissions.problem_graph:main"
 ingest-problems = "src.problems.run_ingest:run"
 mcp-server = "src.mcp.server:main"
 mcp-server-stdio = "src.mcp.server:main_stdio"

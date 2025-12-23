@@ -28,6 +28,15 @@ async def save_submission(title_slug: str, content: str, item: dict) -> bool:
     db = Prisma()
 
     status = item.get("status_msg", "Unknown")
+
+    # Skip if content contains #TEST#
+    if "#TEST#" in content:
+        print(f"⊘ Skipping test submission: {title_slug}", file=sys.stderr)
+        return False
+
+    # Check if content contains #CHEAT# flag
+    is_cheat = "#CHEAT#" in content
+
     try:
         await db.connect()
 
@@ -40,11 +49,15 @@ async def save_submission(title_slug: str, content: str, item: dict) -> bool:
                 "titleSlug": title_slug,
                 "content": cleaned_content,
                 "status": status,
+                "isCheat": is_cheat,
                 "submissionDetails": Json(item) if item else None,
             }
         )
 
-        print(f"✓ Submission saved successfully: {submission.id} {title_slug} {status}")
+        cheat_flag = " [CHEAT - needs revisit]" if is_cheat else ""
+        print(
+            f"✓ Submission saved successfully: {submission.id} {title_slug} {status}{cheat_flag}"
+        )
 
         return True
 

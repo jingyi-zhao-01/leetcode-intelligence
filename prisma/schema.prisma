@@ -34,6 +34,7 @@ model Submission {
   titleSlug        String?
   content          String
   status           String
+  isCheat          Boolean  @default(false)
   createdAt        DateTime @default(now()) @db.Timestamptz(6)
   submissionDetails Json?
   
