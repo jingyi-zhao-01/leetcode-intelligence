@@ -31,11 +31,12 @@ tabulate = "^0.9.0"
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 pytest-cov = "^7.0.0"
+prisma = "^0.15.0"
 
 [tool.poetry.scripts]
-submission-saver = "src.submissions.submission_saver:main"
 submission-stats = "src.submissions.submission_stats:main"
 problem-graph = "src.submissions.problem_graph:main"
+submission-server = "src.submissions.submission_server:run"
 ingest-problems = "src.problems.run_ingest:run"
 mcp-server = "src.mcp.server:main"
 mcp-server-stdio = "src.mcp.server:main_stdio"

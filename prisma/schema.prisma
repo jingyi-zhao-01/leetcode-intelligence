@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-py"
 }
@@ -23,20 +17,17 @@ model Question {
   relatedProblems String[]
   content         String?
   updatedAt       DateTime @updatedAt @db.Timestamptz(6)
-  
-  // submissions     Submission[]
 
   @@index([topicTags], type: Gin)
 }
 
 model Submission {
-  id               String   @id @default(cuid())
-  titleSlug        String?
-  content          String
-  status           String
-  isCheat          Boolean  @default(false)
-  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  id                String   @id @default(cuid())
+  titleSlug         String?
+  content           String
+  status            String
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
   submissionDetails Json?
-  
-  // question         Question? @relation(fields: [titleSlug], references: [titleSlug])
+  isCheat           Boolean  @default(false)
+  timeSpentMinutes  Int?
 }
