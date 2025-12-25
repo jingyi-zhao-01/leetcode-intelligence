@@ -6,8 +6,8 @@ from enum import Enum
 from prisma import Prisma, Json
 from prisma.types import SubmissionCreateInput
 
-from src.submissions.code_cleaner import normalize_for_embedding
-from src.submissions.timer_service import TimerManager
+from code_cleaner import normalize_for_embedding
+from timer_service import TimerManager
 
 
 class ServerAction(str, Enum):

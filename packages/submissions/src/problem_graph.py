@@ -1,15 +1,9 @@
 import argparse
 import asyncio
-import sys
-from pathlib import Path
 from typing import List, Dict, Set, Any
 from collections import defaultdict
 
 from prisma import Prisma
-
-# Add the project root to the path to import src modules
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 
 async def build_problem_graph(

@@ -1,16 +1,10 @@
 import argparse
 import asyncio
-import sys
 from datetime import datetime
-from pathlib import Path
 from typing import List, Dict, Any
 
 from prisma import Prisma
 from tabulate import tabulate
-
-# Add the project root to the path to import src modules
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
 
 
 async def get_submission_stats(
