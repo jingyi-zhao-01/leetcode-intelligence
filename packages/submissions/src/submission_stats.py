@@ -419,9 +419,7 @@ def format_stats_table(stats: List[Dict[str, Any]]) -> str:
 
         # Format tags
         tags = stat.get("topicTags", [])
-        tags_display = ", ".join(tags[:3]) if tags else "-"
-        if len(tags) > 3:
-            tags_display += f" (+{len(tags) - 3})"
+        tags_display = ", ".join(tags) if tags else "-"
 
         rows.append(
             [
@@ -572,9 +570,7 @@ def format_related_problems(result: Dict[str, Any]) -> str:
             common_tags_display = "(Related by LeetCode)"
         else:
             common_tags = problem.get("commonTags", [])
-            common_tags_display = ", ".join(common_tags[:3])
-            if len(common_tags) > 3:
-                common_tags_display += f" (+{len(common_tags) - 3})"
+            common_tags_display = ", ".join(common_tags)
 
         # Status with date if solved
         if problem["solved"] and problem.get("solvedDate"):

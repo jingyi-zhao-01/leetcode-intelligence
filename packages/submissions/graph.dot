@@ -1,0 +1,56 @@
+graph ProblemGraph {
+  layout=neato;
+  overlap=false;
+  splines=true;
+  node [shape=box, style=filled];
+
+  0 [label="Longest Palindromic Substring", fillcolor="lightyellow", width=1.93];
+  1 [label="Container With Most Water", fillcolor="lightyellow", width=1.79];
+  2 [label="Remove Duplicates from Sorted Array", fillcolor="lightgreen", width=1.62];
+  3 [label="Remove Element", fillcolor="lightgreen", width=1.37];
+  4 [label="Reverse Words in a String", fillcolor="lightyellow", width=1.45];
+  5 [label="Minimum Size Subarray Sum", fillcolor="lightyellow", width=1.18];
+  6 [label="Product of Array Except Self", fillcolor="lightyellow", width=1.52];
+  7 [label="Zigzag Iterator", fillcolor="lightyellow", width=1.06];
+  8 [label="Move Zeroes", fillcolor="lightgreen", width=1.56];
+  9 [label="Increasing Triplet Subsequence", fillcolor="lightyellow", width=1.08];
+  10 [label="Reverse Vowels of a String", fillcolor="lightgreen", width=1.32];
+  11 [label="Is Subsequence", fillcolor="lightgreen", width=1.22];
+  12 [label="Can Place Flowers", fillcolor="lightgreen", width=1.32];
+  13 [label="Backspace String Compare", fillcolor="lightgreen", width=1.01];
+  14 [label="Squares of a Sorted Array", fillcolor="lightgreen", width=1.23];
+  15 [label="Greatest Common Divisor of Strings", fillcolor="lightgreen", width=1.27];
+  16 [label="Kids With the Greatest Number of Candies", fillcolor="lightgreen", width=0.91];
+  17 [label="Merge Strings Alternately", fillcolor="lightgreen", width=1.54];
+
+  2 -- 3 [style="solid", color="blue", penwidth=2.0];
+  3 -- 8 [style="solid", color="blue", penwidth=2.0];
+  7 -- 17 [style="solid", color="blue", penwidth=2.0];
+  0 -- 4 [style="dashed", color="gray", penwidth=1.0];
+  0 -- 10 [style="dashed", color="gray", penwidth=1.0];
+  0 -- 11 [style="dashed", color="gray", penwidth=1.0];
+  0 -- 13 [style="dashed", color="gray", penwidth=1.0];
+  0 -- 17 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 2 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 3 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 8 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 14 [style="dashed", color="gray", penwidth=1.0];
+  2 -- 8 [style="dashed", color="gray", penwidth=1.0];
+  2 -- 14 [style="dashed", color="gray", penwidth=1.0];
+  3 -- 14 [style="dashed", color="gray", penwidth=1.0];
+  4 -- 10 [style="dashed", color="gray", penwidth=1.0];
+  4 -- 11 [style="dashed", color="gray", penwidth=1.0];
+  4 -- 13 [style="dashed", color="gray", penwidth=1.0];
+  4 -- 17 [style="dashed", color="gray", penwidth=1.0];
+  8 -- 14 [style="dashed", color="gray", penwidth=1.0];
+  10 -- 11 [style="dashed", color="gray", penwidth=1.0];
+  10 -- 13 [style="dashed", color="gray", penwidth=1.0];
+  10 -- 17 [style="dashed", color="gray", penwidth=1.0];
+  11 -- 13 [style="dashed", color="gray", penwidth=1.0];
+  11 -- 17 [style="dashed", color="gray", penwidth=1.0];
+  13 -- 17 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 9 [style="dashed", color="gray", penwidth=1.0];
+  1 -- 12 [style="dashed", color="gray", penwidth=1.0];
+  5 -- 6 [style="dashed", color="gray", penwidth=1.0];
+  9 -- 12 [style="dashed", color="gray", penwidth=1.0];
+}

@@ -40,3 +40,22 @@ poetry run problem-graph
 poetry install --with dev
 poetry run pytest
 ```
+
+## Problem Graph 
+
+```bash
+poetry run problem-graph --solved 
+# This will generate graph with interrelations only on solved questions, auto convered into svg 
+# for problem that is solved, it will color it based on acception rate 
+# for every problem, it will have a indication whether it is easy, medium, hard 
+```
+
+```bash 
+poetry run problem-graph --include-tags "Array" "Two-pointers" 
+# This will generate graph with interrelations on ALL problems that contain at least 1 of the tags, while preservering the output from poetry run problem-graph --sovled 
+```
+
+```bash
+poetry run problem-graph --filter-tags "Array" "Two-pointers"
+# This will generate graph with interrelations on ALL problems that must contain all tags, while preserving the output from poetry run problem-graph --solved
+```
