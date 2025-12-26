@@ -30,9 +30,9 @@ export function renderSector({ sector, isFocused, onFocus, parent }: RenderSecto
     .attr('cx', sector.x)
     .attr('cy', sector.y)
     .attr('r', sector.radius)
-    .attr('fill', isFocused ? 'rgba(59, 130, 246, 0.1)' : 'rgba(100, 100, 100, 0.05)')
-    .attr('stroke', isFocused ? 'rgba(59, 130, 246, 0.6)' : 'rgba(150, 150, 150, 0.3)')
-    .attr('stroke-width', isFocused ? 2 : 1)
+    .attr('fill', isFocused ? 'rgba(59, 130, 246, 0.05)' : 'rgba(100, 100, 100, 0.02)')
+    .attr('stroke', isFocused ? 'rgba(59, 130, 246, 0.5)' : 'rgba(150, 150, 150, 0.2)')
+    .attr('stroke-width', isFocused ? 1.5 : 0.8)
     .attr('stroke-dasharray', isFocused ? '0' : '5,5')
     .style('cursor', 'pointer')
     .on('click', (event) => {
@@ -68,9 +68,9 @@ export function updateSectorStyle(
   isFocused: boolean
 ): void {
   circle
-    .attr('fill', isFocused ? 'rgba(59, 130, 246, 0.1)' : 'rgba(100, 100, 100, 0.05)')
-    .attr('stroke', isFocused ? 'rgba(59, 130, 246, 0.6)' : 'rgba(150, 150, 150, 0.3)')
-    .attr('stroke-width', isFocused ? 2 : 1)
+    .attr('fill', isFocused ? 'rgba(59, 130, 246, 0.05)' : 'rgba(100, 100, 100, 0.02)')
+    .attr('stroke', isFocused ? 'rgba(59, 130, 246, 0.5)' : 'rgba(150, 150, 150, 0.2)')
+    .attr('stroke-width', isFocused ? 1.5 : 0.8)
     .attr('stroke-dasharray', isFocused ? '0' : '5,5');
 
   label

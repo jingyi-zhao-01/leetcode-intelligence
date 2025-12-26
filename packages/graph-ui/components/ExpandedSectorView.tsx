@@ -123,6 +123,9 @@ export function renderExpandedSectorView({
     
     // Position nodes within each layer for this sector
     nodesByLayer.forEach((layerNodes, layer) => {
+      // Sort nodes by freqBar value (descending - higher frequency first)
+      layerNodes.sort((a, b) => (b.freqBar || 0) - (a.freqBar || 0));
+      
       const nodeSpacing = Math.max(80, availableHeight / (layerNodes.length + 1)); // Minimum 80px spacing
       
       layerNodes.forEach((node, index) => {
@@ -309,6 +312,45 @@ export function renderExpandedSectorView({
       const maxLength = 35;
       return d.title.length > maxLength ? d.title.substring(0, maxLength) + '...' : d.title;
     });
+
+  // Add sector badges for multi-sector nodes
+  const badgeGroup = sectorGroup.append('g').attr('class', 'sector-badges');
+  
+  // Color map for sector badges
+  const sectorColors = [
+    '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', 
+    '#10b981', '#06b6d4', '#f97316', '#14b8a6'
+  ];
+  
+  simNodes.forEach(node => {
+    if (node.tags.length > 1) {
+      const primaryTag = node.tags[0];
+      // Show other tags (excluding the primary one)
+      const otherTags = node.tags.slice(1);
+      
+      otherTags.forEach((tag, index) => {
+        const badgeX = (node.x || 0) - 8 + (index * 6);
+        const badgeY = (node.y || 0) + 14;
+        
+        // Get consistent color for this tag
+        const tagIndex = sectorTags.indexOf(tag);
+        const color = tagIndex >= 0 ? sectorColors[tagIndex % sectorColors.length] : '#6b7280';
+        
+        // Add small circle badge
+        badgeGroup
+          .append('circle')
+          .attr('cx', badgeX)
+          .attr('cy', badgeY)
+          .attr('r', 3)
+          .attr('fill', color)
+          .attr('stroke', '#1a1a1a')
+          .attr('stroke-width', 1)
+          .style('opacity', 0.9)
+          .append('title')
+          .text(tag);
+      });
+    }
+  });
 
   // Fade in animation
   sectorGroup

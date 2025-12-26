@@ -5,6 +5,12 @@ import * as d3 from 'd3';
 import { GraphData, Node } from '@/types/api';
 import { renderSector, updateSectorStyle, SectorData } from './Sector';
 import { renderExpandedSectorView } from './ExpandedSectorView';
+import { SimulationNode, SimulationLink, SectorPosition } from './graph/types';
+import { groupNodesBySector, getNodeSector } from './graph/sectorUtils';
+import { calculateSectorPositions, sectorForceFunction } from './graph/sectorPositions';
+import { PrimaryFilterIndicator } from './graph/PrimaryFilterIndicator';
+import { ExpansionControls } from './graph/ExpansionControls';
+import { CloseExpandedViewButton } from './graph/CloseExpandedViewButton';
 
 interface ForceGraphProps {
   data: GraphData;
@@ -12,14 +18,6 @@ interface ForceGraphProps {
   selectedSectors?: string[];
   sectorsToExpand?: string[];
   onSectorsToExpandChange?: (sectors: string[]) => void;
-}
-
-interface SimulationNode extends Node, d3.SimulationNodeDatum {}
-interface SimulationLink extends d3.SimulationLinkDatum<SimulationNode> {
-  source: SimulationNode | number;
-  target: SimulationNode | number;
-  type: string;
-  sharedTags?: number;
 }
 
 export default function ForceGraph({ 
@@ -37,7 +35,7 @@ export default function ForceGraph({
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const nodeSelectionRef = useRef<d3.Selection<SVGCircleElement, SimulationNode, SVGGElement, unknown> | null>(null);
   const linkSelectionRef = useRef<d3.Selection<SVGLineElement, SimulationLink, SVGGElement, unknown> | null>(null);
-  const sectorPositionsRef = useRef<Map<string, { x: number; y: number; radius: number }>>(new Map());
+  const sectorPositionsRef = useRef<Map<string, SectorPosition>>(new Map());
   const tagGroupsRef = useRef<Map<string, SimulationNode[]>>(new Map());
   const expandedViewCleanupRef = useRef<(() => void) | null>(null);
   const containerGroupRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
@@ -61,80 +59,19 @@ export default function ForceGraph({
     }));
 
     // Group nodes by sector
-    const tagGroups = new Map<string, SimulationNode[]>();
-    
-    if (selectedSectors.length > 0) {
-      // User-specified sectors: group by first matching sector tag
-      nodes.forEach(node => {
-        const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
-        const sectorName = matchingSector || 'Other';
-        if (!tagGroups.has(sectorName)) {
-          tagGroups.set(sectorName, []);
-        }
-        tagGroups.get(sectorName)!.push(node);
-      });
-    } else {
-      // Auto-group by primary tag (first tag)
-      nodes.forEach(node => {
-        const primaryTag = node.tags[0] || 'Other';
-        if (!tagGroups.has(primaryTag)) {
-          tagGroups.set(primaryTag, []);
-        }
-        tagGroups.get(primaryTag)!.push(node);
-      });
-    }
+    const tagGroups = groupNodesBySector(nodes, selectedSectors);
 
     // Store tag groups in ref for access in effects
     tagGroupsRef.current = tagGroups;
 
     // Calculate sector positions (evenly distributed in a circle)
-    const tagArray = Array.from(tagGroups.keys());
-    const sectorPositions = new Map<string, { x: number; y: number; radius: number }>();
+    const sectorPositions = calculateSectorPositions(tagGroups, width, height);
     sectorPositionsRef.current = sectorPositions;
-    const baseRadius = Math.min(width, height) * 0.35;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    
-    // Calculate dynamic radius for each sector based on node count
-    const maxNodesInSector = Math.max(...Array.from(tagGroups.values()).map(g => g.length));
-    
-    tagArray.forEach((tag, i) => {
-      const angle = (i / tagArray.length) * 2 * Math.PI;
-      const nodeCount = tagGroups.get(tag)?.length || 0;
-      
-      // Dynamic sector radius: scales with sqrt of node count for area-based scaling
-      // Min radius = 80, grows based on density
-      const densityFactor = Math.sqrt(nodeCount / Math.max(maxNodesInSector, 1));
-      const dynamicRadius = Math.max(80, 150 * densityFactor + (nodeCount > 20 ? 50 : 0));
-      
-      sectorPositions.set(tag, {
-        x: centerX + baseRadius * Math.cos(angle),
-        y: centerY + baseRadius * Math.sin(angle),
-        radius: dynamicRadius,
-      });
-    });
 
-    // Helper to get node's sector
-    const getNodeSector = (node: SimulationNode): string => {
-      if (selectedSectors.length > 0) {
-        const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
-        return matchingSector || 'Other';
-      }
-      return node.tags[0] || 'Other';
-    };
-
-    // Custom force to pull nodes toward their sector center
+    // Custom force to pull nodes toward their sector center(s)
+    // Multi-tag nodes are pulled toward the average of all their sectors
     const sectorForce = () => {
-      nodes.forEach(node => {
-        const sectorName = getNodeSector(node);
-        const sector = sectorPositions.get(sectorName);
-        if (sector && node.x !== undefined && node.y !== undefined) {
-          // Reduce pull strength when this sector is being expanded to spread nodes
-          const k = (sectorsToExpand.includes(sectorName)) ? 0.05 : 0.3;
-          node.vx = (node.vx || 0) + (sector.x - node.x) * k;
-          node.vy = (node.vy || 0) + (sector.y - node.y) * k;
-        }
-      });
+      sectorForceFunction(nodes, sectorPositions, (node) => getNodeSector(node, selectedSectors), sectorsToExpand, selectedSectors);
     };
 
     // Initialize D3 force simulation
@@ -212,8 +149,8 @@ export default function ForceGraph({
       .data(links.sort((a, b) => a.type === 'explicit' ? -1 : 1))
       .join('line')
       .attr('stroke', d => d.type === 'explicit' ? '#3b82f6' : '#9ca3af')
-      .attr('stroke-width', d => d.type === 'explicit' ? 3 : 0.5)
-      .attr('stroke-opacity', d => d.type === 'explicit' ? 0.8 : 0.2)
+      .attr('stroke-width', d => d.type === 'explicit' ? 2 : 0.3)
+      .attr('stroke-opacity', d => d.type === 'explicit' ? 0.5 : 0.08)
       .attr('stroke-dasharray', d => d.type === 'explicit' ? '0' : '3,3');
 
     linkSelectionRef.current = link;
@@ -224,7 +161,7 @@ export default function ForceGraph({
       .data(nodes)
       .join('circle')
       .attr('r', 8)
-      .attr('data-sector', d => getNodeSector(d))
+      .attr('data-sector', d => getNodeSector(d, selectedSectors))
       .attr('fill', d => {
         if (!d.solved) return '#d1d5db';
         // Basic color by difficulty for now (will add acceptance rate gradient later)
@@ -267,6 +204,35 @@ export default function ForceGraph({
       node
         .attr('cx', d => d.x!)
         .attr('cy', d => d.y!);
+
+      // Update sector circle and label positions based on actual node positions
+      tagGroups.forEach((sectorNodes, sectorName) => {
+        if (sectorNodes.length === 0) return;
+        
+        // Calculate center of mass for this sector's nodes
+        let centerX = 0;
+        let centerY = 0;
+        sectorNodes.forEach(n => {
+          if (n.x !== undefined && n.y !== undefined) {
+            centerX += n.x;
+            centerY += n.y;
+          }
+        });
+        centerX /= sectorNodes.length;
+        centerY /= sectorNodes.length;
+
+        // Update sector elements
+        const sectorElements = sectorElementsRef.current.get(sectorName);
+        if (sectorElements) {
+          const currentRadius = parseFloat(sectorElements.circle.attr('r'));
+          sectorElements.circle
+            .attr('cx', centerX)
+            .attr('cy', centerY);
+          sectorElements.label
+            .attr('x', centerX)
+            .attr('y', centerY - currentRadius - 10);
+        }
+      });
     });
 
     // Drag functions
@@ -485,44 +451,27 @@ export default function ForceGraph({
         style={{ minHeight: '600px' }}
       />
       
-      {/* Expand Button */}
-      {selectedSectorsForExpansion.length > 0 && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-          <button
-            onClick={() => {
-              if (onSectorsToExpandChange) {
-                onSectorsToExpandChange([...selectedSectorsForExpansion]);
-              }
-            }}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
-          >
-            Expand {selectedSectorsForExpansion.length} Sector{selectedSectorsForExpansion.length > 1 ? 's' : ''}
-          </button>
-          <button
-            onClick={() => setSelectedSectorsForExpansion([])}
-            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
-          >
-            Clear Selection
-          </button>
-        </div>
-      )}
+      <PrimaryFilterIndicator selectedSectors={selectedSectors} />
       
-      {/* Close Expanded View Button */}
-      {sectorsToExpand.length > 0 && (
-        <div className="absolute top-4 right-4">
-          <button
-            onClick={() => {
-              if (onSectorsToExpandChange) {
-                onSectorsToExpandChange([]);
-              }
-              setSelectedSectorsForExpansion([]);
-            }}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
-          >
-            Close Expanded View
-          </button>
-        </div>
-      )}
+      <ExpansionControls
+        selectedSectorsForExpansion={selectedSectorsForExpansion}
+        onExpand={() => {
+          if (onSectorsToExpandChange) {
+            onSectorsToExpandChange([...selectedSectorsForExpansion]);
+          }
+        }}
+        onClearSelection={() => setSelectedSectorsForExpansion([])}
+      />
+      
+      <CloseExpandedViewButton
+        sectorsToExpand={sectorsToExpand}
+        onClose={() => {
+          if (onSectorsToExpandChange) {
+            onSectorsToExpandChange([]);
+          }
+          setSelectedSectorsForExpansion([]);
+        }}
+      />
     </div>
   );
 }
