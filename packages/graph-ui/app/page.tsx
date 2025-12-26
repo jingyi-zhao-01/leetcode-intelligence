@@ -16,6 +16,7 @@ export default function Home() {
     limit: 100,
     difficulties: [] as string[],
   });
+  const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   
   // Fetch graph data
@@ -169,6 +170,36 @@ export default function Home() {
           )}
         </div>
 
+        <div className="mb-4">
+          <label className="block mb-2 text-sm font-medium">
+            Group by Sectors
+            {selectedSectors.length > 0 && (
+              <span className="ml-2 text-xs text-gray-500">({selectedSectors.length} selected)</span>
+            )}
+          </label>
+          <div className="max-h-40 overflow-y-auto space-y-1 border rounded p-2">
+            {availableTags?.map((tag) => (
+              <label key={tag} className="flex items-center text-xs">
+                <input
+                  type="checkbox"
+                  checked={selectedSectors.includes(tag)}
+                  onChange={(e) => {
+                    const newSectors = e.target.checked
+                      ? [...selectedSectors, tag]
+                      : selectedSectors.filter(t => t !== tag);
+                    setSelectedSectors(newSectors);
+                  }}
+                  className="mr-2"
+                />
+                {tag}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Select tags to group nodes into sectors. Empty = auto-group by primary tag.
+          </p>
+        </div>
+
         {availableTags && (
           <div className="mb-4">
             <p className="text-xs text-gray-600">
@@ -212,7 +243,11 @@ export default function Home() {
             </div>
           )}
           {graphData && !graphLoading && (
-            <ForceGraph data={graphData} onNodeClick={handleNodeClick} />
+            <ForceGraph 
+              data={graphData} 
+              onNodeClick={handleNodeClick}
+              selectedSectors={selectedSectors}
+            />
           )}
         </div>
       </div>

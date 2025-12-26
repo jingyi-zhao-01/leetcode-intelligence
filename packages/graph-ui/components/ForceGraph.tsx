@@ -8,6 +8,7 @@ import ProblemHoverCard from './ProblemHoverCard';
 interface ForceGraphProps {
   data: GraphData;
   onNodeClick: (node: Node) => void;
+  selectedSectors?: string[];
 }
 
 interface SimulationNode extends Node, d3.SimulationNodeDatum {}
@@ -18,7 +19,7 @@ interface SimulationLink extends d3.SimulationLinkDatum<SimulationNode> {
   sharedTags?: number;
 }
 
-export default function ForceGraph({ data, onNodeClick }: ForceGraphProps) {
+export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: ForceGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<SimulationNode, SimulationLink> | null>(null);
   const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
@@ -42,15 +43,86 @@ export default function ForceGraph({ data, onNodeClick }: ForceGraphProps) {
       sharedTags: d.sharedTags,
     }));
 
+    // Group nodes by sector
+    const tagGroups = new Map<string, SimulationNode[]>();
+    
+    if (selectedSectors.length > 0) {
+      // User-specified sectors: group by first matching sector tag
+      nodes.forEach(node => {
+        const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
+        const sectorName = matchingSector || 'Other';
+        if (!tagGroups.has(sectorName)) {
+          tagGroups.set(sectorName, []);
+        }
+        tagGroups.get(sectorName)!.push(node);
+      });
+    } else {
+      // Auto-group by primary tag (first tag)
+      nodes.forEach(node => {
+        const primaryTag = node.tags[0] || 'Other';
+        if (!tagGroups.has(primaryTag)) {
+          tagGroups.set(primaryTag, []);
+        }
+        tagGroups.get(primaryTag)!.push(node);
+      });
+    }
+
+    // Calculate sector positions (evenly distributed in a circle)
+    const tagArray = Array.from(tagGroups.keys());
+    const sectorPositions = new Map<string, { x: number; y: number; radius: number }>();
+    const baseRadius = Math.min(width, height) * 0.35;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    
+    // Calculate dynamic radius for each sector based on node count
+    const maxNodesInSector = Math.max(...Array.from(tagGroups.values()).map(g => g.length));
+    
+    tagArray.forEach((tag, i) => {
+      const angle = (i / tagArray.length) * 2 * Math.PI;
+      const nodeCount = tagGroups.get(tag)?.length || 0;
+      
+      // Dynamic sector radius: scales with sqrt of node count for area-based scaling
+      // Min radius = 80, grows based on density
+      const densityFactor = Math.sqrt(nodeCount / Math.max(maxNodesInSector, 1));
+      const dynamicRadius = Math.max(80, 150 * densityFactor + (nodeCount > 20 ? 50 : 0));
+      
+      sectorPositions.set(tag, {
+        x: centerX + baseRadius * Math.cos(angle),
+        y: centerY + baseRadius * Math.sin(angle),
+        radius: dynamicRadius,
+      });
+    });
+
+    // Custom force to pull nodes toward their sector center
+    const sectorForce = () => {
+      nodes.forEach(node => {
+        let sectorName: string;
+        if (selectedSectors.length > 0) {
+          const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
+          sectorName = matchingSector || 'Other';
+        } else {
+          sectorName = node.tags[0] || 'Other';
+        }
+        
+        const sector = sectorPositions.get(sectorName);
+        if (sector && node.x !== undefined && node.y !== undefined) {
+          const k = 0.3; // Strength of the pull
+          node.vx = (node.vx || 0) + (sector.x - node.x) * k;
+          node.vy = (node.vy || 0) + (sector.y - node.y) * k;
+        }
+      });
+    };
+
     // Initialize D3 force simulation
     const simulation = d3.forceSimulation(nodes)
       .force('link', d3.forceLink<SimulationNode, SimulationLink>(links)
         .id(d => d.id)
-        .distance(d => (d as SimulationLink).type === 'explicit' ? 120 : 200)
-        .strength(d => (d as SimulationLink).type === 'explicit' ? 0.8 : 0.05))
-      .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius(25));
+        .distance(d => (d as SimulationLink).type === 'explicit' ? 80 : 150)
+        .strength(d => (d as SimulationLink).type === 'explicit' ? 0.5 : 0.02))
+      .force('charge', d3.forceManyBody().strength(-150))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
+      .force('collide', d3.forceCollide().radius(25))
+      .force('sector', sectorForce);
 
     simulationRef.current = simulation;
 
@@ -67,6 +139,32 @@ export default function ForceGraph({ data, onNodeClick }: ForceGraphProps) {
       });
 
     svg.call(zoom);
+
+    // Draw sector backgrounds with dynamic radius
+    g.append('g')
+      .selectAll('circle')
+      .data(Array.from(sectorPositions.entries()))
+      .join('circle')
+      .attr('cx', d => d[1].x)
+      .attr('cy', d => d[1].y)
+      .attr('r', d => d[1].radius)
+      .attr('fill', 'rgba(100, 100, 100, 0.05)')
+      .attr('stroke', 'rgba(150, 150, 150, 0.3)')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '5,5');
+
+    // Draw sector labels
+    g.append('g')
+      .selectAll('text')
+      .data(Array.from(sectorPositions.entries()))
+      .join('text')
+      .attr('x', d => d[1].x)
+      .attr('y', d => d[1].y - d[1].radius - 10)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '12px')
+      .attr('font-weight', 'bold')
+      .attr('fill', '#666')
+      .text(d => `${d[0]} (${tagGroups.get(d[0])?.length || 0})`);
 
     // Draw edges (explicit edges first so they appear below tag edges in rendering order)
     const link = g.append('g')
@@ -179,7 +277,7 @@ export default function ForceGraph({ data, onNodeClick }: ForceGraphProps) {
         clearTimeout(hoverTimeoutRef.current);
       }
     };
-  }, [data, onNodeClick]);
+  }, [data, onNodeClick, selectedSectors]);
 
   return (
     <>
