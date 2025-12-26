@@ -28,6 +28,10 @@ export default function Home() {
   const [isLeftSidebarCollapsed, setIsLeftSidebarCollapsed] = useState(false);
   const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
   const [isFilterMenuCollapsed, setIsFilterMenuCollapsed] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [showExplicitOnly, setShowExplicitOnly] = useState(false);
+  const [showExplicitRelations, setShowExplicitRelations] = useState(false);
+  const [relatedNodes, setRelatedNodes] = useState<Set<number>>(new Set());
 
   
   // Fetch graph data
@@ -46,7 +50,37 @@ export default function Home() {
   );
 
   const handleNodeClick = (node: Node) => {
+    console.log('Node clicked:', node.id, 'Auto-select enabled:', showExplicitRelations);
     setSelectedNode(node);
+    
+    // If auto-select is enabled, find all nodes with explicit relationships
+    if (showExplicitRelations && graphData) {
+      const related = new Set<number>();
+      related.add(node.id);
+      
+      console.log('Total edges in graph:', graphData.edges.length);
+      
+      // Find all explicit edges connected to this node
+      let explicitCount = 0;
+      graphData.edges.forEach(edge => {
+        if (edge.type === 'explicit') {
+          explicitCount++;
+          if (edge.source === node.id) {
+            related.add(edge.target);
+            console.log('Found explicit edge to target:', edge.target);
+          } else if (edge.target === node.id) {
+            related.add(edge.source);
+            console.log('Found explicit edge from source:', edge.source);
+          }
+        }
+      });
+      
+      console.log('Total explicit edges in graph:', explicitCount);
+      console.log('Total related nodes:', related.size, Array.from(related));
+      setRelatedNodes(related);
+    } else {
+      setRelatedNodes(new Set([node.id]));
+    }
   };
 
   const handleFilterChange = (key: string, value: any) => {
@@ -74,9 +108,14 @@ export default function Home() {
     );
     
     const nodeIds = new Set(filteredNodes.map(n => n.id));
-    const filteredEdges = graphData.edges.filter(edge => 
+    let filteredEdges = graphData.edges.filter(edge => 
       nodeIds.has(edge.source) && nodeIds.has(edge.target)
     );
+
+    // If showExplicitOnly is enabled, filter to only explicit relationships
+    if (showExplicitOnly) {
+      filteredEdges = filteredEdges.filter(edge => edge.isExplicit === true);
+    }
     
     return {
       ...graphData,
@@ -88,7 +127,7 @@ export default function Home() {
         totalEdges: filteredEdges.length,
       }
     };
-  }, [graphData, selectedSectors]);
+  }, [graphData, selectedSectors, showExplicitOnly]);
 
   return (
     <div className="flex h-screen bg-black">
@@ -114,9 +153,32 @@ export default function Home() {
               type="checkbox"
               checked={filters.solved}
               onChange={(e) => handleFilterChange('solved', e.target.checked)}
+              className="mr-2" />
+            Show Only Solved
+          </label>
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center text-gray-300">
+            <input
+              type="checkbox"
+              checked={showExplicitOnly}
+              onChange={(e) => setShowExplicitOnly(e.target.checked)}
               className="mr-2"
             />
-            Show Only Solved
+            Show Explicit Relationships Only
+          </label>
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center text-gray-300">
+            <input
+              type="checkbox"
+              checked={showExplicitRelations}
+              onChange={(e) => setShowExplicitRelations(e.target.checked)}
+              className="mr-2"
+            />
+            Auto-Select Explicit Relations
           </label>
         </div>
 
@@ -283,9 +345,20 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Tag Search */}
+            <div>
+              <input
+                type="text"
+                placeholder="Search tags..."
+                value={tagSearch}
+                onChange={(e) => setTagSearch(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-gray-300 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
             {/* Tag Selection */}
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-gray-800 rounded border border-gray-700">
-              {availableTags?.map((tag) => {
+              {availableTags?.filter(tag => tag.toLowerCase().includes(tagSearch.toLowerCase())).map((tag) => {
                 const isSelected = tagMode === 'OR' 
                   ? filters.includeTags.includes(tag)
                   : filters.filterTags.includes(tag);
@@ -427,6 +500,8 @@ export default function Home() {
                   selectedSectors={selectedSectors}
                   sectorsToExpand={sectorsToExpand}
                   onSectorsToExpandChange={setSectorsToExpand}
+                  selectedNode={selectedNode}
+                  relatedNodes={relatedNodes}
                 />
               )}
               {viewMode === 'list' && (
@@ -561,19 +636,3 @@ export default function Home() {
     </div>
   );
 }
-
-//             Deploy Now
-//           </a>
-//           <a
-//             className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-//             href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-//             target="_blank"
-//             rel="noopener noreferrer"
-//           >
-//             Documentation
-//           </a>
-//         </div>
-//       </main>
-//     </div>
-//   );
-// }

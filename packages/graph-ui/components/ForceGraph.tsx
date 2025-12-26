@@ -18,6 +18,8 @@ interface ForceGraphProps {
   selectedSectors?: string[];
   sectorsToExpand?: string[];
   onSectorsToExpandChange?: (sectors: string[]) => void;
+  selectedNode?: Node | null;
+  relatedNodes?: Set<number>;
 }
 
 export default function ForceGraph({ 
@@ -25,7 +27,9 @@ export default function ForceGraph({
   onNodeClick, 
   selectedSectors = [], 
   sectorsToExpand = [],
-  onSectorsToExpandChange 
+  onSectorsToExpandChange,
+  selectedNode = null,
+  relatedNodes = new Set()
 }: ForceGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<SimulationNode, SimulationLink> | null>(null);
@@ -74,16 +78,25 @@ export default function ForceGraph({
       sectorForceFunction(nodes, sectorPositions, (node) => getNodeSector(node, selectedSectors), sectorsToExpand, selectedSectors);
     };
 
-    // Initialize D3 force simulation
-    const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink<SimulationNode, SimulationLink>(links)
-        .id(d => d.id)
-        .distance(d => (d as SimulationLink).type === 'explicit' ? 80 : 150)
-        .strength(d => (d as SimulationLink).type === 'explicit' ? 0.5 : 0.02))
-      .force('charge', d3.forceManyBody().strength(-150))
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
-      .force('collide', d3.forceCollide().radius(25))
-      .force('sector', sectorForce);
+    // Initialize D3 force simulation with different configurations based on whether sectors are selected
+    const simulation = selectedSectors.length > 0
+      ? d3.forceSimulation(nodes)
+          .force('link', d3.forceLink<SimulationNode, SimulationLink>(links)
+            .id(d => d.id)
+            .distance(d => (d as SimulationLink).type === 'explicit' ? 80 : 150)
+            .strength(d => (d as SimulationLink).type === 'explicit' ? 0.5 : 0.02))
+          .force('charge', d3.forceManyBody().strength(-150))
+          .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
+          .force('collide', d3.forceCollide().radius(25))
+          .force('sector', sectorForce)
+      : d3.forceSimulation(nodes)
+          .force('link', d3.forceLink<SimulationNode, SimulationLink>(links)
+            .id(d => d.id)
+            .distance(d => (d as SimulationLink).type === 'explicit' ? 100 : 200)
+            .strength(d => (d as SimulationLink).type === 'explicit' ? 0.8 : 0.01))
+          .force('charge', d3.forceManyBody().strength(-200))
+          .force('center', d3.forceCenter(width / 2, height / 2).strength(0.1))
+          .force('collide', d3.forceCollide().radius(30));
 
     simulationRef.current = simulation;
 
@@ -108,40 +121,42 @@ export default function ForceGraph({
       setSelectedSectorsForExpansion([]);
     });
 
-    // Draw sectors using the Sector component
+    // Draw sectors using the Sector component (only when sectors are selected)
     const sectorGroup = g.append('g').attr('class', 'sectors');
     sectorElementsRef.current.clear();
     
-    Array.from(sectorPositions.entries()).forEach(([sectorName, position]) => {
-      const sectorData: SectorData = {
-        name: sectorName,
-        x: position.x,
-        y: position.y,
-        radius: position.radius,
-        nodeCount: tagGroups.get(sectorName)?.length || 0,
-      };
-      
-      const elements = renderSector({
-        sector: sectorData,
-        isFocused: selectedSectorsForExpansion.includes(sectorName),
-        onFocus: (name) => {
-          // Toggle sector selection (max 2 sectors)
-          setSelectedSectorsForExpansion(prev => {
-            if (prev.includes(name)) {
-              return prev.filter(s => s !== name);
-            } else if (prev.length >= 2) {
-              // Already have 2 sectors selected, replace the first one
-              return [prev[1], name];
-            } else {
-              return [...prev, name];
-            }
-          });
-        },
-        parent: sectorGroup,
+    if (selectedSectors.length > 0) {
+      Array.from(sectorPositions.entries()).forEach(([sectorName, position]) => {
+        const sectorData: SectorData = {
+          name: sectorName,
+          x: position.x,
+          y: position.y,
+          radius: position.radius,
+          nodeCount: tagGroups.get(sectorName)?.length || 0,
+        };
+        
+        const elements = renderSector({
+          sector: sectorData,
+          isFocused: selectedSectorsForExpansion.includes(sectorName),
+          onFocus: (name) => {
+            // Toggle sector selection (max 2 sectors)
+            setSelectedSectorsForExpansion(prev => {
+              if (prev.includes(name)) {
+                return prev.filter(s => s !== name);
+              } else if (prev.length >= 2) {
+                // Already have 2 sectors selected, replace the first one
+                return [prev[1], name];
+              } else {
+                return [...prev, name];
+              }
+            });
+          },
+          parent: sectorGroup,
+        });
+        
+        sectorElementsRef.current.set(sectorName, elements);
       });
-      
-      sectorElementsRef.current.set(sectorName, elements);
-    });
+    }
 
     // Draw edges (explicit edges first so they appear below tag edges in rendering order)
     const link = g.append('g')
@@ -160,7 +175,11 @@ export default function ForceGraph({
       .selectAll('circle')
       .data(nodes)
       .join('circle')
-      .attr('r', 8)
+      .attr('r', d => {
+        if (selectedNode && d.id === selectedNode.id) return 12;
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return 10;
+        return 8;
+      })
       .attr('data-sector', d => getNodeSector(d, selectedSectors))
       .attr('fill', d => {
         if (!d.solved) return '#d1d5db';
@@ -170,11 +189,19 @@ export default function ForceGraph({
         return '#fca5a5';
       })
       .attr('stroke', d => {
+        // Highlight selected node with bright cyan border
+        if (selectedNode && d.id === selectedNode.id) return '#06b6d4';
+        // Highlight related nodes with lighter cyan
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return '#22d3ee';
         if (d.difficulty === 'Easy') return '#22c55e';
         if (d.difficulty === 'Medium') return '#f97316';
         return '#ef4444';
       })
-      .attr('stroke-width', 2)
+      .attr('stroke-width', d => {
+        if (selectedNode && d.id === selectedNode.id) return 4;
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return 3;
+        return 2;
+      })
       .style('cursor', 'pointer')
       .call(d3.drag<SVGCircleElement, SimulationNode>()
         .on('start', dragstarted)
@@ -205,34 +232,36 @@ export default function ForceGraph({
         .attr('cx', d => d.x!)
         .attr('cy', d => d.y!);
 
-      // Update sector circle and label positions based on actual node positions
-      tagGroups.forEach((sectorNodes, sectorName) => {
-        if (sectorNodes.length === 0) return;
-        
-        // Calculate center of mass for this sector's nodes
-        let centerX = 0;
-        let centerY = 0;
-        sectorNodes.forEach(n => {
-          if (n.x !== undefined && n.y !== undefined) {
-            centerX += n.x;
-            centerY += n.y;
+      // Update sector circle and label positions based on actual node positions (only when sectors are selected)
+      if (selectedSectors.length > 0) {
+        tagGroups.forEach((sectorNodes, sectorName) => {
+          if (sectorNodes.length === 0) return;
+          
+          // Calculate center of mass for this sector's nodes
+          let centerX = 0;
+          let centerY = 0;
+          sectorNodes.forEach(n => {
+            if (n.x !== undefined && n.y !== undefined) {
+              centerX += n.x;
+              centerY += n.y;
+            }
+          });
+          centerX /= sectorNodes.length;
+          centerY /= sectorNodes.length;
+
+          // Update sector elements
+          const sectorElements = sectorElementsRef.current.get(sectorName);
+          if (sectorElements) {
+            const currentRadius = parseFloat(sectorElements.circle.attr('r'));
+            sectorElements.circle
+              .attr('cx', centerX)
+              .attr('cy', centerY);
+            sectorElements.label
+              .attr('x', centerX)
+              .attr('y', centerY - currentRadius - 10);
           }
         });
-        centerX /= sectorNodes.length;
-        centerY /= sectorNodes.length;
-
-        // Update sector elements
-        const sectorElements = sectorElementsRef.current.get(sectorName);
-        if (sectorElements) {
-          const currentRadius = parseFloat(sectorElements.circle.attr('r'));
-          sectorElements.circle
-            .attr('cx', centerX)
-            .attr('cy', centerY);
-          sectorElements.label
-            .attr('x', centerX)
-            .attr('y', centerY - currentRadius - 10);
-        }
-      });
+      }
     });
 
     // Drag functions
@@ -253,6 +282,11 @@ export default function ForceGraph({
       d.fy = null;
     }
 
+    // Stop simulation after it settles to prevent constant re-computation
+    simulation.on('end', () => {
+      simulation.stop();
+    });
+
     // Cleanup
     return () => {
       simulation.stop();
@@ -271,6 +305,30 @@ export default function ForceGraph({
       updateSectorStyle(elements.circle, elements.label, selectedSectorsForExpansion.includes(sectorName));
     });
   }, [selectedSectorsForExpansion]);
+
+  // Update node highlighting when selectedNode changes
+  useEffect(() => {
+    if (!nodeSelectionRef.current) return;
+    
+    nodeSelectionRef.current
+      .attr('r', (d: SimulationNode) => {
+        if (selectedNode && d.id === selectedNode.id) return 12;
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return 10;
+        return 8;
+      })
+      .attr('stroke', (d: SimulationNode) => {
+        if (selectedNode && d.id === selectedNode.id) return '#06b6d4';
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return '#22d3ee';
+        if (d.difficulty === 'Easy') return '#22c55e';
+        if (d.difficulty === 'Medium') return '#f97316';
+        return '#ef4444';
+      })
+      .attr('stroke-width', (d: SimulationNode) => {
+        if (selectedNode && d.id === selectedNode.id) return 4;
+        if (relatedNodes.has(d.id) && relatedNodes.size > 1) return 3;
+        return 2;
+      });
+  }, [selectedNode, relatedNodes]);
 
   // Handle zoom and filtering when sectors are expanded
   useEffect(() => {
