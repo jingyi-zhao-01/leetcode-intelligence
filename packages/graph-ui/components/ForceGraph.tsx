@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { GraphData, Node, Edge } from '@/types/api';
 import ProblemHoverCard from './ProblemHoverCard';
+import { renderSector, updateSectorStyle, SectorData } from './Sector.tsx';
 
 interface ForceGraphProps {
   data: GraphData;
@@ -24,6 +25,8 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
   const simulationRef = useRef<d3.Simulation<SimulationNode, SimulationLink> | null>(null);
   const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [focusedSector, setFocusedSector] = useState<string | null>(null);
+  const sectorElementsRef = useRef<Map<string, { circle: d3.Selection<SVGCircleElement, unknown, null, undefined>; label: d3.Selection<SVGTextElement, unknown, null, undefined> }>>(new Map());
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -140,31 +143,35 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
 
     svg.call(zoom);
 
-    // Draw sector backgrounds with dynamic radius
-    g.append('g')
-      .selectAll('circle')
-      .data(Array.from(sectorPositions.entries()))
-      .join('circle')
-      .attr('cx', d => d[1].x)
-      .attr('cy', d => d[1].y)
-      .attr('r', d => d[1].radius)
-      .attr('fill', 'rgba(100, 100, 100, 0.05)')
-      .attr('stroke', 'rgba(150, 150, 150, 0.3)')
-      .attr('stroke-width', 1)
-      .attr('stroke-dasharray', '5,5');
+    // Click on background to unfocus sectors
+    svg.on('click', () => {
+      setFocusedSector(null);
+    });
 
-    // Draw sector labels
-    g.append('g')
-      .selectAll('text')
-      .data(Array.from(sectorPositions.entries()))
-      .join('text')
-      .attr('x', d => d[1].x)
-      .attr('y', d => d[1].y - d[1].radius - 10)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', '12px')
-      .attr('font-weight', 'bold')
-      .attr('fill', '#666')
-      .text(d => `${d[0]} (${tagGroups.get(d[0])?.length || 0})`);
+    // Draw sectors using the Sector component
+    const sectorGroup = g.append('g').attr('class', 'sectors');
+    sectorElementsRef.current.clear();
+    
+    Array.from(sectorPositions.entries()).forEach(([sectorName, position]) => {
+      const sectorData: SectorData = {
+        name: sectorName,
+        x: position.x,
+        y: position.y,
+        radius: position.radius,
+        nodeCount: tagGroups.get(sectorName)?.length || 0,
+      };
+      
+      const elements = renderSector({
+        sector: sectorData,
+        isFocused: focusedSector === sectorName,
+        onFocus: (name) => {
+          setFocusedSector(prev => prev === name ? null : name);
+        },
+        parent: sectorGroup,
+      });
+      
+      sectorElementsRef.current.set(sectorName, elements);
+    });
 
     // Draw edges (explicit edges first so they appear below tag edges in rendering order)
     const link = g.append('g')
@@ -278,6 +285,13 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       }
     };
   }, [data, onNodeClick, selectedSectors]);
+
+  // Update sector styles when focused sector changes
+  useEffect(() => {
+    sectorElementsRef.current.forEach((elements, sectorName) => {
+      updateSectorStyle(elements.circle, elements.label, focusedSector === sectorName);
+    });
+  }, [focusedSector]);
 
   return (
     <>
