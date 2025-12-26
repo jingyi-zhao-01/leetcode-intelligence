@@ -18,6 +18,7 @@ export default function Home() {
   });
   const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [sectorsToExpand, setSectorsToExpand] = useState<string[]>([]);
   
   // Fetch graph data
   const { data: graphData, error: graphError, isLoading: graphLoading } = useSWR<GraphData>(
@@ -243,10 +244,12 @@ export default function Home() {
             </div>
           )}
           {graphData && !graphLoading && (
-            <ForceGraph 
-              data={graphData} 
+            <ForceGraph
+              data={graphData}
               onNodeClick={handleNodeClick}
               selectedSectors={selectedSectors}
+              sectorsToExpand={sectorsToExpand}
+              onSectorsToExpandChange={setSectorsToExpand}
             />
           )}
         </div>

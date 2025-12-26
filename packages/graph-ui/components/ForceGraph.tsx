@@ -2,14 +2,16 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { GraphData, Node, Edge } from '@/types/api';
-import ProblemHoverCard from './ProblemHoverCard';
-import { renderSector, updateSectorStyle, SectorData } from './Sector.tsx';
+import { GraphData, Node } from '@/types/api';
+import { renderSector, updateSectorStyle, SectorData } from './Sector';
+import { renderExpandedSectorView } from './ExpandedSectorView';
 
 interface ForceGraphProps {
   data: GraphData;
   onNodeClick: (node: Node) => void;
   selectedSectors?: string[];
+  sectorsToExpand?: string[];
+  onSectorsToExpandChange?: (sectors: string[]) => void;
 }
 
 interface SimulationNode extends Node, d3.SimulationNodeDatum {}
@@ -20,13 +22,25 @@ interface SimulationLink extends d3.SimulationLinkDatum<SimulationNode> {
   sharedTags?: number;
 }
 
-export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: ForceGraphProps) {
+export default function ForceGraph({ 
+  data, 
+  onNodeClick, 
+  selectedSectors = [], 
+  sectorsToExpand = [],
+  onSectorsToExpandChange 
+}: ForceGraphProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<SimulationNode, SimulationLink> | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<{ node: Node; x: number; y: number } | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [focusedSector, setFocusedSector] = useState<string | null>(null);
+  const [selectedSectorsForExpansion, setSelectedSectorsForExpansion] = useState<string[]>([]);
   const sectorElementsRef = useRef<Map<string, { circle: d3.Selection<SVGCircleElement, unknown, null, undefined>; label: d3.Selection<SVGTextElement, unknown, null, undefined> }>>(new Map());
+  const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const nodeSelectionRef = useRef<d3.Selection<SVGCircleElement, SimulationNode, SVGGElement, unknown> | null>(null);
+  const linkSelectionRef = useRef<d3.Selection<SVGLineElement, SimulationLink, SVGGElement, unknown> | null>(null);
+  const sectorPositionsRef = useRef<Map<string, { x: number; y: number; radius: number }>>(new Map());
+  const tagGroupsRef = useRef<Map<string, SimulationNode[]>>(new Map());
+  const expandedViewCleanupRef = useRef<(() => void) | null>(null);
+  const containerGroupRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
 
   useEffect(() => {
     if (!svgRef.current || !data.nodes.length) return;
@@ -70,9 +84,13 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       });
     }
 
+    // Store tag groups in ref for access in effects
+    tagGroupsRef.current = tagGroups;
+
     // Calculate sector positions (evenly distributed in a circle)
     const tagArray = Array.from(tagGroups.keys());
     const sectorPositions = new Map<string, { x: number; y: number; radius: number }>();
+    sectorPositionsRef.current = sectorPositions;
     const baseRadius = Math.min(width, height) * 0.35;
     const centerX = width / 2;
     const centerY = height / 2;
@@ -96,20 +114,23 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       });
     });
 
+    // Helper to get node's sector
+    const getNodeSector = (node: SimulationNode): string => {
+      if (selectedSectors.length > 0) {
+        const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
+        return matchingSector || 'Other';
+      }
+      return node.tags[0] || 'Other';
+    };
+
     // Custom force to pull nodes toward their sector center
     const sectorForce = () => {
       nodes.forEach(node => {
-        let sectorName: string;
-        if (selectedSectors.length > 0) {
-          const matchingSector = selectedSectors.find(sector => node.tags.includes(sector));
-          sectorName = matchingSector || 'Other';
-        } else {
-          sectorName = node.tags[0] || 'Other';
-        }
-        
+        const sectorName = getNodeSector(node);
         const sector = sectorPositions.get(sectorName);
         if (sector && node.x !== undefined && node.y !== undefined) {
-          const k = 0.3; // Strength of the pull
+          // Reduce pull strength when this sector is being expanded to spread nodes
+          const k = (sectorsToExpand.includes(sectorName)) ? 0.05 : 0.3;
           node.vx = (node.vx || 0) + (sector.x - node.x) * k;
           node.vy = (node.vy || 0) + (sector.y - node.y) * k;
         }
@@ -133,6 +154,7 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
 
     // Create container group
     const g = svg.append('g');
+    containerGroupRef.current = g;
 
     // Add zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
@@ -141,11 +163,12 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
         g.attr('transform', event.transform);
       });
 
+    zoomBehaviorRef.current = zoom;
     svg.call(zoom);
 
-    // Click on background to unfocus sectors
+    // Click on background to clear selection
     svg.on('click', () => {
-      setFocusedSector(null);
+      setSelectedSectorsForExpansion([]);
     });
 
     // Draw sectors using the Sector component
@@ -163,9 +186,19 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       
       const elements = renderSector({
         sector: sectorData,
-        isFocused: focusedSector === sectorName,
+        isFocused: selectedSectorsForExpansion.includes(sectorName),
         onFocus: (name) => {
-          setFocusedSector(prev => prev === name ? null : name);
+          // Toggle sector selection (max 2 sectors)
+          setSelectedSectorsForExpansion(prev => {
+            if (prev.includes(name)) {
+              return prev.filter(s => s !== name);
+            } else if (prev.length >= 2) {
+              // Already have 2 sectors selected, replace the first one
+              return [prev[1], name];
+            } else {
+              return [...prev, name];
+            }
+          });
         },
         parent: sectorGroup,
       });
@@ -183,12 +216,15 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       .attr('stroke-opacity', d => d.type === 'explicit' ? 0.8 : 0.2)
       .attr('stroke-dasharray', d => d.type === 'explicit' ? '0' : '3,3');
 
+    linkSelectionRef.current = link;
+
     // Draw nodes
     const node = g.append('g')
       .selectAll('circle')
       .data(nodes)
       .join('circle')
       .attr('r', 8)
+      .attr('data-sector', d => getNodeSector(d))
       .attr('fill', d => {
         if (!d.solved) return '#d1d5db';
         // Basic color by difficulty for now (will add acceptance rate gradient later)
@@ -208,43 +244,17 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
         .on('drag', dragged)
         .on('end', dragended) as any);
 
+    nodeSelectionRef.current = node;
+
     // Add click handler
     node.on('click', (event, d) => {
       event.stopPropagation();
       onNodeClick(d);
     });
 
-    // Add hover handlers
-    node.on('mouseenter', (event, d) => {
-      // Clear any existing timeout
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-      
-      // Show hover card after a short delay
-      hoverTimeoutRef.current = setTimeout(() => {
-        const rect = svgRef.current?.getBoundingClientRect();
-        if (rect) {
-          setHoveredNode({
-            node: d,
-            x: rect.left + (d.x || 0),
-            y: rect.top + (d.y || 0),
-          });
-        }
-      }, 300); // 300ms delay before showing
-    });
-
-    node.on('mouseleave', () => {
-      // Clear timeout if mouse leaves before delay completes
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-        hoverTimeoutRef.current = null;
-      }
-    });
-
     // Add tooltips
     node.append('title')
-      .text(d => `${d.title}\\nDifficulty: ${d.difficulty}\\nAcceptance: ${d.acceptanceRate}%`);
+      .text(d => `${d.title}\nDifficulty: ${d.difficulty}\nAcceptance: ${d.acceptanceRate}%`);
 
     // Update positions on simulation tick
     simulation.on('tick', () => {
@@ -283,32 +293,236 @@ export default function ForceGraph({ data, onNodeClick, selectedSectors = [] }: 
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current);
       }
+      if (expandedViewCleanupRef.current) {
+        expandedViewCleanupRef.current();
+      }
     };
-  }, [data, onNodeClick, selectedSectors]);
+  }, [data, onNodeClick, selectedSectors, selectedSectorsForExpansion, sectorsToExpand]);
 
-  // Update sector styles when focused sector changes
+  // Update sector styles when selected sectors change
   useEffect(() => {
     sectorElementsRef.current.forEach((elements, sectorName) => {
-      updateSectorStyle(elements.circle, elements.label, focusedSector === sectorName);
+      updateSectorStyle(elements.circle, elements.label, selectedSectorsForExpansion.includes(sectorName));
     });
-  }, [focusedSector]);
+  }, [selectedSectorsForExpansion]);
+
+  // Handle zoom and filtering when sectors are expanded
+  useEffect(() => {
+    if (!svgRef.current || !zoomBehaviorRef.current || !nodeSelectionRef.current || !linkSelectionRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    const nodes = nodeSelectionRef.current;
+    const links = linkSelectionRef.current;
+    const simulation = simulationRef.current;
+
+    if (sectorsToExpand.length > 0) {
+      // Clean up any existing expanded view
+      if (expandedViewCleanupRef.current) {
+        expandedViewCleanupRef.current();
+        expandedViewCleanupRef.current = null;
+      }
+
+      // Stop the force simulation when showing hierarchical view
+      if (simulation) {
+        simulation.stop();
+      }
+
+      // Collect all nodes and edges from selected sectors
+      const allSectorNodes: SimulationNode[] = [];
+      const allSectorNodeIds = new Set<number>();
+      
+      sectorsToExpand.forEach(sectorName => {
+        const sectorNodes = tagGroupsRef.current.get(sectorName) || [];
+        allSectorNodes.push(...sectorNodes);
+        sectorNodes.forEach(n => allSectorNodeIds.add(n.id));
+      });
+      
+      // Get all edges where source is in the selected sectors
+      const sectorEdges = data.edges.filter(e => allSectorNodeIds.has(e.source));
+
+      // Calculate the center position for the expanded view
+      let centerX = 0;
+      let centerY = 0;
+      let totalRadius = 0;
+      
+      sectorsToExpand.forEach(sectorName => {
+        const sectorPos = sectorPositionsRef.current.get(sectorName);
+        if (sectorPos) {
+          centerX += sectorPos.x;
+          centerY += sectorPos.y;
+          totalRadius = Math.max(totalRadius, sectorPos.radius);
+        }
+      });
+      
+      centerX /= sectorsToExpand.length;
+      centerY /= sectorsToExpand.length;
+
+      // Expand sector circles
+      sectorsToExpand.forEach(sectorName => {
+        const focusedSectorElements = sectorElementsRef.current.get(sectorName);
+        const sectorPos = sectorPositionsRef.current.get(sectorName);
+        if (focusedSectorElements && sectorPos) {
+          const expandedRadius = sectorPos.radius * 2;
+          focusedSectorElements.circle
+            .transition()
+            .duration(750)
+            .attr('r', expandedRadius);
+          focusedSectorElements.label
+            .transition()
+            .duration(750)
+            .attr('y', sectorPos.y - expandedRadius - 10);
+        }
+      });
+
+      // Calculate zoom transform to center on combined sectors
+      const width = svgRef.current.clientWidth;
+      const height = svgRef.current.clientHeight;
+      const scale = 2.5;
+      const translateX = width / 2 - centerX * scale;
+      const translateY = height / 2 - centerY * scale;
+      const transform = d3.zoomIdentity.translate(translateX, translateY).scale(scale);
+
+      // Zoom to sector with animation
+      svg.transition().duration(750).call(
+        zoomBehaviorRef.current.transform as any,
+        transform
+      );
+
+      // Hide original force-directed nodes and edges
+      nodes
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+        .attr('pointer-events', 'none');
+
+      links
+        .transition()
+        .duration(500)
+        .attr('opacity', 0)
+        .attr('pointer-events', 'none');
+
+      // Hide/show sector circles and labels
+      sectorElementsRef.current.forEach((elements, sectorName) => {
+        if (!sectorsToExpand.includes(sectorName)) {
+          elements.circle.transition().duration(500).attr('opacity', 0);
+          elements.label.transition().duration(500).attr('opacity', 0);
+        } else {
+          elements.circle.transition().duration(500).attr('opacity', 0.3);
+          elements.label.transition().duration(500).attr('opacity', 1);
+        }
+      });
+
+      // Render hierarchical expanded view after zoom animation
+      setTimeout(() => {
+        if (containerGroupRef.current) {
+          const { cleanup } = renderExpandedSectorView({            nodes: allSectorNodes,
+            edges: sectorEdges,
+            sectorName: sectorsToExpand.join(' + '),
+            sectorPosition: {
+              x: centerX,
+              y: centerY,
+              radius: totalRadius * 2,
+            },
+            onNodeClick: onNodeClick,
+            parentGroup: containerGroupRef.current,
+          });
+          expandedViewCleanupRef.current = cleanup;
+        }
+      }, 750);
+    } else {
+      // Clean up expanded view
+      if (expandedViewCleanupRef.current) {
+        expandedViewCleanupRef.current();
+        expandedViewCleanupRef.current = null;
+      }
+
+      // Restart the force simulation
+      if (simulation) {
+        simulation.alpha(0.3).restart();
+      }
+
+      // Reset sector radii to original size
+      sectorElementsRef.current.forEach((elements, sectorName) => {
+        const sectorPos = sectorPositionsRef.current.get(sectorName);
+        if (sectorPos) {
+          elements.circle
+            .transition()
+            .duration(750)
+            .attr('r', sectorPos.radius);
+          elements.label
+            .transition()
+            .duration(750)
+            .attr('y', sectorPos.y - sectorPos.radius - 10);
+        }
+      });
+
+      // Reset: show all nodes and edges
+      nodes
+        .transition()
+        .duration(500)
+        .attr('opacity', 1)
+        .attr('pointer-events', 'all');
+
+      links
+        .transition()
+        .duration(500)
+        .attr('opacity', d => (d as SimulationLink).type === 'explicit' ? 0.8 : 0.2)
+        .attr('pointer-events', 'all');
+
+      // Show all sectors
+      sectorElementsRef.current.forEach((elements) => {
+        elements.circle.transition().duration(500).attr('opacity', 1);
+        elements.label.transition().duration(500).attr('opacity', 1);
+      });
+    }
+  }, [sectorsToExpand, data, onNodeClick]);
 
   return (
-    <>
+    <div className="relative w-full h-full">
       <svg
         ref={svgRef}
         className="w-full h-full border border-gray-300"
         style={{ minHeight: '600px' }}
       />
       
-      {/* Hover Card */}
-      {/* {hoveredNode && (
-        <ProblemHoverCard
-          node={hoveredNode.node}
-          position={{ x: hoveredNode.x, y: hoveredNode.y }}
-          onClose={() => setHoveredNode(null)}
-        />
-      )} */}
-    </>
+      {/* Expand Button */}
+      {selectedSectorsForExpansion.length > 0 && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
+          <button
+            onClick={() => {
+              if (onSectorsToExpandChange) {
+                onSectorsToExpandChange([...selectedSectorsForExpansion]);
+              }
+            }}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
+          >
+            Expand {selectedSectorsForExpansion.length} Sector{selectedSectorsForExpansion.length > 1 ? 's' : ''}
+          </button>
+          <button
+            onClick={() => setSelectedSectorsForExpansion([])}
+            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
+          >
+            Clear Selection
+          </button>
+        </div>
+      )}
+      
+      {/* Close Expanded View Button */}
+      {sectorsToExpand.length > 0 && (
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={() => {
+              if (onSectorsToExpandChange) {
+                onSectorsToExpandChange([]);
+              }
+              setSelectedSectorsForExpansion([]);
+            }}
+            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-lg transition-colors"
+          >
+            Close Expanded View
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
