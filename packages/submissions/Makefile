@@ -1,13 +1,21 @@
-.PHONY: install dev dev-api clean test prisma-generate
+.PHONY: install dev dev-submission dev-analytics clean test prisma-generate
 
 install:
 	poetry install
 
-dev:
-	poetry run submission-server
+dev-submission:
+	PYTHONPATH=src:$$PYTHONPATH poetry run submission-server
 
-dev-api:
-	PYTHONPATH=src:$$PYTHONPATH poetry run uvicorn api_server:app --reload --host 0.0.0.0 --port 8000
+dev-analytics:
+	PYTHONPATH=src:$$PYTHONPATH poetry run analytics-server
+
+dev:
+	@echo "Two-server architecture:"
+	@echo "  - Submission server (TCP): port 3000 - for nvim integration"
+	@echo "  - Analytics server (HTTP): port 8000 - for data visualization"
+	@echo ""
+	@echo "Run 'make dev-submission' for submission server (port 3000)"
+	@echo "Run 'make dev-analytics' for analytics server (port 8000)"
 
 clean:
 	rm -rf __pycache__
