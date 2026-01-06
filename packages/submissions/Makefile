@@ -1,4 +1,4 @@
-.PHONY: install dev dev-submission dev-analytics clean test prisma-generate
+.PHONY: install dev dev-submission dev-analytics clean test prisma-generate submission-stats
 
 install:
 	poetry install
@@ -27,3 +27,6 @@ test:
 
 prisma-generate:
 	poetry run prisma generate
+
+submission-stats:
+	PYTHONPATH=src:$$PYTHONPATH poetry run submission-stats

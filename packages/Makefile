@@ -1,4 +1,4 @@
-.PHONY: help install-all dev-backend dev-submission dev-analytics dev-frontend clean-all prisma-generate-all
+.PHONY: help install-all dev-backend dev-submission dev-analytics dev-frontend clean-all prisma-generate-all submission-stats
 
 help:
 	@echo "Available commands for managing both packages:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make dev-frontend         - Start Next.js frontend on port 3001"
 	@echo "  make clean-all           - Clean both packages"
 	@echo "  make prisma-generate-all  - Generate Prisma client for backend"
+	@echo "  make submission-stats     - Show submission statistics"
 	@echo ""
 	@echo "Port allocation:"
 	@echo "  - Port 3000: TCP submission server (for nvim)"
@@ -54,6 +55,10 @@ prisma-generate-all:
 	@echo "Generating Prisma client for submissions..."
 	cd submissions && make prisma-generate
 	@echo "✓ Prisma client generated"
+
+submission-stats:
+	@echo "Fetching submission statistics..."
+	cd submissions && make submission-stats
 
 setup-env:
 	@echo "Setting up environment for submissions..."
