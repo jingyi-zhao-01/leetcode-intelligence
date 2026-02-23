@@ -11,7 +11,9 @@ import os
 
 # Add project root to the Python path
 sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
 )
 
 
@@ -24,7 +26,7 @@ async def test_mcp_server_tools():
     # but we can test our functions directly by importing the actual function implementations
 
     # Import the MCP module and extract the actual functions from the tools
-    from leetcode_mcp.server import mcp, ensure_db_connected
+    from server import mcp, ensure_db_connected
 
     print("🔧 Ensuring database connection...")
     await ensure_db_connected()

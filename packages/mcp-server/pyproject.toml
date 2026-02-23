@@ -33,8 +33,8 @@ dev = [
 ]
 
 [project.scripts]
-mcp-server        = "leetcode_mcp.server:main"
-mcp-server-stdio  = "leetcode_mcp.server:main_stdio"
+mcp-server        = "server:main"
+mcp-server-stdio  = "server:main_stdio"
 ingest-problems   = "problems.run_ingest:run"
 
 [tool.setuptools]

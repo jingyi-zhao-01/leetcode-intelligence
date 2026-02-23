@@ -10,10 +10,12 @@ import os
 
 # Add project root to the Python path
 sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    )
 )
 
-from leetcode_mcp.server import (
+from server import (
     db,
     get_submission_evolution,
     analyze_thought_progression,
