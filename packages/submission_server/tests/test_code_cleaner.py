@@ -1,7 +1,7 @@
 """Test cases for code cleaner utility."""
 
 from pathlib import Path
-from src.code_cleaner import (
+from code_cleaner import (
     clean_python_code,
     extract_function_only,
     extract_thought,

@@ -3,7 +3,6 @@
     "python.defaultInterpreterPath": ".venv/bin/python",
     "python.testing.pytestArgs": [
         "packages",
-        "src",
         "--tb=short"
     ],
     "python.testing.unittestEnabled": false,

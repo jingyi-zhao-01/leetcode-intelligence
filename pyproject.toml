@@ -32,8 +32,8 @@ leetcode-submissions = { workspace = true }
 leetcode-mcp-server  = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["packages/submission_server/tests"]
-pythonpath = ["packages/submission_server/src"]
+testpaths = ["packages"]
+pythonpath = ["packages/submission_server/src", "packages/mcp-server/src"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

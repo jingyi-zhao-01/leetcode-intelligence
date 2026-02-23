@@ -1,54 +1,80 @@
-.PHONY: help install run-mcp-server dev-mcp-server run-submission-server dev-analytics dev-frontend test prisma-generate prisma-db-push submission-stats clean
+.PHONY: help install dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make install              - Install all dependencies (uv sync + npm)"
-	@echo "  make run-mcp-server       - Start MCP server (stdio, for Copilot/editors)"
-	@echo "  make dev-mcp-server       - Start MCP server with hot reload (dev mode)"
-	@echo "  make run-submission-server- Start TCP submission server on port 3000 (for nvim)"
-	@echo "  make dev-analytics        - Start Analytics API on port 8000"
-	@echo "  make dev-frontend         - Start Next.js frontend on port 3001"
+	@echo "  make dev-mcp              - Start MCP server (DEV DB)"
+	@echo "  make prod-mcp             - Start MCP server (PROD DB)"
+	@echo "  make dev-submission       - Start Submission server (DEV DB)"
+	@echo "  make prod-submission      - Start Submission server (PROD DB)"
+	@echo "  make dev-analytics        - Start Analytics API (DEV DB)"
+	@echo "  make dev-frontend         - Start Next.js frontend"
 	@echo "  make test                 - Run Python tests"
-	@echo "  make prisma-generate      - Generate Prisma client"
-	@echo "  make prisma-db-push       - Push database schema changes"
+	@echo "  make prisma-generate-dev  - Generate Prisma client (DEV DB)"
+	@echo "  make prisma-generate-prod - Generate Prisma client (PROD DB)"
+	@echo "  make prisma-db-push-dev   - Push schema to DEV DB"
+	@echo "  make prisma-db-push-prod  - Push schema to PROD DB"
 	@echo "  make submission-stats     - Show submission statistics"
 	@echo "  make clean                - Remove build artifacts and caches"
 	@echo ""
 	@echo "Port allocation:"
-	@echo "  - Port 3000: TCP submission server (for nvim)"
-	@echo "  - Port 3001: Next.js frontend (web UI)"
-	@echo "  - Port 8000: Analytics API (HTTP/REST)"
+	@echo "  - Port 3000: TCP submission server"
+	@echo "  - Port 3001: Next.js frontend"
+	@echo "  - Port 8000: Analytics API"
 
 install:
 	uv sync --dev
 	cd packages/graph-ui && npm install
 
-run-mcp-server:
-	uv run mcp-server-stdio
+# Load environment variables from .env file
+-include .env
+export
 
-dev-mcp-server:
-	uv run mcp-server-dev
+# --- Shared Command Definitions ---
+PRISMA_RUN = uv run prisma
+PRISMA_SCHEMA = --schema prisma/schema.prisma
+SUB_ENV = PYTHONPATH=packages/submission_server/src:$$PYTHONPATH
+MCP_RUN = uv run python packages/mcp-server/src/server.py
 
-run-submission-server:
-	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-server
+# --- Development Environment ---
+dev-mcp: prisma-generate-dev
+	DATABASE_URL=$(DEV_DB_URL) $(MCP_RUN)
 
-dev-analytics:
-	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run analytics-server
+dev-submission: prisma-generate-dev
+	$(SUB_ENV) DATABASE_URL=$(DEV_DB_URL) uv run submission-server
+
+dev-analytics: prisma-generate-dev
+	$(SUB_ENV) DATABASE_URL=$(DEV_DB_URL) uv run analytics-server
+
+# --- Production Environment ---
+prod-mcp: prisma-generate-prod
+	DATABASE_URL=$(PROD_DB_URL) $(MCP_RUN)
+
+prod-submission: prisma-generate-prod
+	$(SUB_ENV) DATABASE_URL=$(PROD_DB_URL) uv run submission-server
+
+# --- Prisma Operations ---
+prisma-generate-dev:
+	DATABASE_URL=$(DEV_DB_URL) $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
+
+prisma-generate-prod:
+	DATABASE_URL=$(PROD_DB_URL) $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
+
+prisma-db-push-dev:
+	DATABASE_URL=$(DEV_DB_URL) $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
+
+prisma-db-push-prod:
+	DATABASE_URL=$(PROD_DB_URL) $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
+
+# --- Standard Targets ---
+test: prisma-generate-dev
+	DATABASE_URL=$(DEV_DB_URL) uv run pytest
 
 dev-frontend:
 	cd packages/graph-ui && PORT=3001 npm run dev
 
-test:
-	uv run pytest
-
-prisma-generate:
-	uv run prisma generate --schema prisma/schema.prisma
-
-prisma-db-push:
-	uv run prisma db push --schema prisma/schema.prisma
-
-submission-stats:
-	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-stats
+submission-stats: prisma-generate-dev
+	$(SUB_ENV) uv run submission-stats
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache
