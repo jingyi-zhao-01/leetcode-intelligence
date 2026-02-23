@@ -13,7 +13,11 @@ sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 
-from src.mcp.server import db, get_submission_evolution, analyze_thought_progression
+from leetcode_mcp.server import (
+    db,
+    get_submission_evolution,
+    analyze_thought_progression,
+)
 
 
 async def setup_test_data():

@@ -24,7 +24,7 @@ async def test_mcp_server_tools():
     # but we can test our functions directly by importing the actual function implementations
 
     # Import the MCP module and extract the actual functions from the tools
-    from src.mcp.server import mcp, ensure_db_connected
+    from leetcode_mcp.server import mcp, ensure_db_connected
 
     print("🔧 Ensuring database connection...")
     await ensure_db_connected()
@@ -103,7 +103,7 @@ async def main():
         print("  ✅ track_improvement_metrics - Overall improvement tracking")
 
         print("\n🔗 To use with an MCP client, run:")
-        print("  poetry run mcp-server")
+        print("  uv run mcp-server")
 
     except Exception as e:
         print(f"❌ Error testing MCP tools: {e}")

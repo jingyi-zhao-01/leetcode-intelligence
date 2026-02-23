@@ -1,30 +1,44 @@
 [build-system]
-requires = ["poetry-core>=1.8.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=71"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
+[project]
 name = "leetcode-submissions"
 version = "0.1.0"
 description = "LeetCode Submissions Management Package"
-authors = ["OpenHands <openhands@all-hands.dev>"]
+authors = [{name = "OpenHands", email = "openhands@all-hands.dev"}]
 readme = "README.md"
-license = "MIT"
-packages = [{include = "*", from = "src"}]
+license = {text = "MIT"}
+requires-python = ">=3.12"
+dependencies = [
+    "prisma>=0.15.0",
+    "fastapi>=0.119.1",
+    "uvicorn>=0.38.0",
+    "colorama>=0.4.6",
+    "tabulate>=0.9.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-prisma = "^0.15.0"
-fastapi = "^0.119.1"
-uvicorn = "^0.38.0"
-colorama = "^0.4.6"
-tabulate = "^0.9.0"
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov>=7.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-cov = "^7.0.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 submission-stats = "submission_stats:main"
 problem-graph = "problem_graph:main"
 submission-server = "submission_server:run"
 analytics-server = "analytics_server:run"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = [
+    "analytics_server",
+    "code_cleaner",
+    "graph_models",
+    "graph_service",
+    "problem_graph",
+    "submission_server",
+    "submission_stats",
+    "timer_service",
+]

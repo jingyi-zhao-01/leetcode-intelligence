@@ -2,11 +2,11 @@
   "servers": {
     "leetcode-qa": {
       "type": "stdio",
-      "command": "poetry",
+      "command": "/usr/bin/uv",
       "args": ["run", "mcp-server-stdio"],
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/packages/mcp-server/src"
       }
     }
   }
