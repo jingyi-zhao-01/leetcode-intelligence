@@ -26,6 +26,7 @@ model Submission {
   titleSlug         String?
   content           String
   status            String
+  thought           String?  @db.Text
   createdAt         DateTime @default(now()) @db.Timestamptz(6)
   submissionDetails Json?
   isCheat           Boolean  @default(false)

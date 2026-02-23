@@ -30,11 +30,13 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-cov>=7.0.0",
+    "watchdog[watchmedo]>=4.0.0",
 ]
 
 [project.scripts]
 mcp-server        = "server:main"
 mcp-server-stdio  = "server:main_stdio"
+mcp-server-dev    = "server:main_dev"
 ingest-problems   = "problems.run_ingest:run"
 
 [tool.setuptools]

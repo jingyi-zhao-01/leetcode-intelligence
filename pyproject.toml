@@ -30,3 +30,11 @@ members = ["packages/submission_server", "packages/mcp-server"]
 [tool.uv.sources]
 leetcode-submissions = { workspace = true }
 leetcode-mcp-server  = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["packages/submission_server/tests"]
+pythonpath = ["packages/submission_server/src"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short", "--strict-markers"]

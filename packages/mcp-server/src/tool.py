@@ -129,6 +129,7 @@ def _build_problem_entry(slug: str, subs: List[Any], q: Any) -> Dict[str, Any]:
         "total_time_spent_minutes": total_time,
         "first_attempt_at": subs[0].createdAt.isoformat(),
         "final_submission_code": subs[-1].content,
+        "final_submission_thought": subs[-1].thought,
     }
 
 
@@ -293,6 +294,7 @@ async def get_submission_evolution(db: Prisma, title_slug: str) -> Dict[str, Any
                     else submission.content
                 ),
                 "comments_extracted": extract_comments(submission.content or ""),
+                "thought": submission.thought,
             }
             evolution_data["submissions"].append(submission_data)
 
@@ -347,6 +349,7 @@ async def analyze_thought_progression(db: Prisma, title_slug: str) -> Dict[str, 
                 "comments": comments,
                 "comment_themes": analyze_comment_themes(comments),
                 "complexity_mentions": count_complexity_mentions(comments),
+                "thought": submission.thought,
             }
             thought_progression["comment_evolution"].append(thought_data)
 

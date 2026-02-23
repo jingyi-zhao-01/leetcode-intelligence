@@ -1,0 +1,35 @@
+class Solution:
+    # This is the moveZeroes problem from LeetCode
+    # Medium difficulty - array manipulation
+    # Must modify in-place with O(n) time complexity
+    
+    
+    """
+    @thought: 
+    i should use a two pointer approach, the slow pointer points to the last non zero element, the fast pointer will traverse beyond
+    p1 will points to the last non zero element, p2 will iterate and find zero
+    """
+    
+    def moveZeroes(self, nums: List[int]) -> None:
+        # Initialize both pointers at the start
+        # p1: position to place next non-zero
+        # p2: current position to check
+        p1, p2 = 0, 0
+
+        # Get the length of array for bounds checking
+        n = len(nums)
+
+        # First pass: move all non-zero elements forward
+        for p2 in range(n):
+            # Found a non-zero element
+            if nums[p2] != 0:
+                # Move the non-zero to position p1
+                nums[p1] = nums[p2]
+                p1 += 1 
+        
+        # Second pass: fill remaining positions with zeros
+        # This completes the in-place modification
+        # Edge case: no zeros in array means we're done after first loop
+        while p1 < n:
+            nums[p1] = 0
+            p1 += 1

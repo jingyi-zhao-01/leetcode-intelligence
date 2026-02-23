@@ -6,7 +6,7 @@ from enum import Enum
 from prisma import Prisma, Json
 from prisma.types import SubmissionCreateInput
 
-from code_cleaner import normalize_for_embedding
+from code_cleaner import normalize_for_embedding, extract_thought
 from timer_service import TimerManager
 
 
@@ -74,6 +74,8 @@ class SubmissionServer:
         try:
             # Clean and normalize the code for better embeddings
             cleaned_content = normalize_for_embedding(content)
+            # Extract thought from code
+            thought = extract_thought(content)
             # Build submission data
             submission_data: SubmissionCreateInput = {
                 "titleSlug": title_slug,
@@ -81,6 +83,7 @@ class SubmissionServer:
                 "status": status,
                 "isCheat": is_cheat,
                 "timeSpentMinutes": time_spent_minutes,
+                "thought": thought,
                 "submissionDetails": Json(item) if item else None,
             }
 

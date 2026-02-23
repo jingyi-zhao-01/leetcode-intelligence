@@ -9,6 +9,7 @@ Provides two main tools for analyzing LeetCode submission evolution:
 import asyncio
 import sys
 import os
+import subprocess
 from typing import Dict, Any, Optional
 from prisma import Prisma
 
@@ -155,6 +156,71 @@ def main():
         asyncio.run(shutdown())
     except Exception:
         pass
+
+
+def main_dev():
+    """Main entry point for development with hot reload.
+
+    Watches source files and automatically restarts the server on changes.
+    """
+    try:
+        from watchdog.observers import Observer
+        from watchdog.events import FileSystemEventHandler
+        import time
+
+        class ServerReloader(FileSystemEventHandler):
+            def __init__(self):
+                self.process = None
+                self.start_server()
+
+            def start_server(self):
+                """Start the MCP server process."""
+                if self.process:
+                    print("🔄 Restarting server...")
+                    self.process.terminate()
+                    try:
+                        self.process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        self.process.kill()
+                else:
+                    print("🚀 Starting MCP server with hot reload...")
+
+                # Start stdio server since that's what we use for Copilot
+                self.process = subprocess.Popen(
+                    [sys.executable, "-m", "server", "main_stdio"],
+                    cwd=os.path.dirname(os.path.abspath(__file__)),
+                )
+
+            def on_modified(self, event):
+                """Handle file modifications."""
+                if event.is_directory or event.src_path.endswith(".pyc"):
+                    return
+                if event.src_path.endswith(".py"):
+                    print(f"📝 Detected change in {os.path.basename(event.src_path)}")
+                    self.start_server()
+
+        # Watch the src directory for changes
+        observer = Observer()
+        handler = ServerReloader()
+        src_dir = os.path.dirname(os.path.abspath(__file__))
+        observer.schedule(handler, src_dir, recursive=True)
+        observer.start()
+
+        try:
+            # Keep the observer running
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n👋 Shutting down dev server...")
+            observer.stop()
+            if handler.process:
+                handler.process.terminate()
+
+        observer.join()
+
+    except ImportError:
+        print("❌ watchdog not installed. Install dev dependencies with: uv sync --dev")
+        sys.exit(1)
 
 
 def main_stdio():

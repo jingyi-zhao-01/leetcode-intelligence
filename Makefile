@@ -1,14 +1,16 @@
-.PHONY: help install run-mcp-server run-submission-server dev-analytics dev-frontend test prisma-generate submission-stats clean
+.PHONY: help install run-mcp-server dev-mcp-server run-submission-server dev-analytics dev-frontend test prisma-generate prisma-db-push submission-stats clean
 
 help:
 	@echo "Available commands:"
 	@echo "  make install              - Install all dependencies (uv sync + npm)"
 	@echo "  make run-mcp-server       - Start MCP server (stdio, for Copilot/editors)"
+	@echo "  make dev-mcp-server       - Start MCP server with hot reload (dev mode)"
 	@echo "  make run-submission-server- Start TCP submission server on port 3000 (for nvim)"
 	@echo "  make dev-analytics        - Start Analytics API on port 8000"
 	@echo "  make dev-frontend         - Start Next.js frontend on port 3001"
 	@echo "  make test                 - Run Python tests"
 	@echo "  make prisma-generate      - Generate Prisma client"
+	@echo "  make prisma-db-push       - Push database schema changes"
 	@echo "  make submission-stats     - Show submission statistics"
 	@echo "  make clean                - Remove build artifacts and caches"
 	@echo ""
@@ -24,6 +26,9 @@ install:
 run-mcp-server:
 	uv run mcp-server-stdio
 
+dev-mcp-server:
+	uv run mcp-server-dev
+
 run-submission-server:
 	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-server
 
@@ -38,6 +43,9 @@ test:
 
 prisma-generate:
 	uv run prisma generate --schema prisma/schema.prisma
+
+prisma-db-push:
+	uv run prisma db push --schema prisma/schema.prisma
 
 submission-stats:
 	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-stats

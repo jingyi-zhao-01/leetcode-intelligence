@@ -125,6 +125,85 @@ def extract_function_only(code: str) -> str:
     return _dedent_function(lines, start_idx, min_indent)
 
 
+def extract_thought(code: str) -> str | None:
+    """
+    Extract @thought comments from code.
+
+    Looks for @thought markers (typically in docstrings or comments)
+    and extracts the thought content.
+
+    Args:
+        code: Raw code string
+
+    Returns:
+        Extracted thought text or None if no @thought found
+    """
+    # Look for @thought as a marker (followed by colon or space or special char)
+    import re
+
+    if not code or not re.search(r"@thought\s*:", code):
+        return None
+
+    lines = code.split("\n")
+    thought_lines = []
+    in_thought = False
+    in_docstring = False
+    docstring_delimiter = None
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Track docstring boundaries
+        if '"""' in stripped or "'''" in stripped:
+            # Find which delimiter is present
+            if '"""' in stripped:
+                delimiter = '"""'
+            else:
+                delimiter = "'''"
+
+            # Count occurrences to determine if entering/exiting docstring
+            count = stripped.count(delimiter)
+            if count == 2:
+                # Single line docstring, don't change state
+                pass
+            elif count == 1:
+                if not in_docstring:
+                    in_docstring = True
+                    docstring_delimiter = delimiter
+                elif delimiter == docstring_delimiter:
+                    in_docstring = False
+                    docstring_delimiter = None
+
+        # Check if @thought marker exists (with colon)
+        if re.search(r"@thought\s*:", line):
+            in_thought = True
+            # Extract text after @thought: marker
+            thought_part = re.sub(r".*@thought\s*:\s*", "", line).strip()
+            if thought_part:
+                thought_lines.append(thought_part)
+            continue
+
+        # Collect lines after @thought until we exit docstring or hit actual code
+        if in_thought:
+            if not stripped or stripped.startswith("#"):
+                # Empty line or comment
+                if stripped.startswith("#"):
+                    thought_lines.append(stripped[1:].strip())
+            elif stripped.startswith('"""') or stripped.startswith("'''"):
+                # Docstring boundary - stop collecting if exiting docstring
+                if not in_docstring:
+                    in_thought = False
+            elif in_docstring:
+                # We're in a docstring, so collect this line
+                thought_lines.append(stripped)
+            else:
+                # Hit actual code outside docstring, stop collecting
+                in_thought = False
+
+    thought_text = " ".join(thought_lines).strip()
+    return thought_text if thought_text else None
+
+
 def normalize_for_embedding(code: str, extract_function: bool = True) -> str:
     """
     Fully normalize code for embedding.
