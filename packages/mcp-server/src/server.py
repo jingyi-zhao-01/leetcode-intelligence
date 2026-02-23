@@ -9,7 +9,7 @@ Provides two main tools for analyzing LeetCode submission evolution:
 import asyncio
 import sys
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from prisma import Prisma
 
 # Add project root to the Python path
@@ -19,6 +19,7 @@ from fastmcp import FastMCP
 from tool import (
     get_submission_evolution as get_submission_evolution_impl,
     analyze_thought_progression as analyze_thought_progression_impl,
+    review_submissions as review_submissions_impl,
 )
 
 # Create FastMCP server with submission evolution tools
@@ -68,6 +69,61 @@ async def analyze_thought_progression(title_slug: str) -> Dict[str, Any]:
     """
     await ensure_db_connected()
     return await analyze_thought_progression_impl(db, title_slug)
+
+
+@mcp.tool
+async def review_submissions(
+    period: str = "today",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Return a structured breakdown of all LeetCode submissions in a time window
+    so the client can generate a summary, error analysis, and improvement advice.
+
+    Time window (pick one mode):
+
+    Shorthand via `period`:
+        - "today"      – current calendar day (UTC)
+        - "yesterday"  – previous calendar day (UTC)
+        - "YYYY-MM-DD" – a specific single day
+
+    Explicit range via `start_date` / `end_date`:
+        - start_date: ISO date string, e.g. "2026-02-01"  (required for range mode)
+        - end_date:   ISO date string, inclusive, e.g. "2026-02-22"  (optional;
+                      defaults to start_date, giving a single-day window)
+        When start_date is provided it takes precedence over `period`.
+
+    Returns:
+        {
+          period:         str,   # human-readable label for the window
+          date_range:     {start: ISO str, end: ISO str},
+          summary_stats:  {
+              total_problems_attempted: int,
+              total_accepted:           int,
+              acceptance_rate_pct:      float,
+              total_submissions:        int,
+              error_type_counts:        {status: count},
+              topics_covered:           [str]
+          },
+          problems: [
+            {
+              title_slug:               str,
+              title:                    str,
+              difficulty:               str,
+              topic_tags:               [str],
+              attempts:                 int,
+              statuses:                 [str],   # ordered chronologically
+              final_status:             str,
+              total_time_spent_minutes: int,
+              first_attempt_at:         ISO str,
+              final_submission_code:    str
+            }
+          ]
+        }
+    """
+    await ensure_db_connected()
+    return await review_submissions_impl(db, period, start_date, end_date)
 
 
 # === SERVER STARTUP ===
