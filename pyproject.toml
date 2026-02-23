@@ -25,7 +25,7 @@ dev = [
 exclude = ["*"]  # workspace root — no Python to ship
 
 [tool.uv.workspace]
-members = ["packages/submissions", "packages/mcp-server"]
+members = ["packages/submission_server", "packages/mcp-server"]
 
 [tool.uv.sources]
 leetcode-submissions = { workspace = true }

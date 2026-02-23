@@ -66,39 +66,40 @@ function M.save_submission(question, buffer, item)
   })
 end
 
-function M.start_timer(question)
-  -- Start timer for a problem session via TCP server.
+function M.timer_start(question)
+  -- Drop any existing session and start a fresh timer for the given problem.
+  -- This is an explicit user action (Leet session start) that always resets the clock.
   --
   -- Args:
   --   question: Question object with q.title_slug field
-  
+
   local title_slug = question.q.title_slug
-  
-  -- Send JSON request to server via TCP
+
   local request = vim.fn.json_encode({
     action = "start_timer",
     title_slug = title_slug
+    -- allow_multiple defaults to False on the server side,
+    -- so all existing timers are cleared and a fresh one is started.
   }) .. "\n"
-  
-  -- Use printf and nc with explicit newline
+
   local cmd = string.format(
     "printf '%%s' '%s' | nc -N localhost 3000 2>&1",
     request:gsub("'", "'\\''")
   )
-  
+
   vim.fn.jobstart(cmd, {
     on_exit = function(_, exit_code, _)
       if exit_code == 0 then
-        vim.notify("⏱️  Started: " .. title_slug, vim.log.levels.INFO)
+        vim.notify("⏱️  Session started: " .. title_slug, vim.log.levels.INFO)
       else
-        vim.notify("⚠️  Timer start failed (code: " .. exit_code .. ")", vim.log.levels.WARN)
+        vim.notify("⚠️  Session start failed (code: " .. exit_code .. ")", vim.log.levels.WARN)
       end
     end,
     on_stdout = function(_, data, _)
       if data and #data > 0 then
         for _, line in ipairs(data) do
           if line ~= "" then
-            vim.notify("Timer response: " .. line, vim.log.levels.DEBUG)
+            vim.notify("Session response: " .. line, vim.log.levels.DEBUG)
           end
         end
       end
@@ -107,7 +108,41 @@ function M.start_timer(question)
       if data and #data > 0 then
         for _, line in ipairs(data) do
           if line ~= "" and not line:match("^$") then
-            vim.notify("Timer error: " .. line, vim.log.levels.ERROR)
+            vim.notify("Session error: " .. line, vim.log.levels.ERROR)
+          end
+        end
+      end
+    end,
+  })
+end
+
+function M.drop_session(question)
+  -- Drop any in-memory timer for the given problem without saving a session
+  -- record to the database. Called when a question window is unmounted.
+
+  local title_slug = question.q.title_slug
+
+  local request = vim.fn.json_encode({
+    action = "drop_timer",
+    title_slug = title_slug,
+  }) .. "\n"
+
+  local cmd = string.format(
+    "printf '%%s' '%s' | nc -N localhost 3000 2>&1",
+    request:gsub("'", "'\\''")
+  )
+
+  vim.fn.jobstart(cmd, {
+    on_exit = function(_, exit_code, _)
+      if exit_code ~= 0 then
+        vim.notify("⚠️  Session drop failed (code: " .. exit_code .. ")", vim.log.levels.WARN)
+      end
+    end,
+    on_stderr = function(_, data, _)
+      if data and #data > 0 then
+        for _, line in ipairs(data) do
+          if line ~= "" and not line:match("^$") then
+            vim.notify("Session drop error: " .. line, vim.log.levels.ERROR)
           end
         end
       end

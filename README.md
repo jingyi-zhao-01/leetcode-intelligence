@@ -150,6 +150,98 @@ When connected to an LLM via MCP, the system can answer:
 
 ---
 
+## `submission_server` Package Structure
+
+The `packages/submission_server` package is the core backend responsible for receiving, storing, and serving submission data.
+
+```
+packages/submission_server/
+├── pyproject.toml              # Package config & script entry points
+├── Makefile                    # Dev targets (dev, dev-api, install, clean)
+├── ARCHITECTURE.md             # Server design overview (TCP vs HTTP)
+├── README.md                   # Package-level docs
+├── docs/
+│   └── agenda.md               # Development agenda & notes
+├── tests/
+│   ├── test_code_cleaner.py    # Unit tests for code cleaning logic
+│   └── test_submission_db_saver.lua  # Integration test for Lua TCP client
+└── src/
+    ├── submission_server.py    # TCP server (port 3000) — nvim integration
+    │                           #   Actions: save_submission, start_timer (via start_session),
+    │                           #            stop_timer, get_active_timers
+    ├── analytics_server.py     # HTTP/REST API (port 8000) — read-only analytics
+    │                           #   GET /api/graph, /api/problems/{slug},
+    │                           #        /api/tags, /api/stats
+    ├── code_cleaner.py         # Strips boilerplate, preserves inline comments
+    ├── submission_db_saver.lua # Lua client for nvim → TCP server communication
+    ├── graph_models.py         # Pydantic models for problem graph API
+    ├── graph_service.py        # Graph construction (tag similarity + explicit edges)
+    ├── problem_graph.py        # CLI entry point: generate/export problem graph
+    ├── submission_stats.py     # CLI entry point: print submission statistics
+    └── timer_service.py        # In-memory timer state management
+```
+
+### Design Decisions
+
+| Component | Protocol | Port | Purpose |
+|---|---|---|---|
+| `submission_server.py` | TCP + JSON-newline | 3000 | Low-latency write path from nvim via `nc` |
+| `analytics_server.py` | HTTP/REST (FastAPI) | 8000 | Read-only analytics; CORS-enabled for frontend |
+| `submission_db_saver.lua` | TCP client | — | Lua wrapper used by the Neovim plugin |
+| `code_cleaner.py` | — | — | Normalises code before DB storage while keeping comments |
+| `timer_service.py` | — | — | Tracks per-problem solve-time sessions in memory |
+
+### Why is there a Timer?
+
+The timer answers a key analytics question: **how long did it actually take to solve a problem?**
+
+Submission count and code evolution tell you *what* changed, but time-spent tells you *how hard* the problem was at each attempt. This unlocks metrics like:
+
+- Which problems caused the longest struggle before acceptance
+- Whether solve time decreases on revisit (a concrete measure of learning)
+- Correlating time-per-attempt with the type of mistake made
+
+#### Timer Lifecycle
+
+```
+Open problem in Neovim
+        │
+        ▼
+  start_timer (title_slug)          ← sent by Lua plugin via `Leet session start`
+  [in-memory: timers[slug] = now()]
+        │
+        │  (coding happens)
+        │
+        ▼
+  save_submission (title_slug, code, item)
+        │
+        ├─ timer active? → attach elapsed minutes to submission row (timeSpentMinutes)
+        │
+        ├─ status == "Accepted"?
+        │       ├── stop timer  → persist ProblemSession to DB
+        │       └── restart timer  (tracks time for any follow-up attempt)
+        │
+        └─ status != "Accepted"?  → timer keeps running (accumulates across failed attempts)
+```
+
+#### Key Behaviours
+
+| Situation | Behaviour |
+|---|---|
+| Opening a new problem | `Leet session start` clears any other active timer and starts fresh (only one active problem at a time by default) |
+| Failed submission | Timer keeps running; elapsed time is still snapshotted onto the submission row |
+| Accepted submission | Timer is stopped → session saved to `ProblemSession` table → timer restarted for follow-up work |
+| Code contains `#TEST#` | Submission is **skipped entirely** — not saved, timer unaffected |
+| Code contains `#CHEAT#` | Submission saved with `isCheat = true` flag for later revisit |
+| Server restart | In-memory timers are lost; DB sessions already committed are retained |
+
+#### Storage
+
+- **`Submission.timeSpentMinutes`** — elapsed minutes at the moment a submission is saved (snapshot, not total)
+- **`ProblemSession`** — a dedicated table recording completed sessions (stopped timers), enabling total-time-per-problem queries independent of submission count
+
+---
+
 ## 🗺️ ROADMAP
 
 ### ✅ Phase 1: Foundation (Completed)

@@ -1530,7 +1530,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.119.1" },
     { name = "fastapi-mcp", specifier = ">=0.4.0" },
     { name = "fastmcp", specifier = ">=2.12.5" },
-    { name = "leetcode-submissions", editable = "packages/submissions" },
+    { name = "leetcode-submissions", editable = "packages/submission_server" },
     { name = "llama-index" },
     { name = "llama-index-readers-file" },
     { name = "openai", specifier = ">=2.6.0" },
@@ -1565,7 +1565,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "leetcode-mcp-server", editable = "packages/mcp-server" },
-    { name = "leetcode-submissions", editable = "packages/submissions" },
+    { name = "leetcode-submissions", editable = "packages/submission_server" },
 ]
 
 [package.metadata.requires-dev]
@@ -1577,7 +1577,7 @@ dev = [
 [[package]]
 name = "leetcode-submissions"
 version = "0.1.0"
-source = { editable = "packages/submissions" }
+source = { editable = "packages/submission_server" }
 dependencies = [
     { name = "colorama" },
     { name = "fastapi" },

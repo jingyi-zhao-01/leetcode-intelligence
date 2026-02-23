@@ -25,10 +25,10 @@ run-mcp-server:
 	uv run mcp-server-stdio
 
 run-submission-server:
-	PYTHONPATH=packages/submissions/src:$$PYTHONPATH uv run submission-server
+	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-server
 
 dev-analytics:
-	PYTHONPATH=packages/submissions/src:$$PYTHONPATH uv run analytics-server
+	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run analytics-server
 
 dev-frontend:
 	cd packages/graph-ui && PORT=3001 npm run dev
@@ -40,7 +40,7 @@ prisma-generate:
 	uv run prisma generate --schema prisma/schema.prisma
 
 submission-stats:
-	PYTHONPATH=packages/submissions/src:$$PYTHONPATH uv run submission-stats
+	PYTHONPATH=packages/submission_server/src:$$PYTHONPATH uv run submission-stats
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache

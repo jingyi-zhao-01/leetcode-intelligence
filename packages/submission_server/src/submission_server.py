@@ -15,6 +15,7 @@ class ServerAction(str, Enum):
 
     START_TIMER = "start_timer"
     STOP_TIMER = "stop_timer"
+    DROP_TIMER = "drop_timer"
     GET_ACTIVE_TIMERS = "get_active_timers"
     GET_ACTIVE_SESSIONS = "get_active_sessions"
     SAVE_SUBMISSION = "save_submission"
@@ -193,6 +194,17 @@ class SubmissionServer:
                     "action": ServerAction.STOP_TIMER,
                     "title_slug": title_slug,
                     "minutes": minutes,
+                }
+
+            case ServerAction.DROP_TIMER:
+                title_slug = request["title_slug"]
+                print(f"🗑️  Dropping timer for: {title_slug}", file=sys.stderr)
+                # Discard the timer without saving a session record to DB.
+                self.timer_manager.stop(title_slug)
+                return {
+                    "success": True,
+                    "action": ServerAction.DROP_TIMER,
+                    "title_slug": title_slug,
                 }
 
             case ServerAction.GET_ACTIVE_TIMERS:

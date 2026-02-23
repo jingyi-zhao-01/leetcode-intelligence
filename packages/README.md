@@ -21,8 +21,8 @@ make install-all
 ### 2. Setup Environment
 
 ```bash
-# Ensure DATABASE_URL is set in packages/submissions/.env
-cd submissions
+# Ensure DATABASE_URL is set in packages/submission_server/.env
+cd submission_server
 cat .env  # Should contain DATABASE_URL
 ```
 
@@ -56,7 +56,7 @@ Navigate to `http://localhost:3000` to see the interactive graph!
 
 ## Features
 
-### Backend (submissions)
+### Backend (submission_server)
 - `/api/graph` - Get problem graph with filters (solved, includeTags, filterTags, limit)
 - `/api/problems/{slug}` - Get detailed problem info with submission history
 - `/api/tags` - Get all available topic tags
@@ -81,7 +81,7 @@ Navigate to `http://localhost:3000` to see the interactive graph!
 
 ### Backend Commands
 ```bash
-cd packages/submissions
+cd packages/submission_server
 make install      # Install dependencies
 make dev-api      # Start unified API server
 make prisma-generate  # Generate Prisma client
