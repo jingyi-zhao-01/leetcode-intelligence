@@ -2,18 +2,12 @@
 This script ingests LeetCode problems into a PostgreSQL database using Prisma.
 """
 
-import sys
-import os
-
-# Add project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import asyncio
 import logging
 from prisma import Prisma
-from problems.leetcode_graphql import LeetCodeGraphQLClient
-from common.logging_config import setup_logging
-from common.log_decorator import log_function_calls
+from .leetcode_graphql import LeetCodeGraphQLClient
+from .common.logging_config import setup_logging
+from .common.log_decorator import log_function_calls
 
 logger = logging.getLogger(__name__)
 

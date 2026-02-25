@@ -3,7 +3,7 @@
 Small test for GraphQL client to fetch just a few questions.
 """
 
-from problems.leetcode_graphql import LeetCodeGraphQLClient
+from ingestor.leetcode_graphql import LeetCodeGraphQLClient
 import json
 import os
 

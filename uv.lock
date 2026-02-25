@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "leetcode-ingestor",
     "leetcode-mcp-server",
     "leetcode-qa",
     "leetcode-submissions",
@@ -1499,6 +1500,25 @@ wheels = [
 ]
 
 [[package]]
+name = "leetcode-ingestor"
+version = "0.1.0"
+source = { editable = "packages/ingestor" }
+dependencies = [
+    { name = "prisma" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "prisma", specifier = ">=0.15.0" },
+    { name = "pydantic", specifier = ">=2.12.3" },
+    { name = "python-dotenv" },
+    { name = "requests", specifier = ">=2.32.5" },
+]
+
+[[package]]
 name = "leetcode-mcp-server"
 version = "0.1.0"
 source = { editable = "packages/mcp-server" }
@@ -1554,6 +1574,7 @@ name = "leetcode-qa"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "leetcode-ingestor" },
     { name = "leetcode-mcp-server" },
     { name = "leetcode-submissions" },
 ]
@@ -1566,6 +1587,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "leetcode-ingestor", editable = "packages/ingestor" },
     { name = "leetcode-mcp-server", editable = "packages/mcp-server" },
     { name = "leetcode-submissions", editable = "packages/submission_server" },
 ]

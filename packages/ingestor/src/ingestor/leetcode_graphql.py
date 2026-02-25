@@ -2,12 +2,7 @@
 LeetCode GraphQL API client for fetching all problems.
 """
 
-import sys
 import os
-
-# Add project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import json
 import time
 import requests
@@ -15,8 +10,9 @@ from typing import Dict, List, Any, Tuple
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
-from model.problems import Question
-from common.log_decorator import log_function_calls
+
+from .model.problems import Question
+from .common.log_decorator import log_function_calls
 
 logger = logging.getLogger(__name__)
 
@@ -338,23 +334,3 @@ class LeetCodeGraphQLClient:
                 json.dump(questions_dict, f, indent=2, ensure_ascii=False)
         except Exception as e:
             logger.error(f"Error saving to file: {e}")
-
-
-# def main():
-#     """Example usage of the LeetCode GraphQL client."""
-#     setup_logging()
-#     client = LeetCodeGraphQLClient()
-
-#     try:
-#         # Fetch questions with related problems in the new simplified format
-#         client.fetch_all_questions_with_similar(
-#             output_file="data/leetcode_questions_with_similar.json",
-#             delay=1.5,  # 1.5 second delay between requests
-#         )
-
-#     except Exception as e:
-#         logger.error(f"Error: {e}")
-
-
-# if __name__ == "__main__":
-#     main()
