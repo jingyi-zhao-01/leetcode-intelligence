@@ -1,4 +1,4 @@
-.PHONY: help install mcp submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats clean
+.PHONY: help install mcp submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats compose-build compose-up compose-down compose-logs compose-ps clean
 
 help:
 	@echo "Available commands:"
@@ -13,6 +13,11 @@ help:
 	@echo "  make prisma-generate      - Generate Prisma client for current ENV"
 	@echo "  make prisma-db-push       - Push schema to current ENV DB"
 	@echo "  make submission-stats     - Show submission statistics"
+	@echo "  make compose-build        - [Docker target] Build Docker Compose images"
+	@echo "  make compose-up [ENV=...] - [Docker target] Start Compose stack (submission + mcp)"
+	@echo "  make compose-down         - [Docker target] Stop and remove Compose stack"
+	@echo "  make compose-logs         - [Docker target] Tail logs for Compose services"
+	@echo "  make compose-ps           - [Docker target] Show Compose service status"
 	@echo "  make clean                - Remove build artifacts and caches"
 	@echo ""
 	@echo "Port allocation:"
@@ -121,6 +126,29 @@ dev-frontend:
 submission-stats: prisma-generate-dev
 	@echo "Fetching Submission Stats | Environment: dev"
 	$(SUB_ENV) uv run submission-stats
+
+# --- Docker Targets ---
+# Docker target: build all service images defined in docker-compose.yml
+compose-build:
+	@echo "Building Compose images | Environment: $(ENV)" >&2
+	@DATABASE_URL=$(CURRENT_DB_URL) docker compose build
+
+# Docker target: start submission_server and mcp_server in detached mode
+compose-up:
+	@echo "Starting Compose stack | Environment: $(ENV)" >&2
+	@DATABASE_URL=$(CURRENT_DB_URL) docker compose up -d
+
+# Docker target: stop and remove services, network, and compose resources
+compose-down:
+	@DATABASE_URL=$(CURRENT_DB_URL) docker compose down
+
+# Docker target: stream recent logs from submission_server and mcp_server
+compose-logs:
+	@DATABASE_URL=$(CURRENT_DB_URL) docker compose logs -f submission_server mcp_server
+
+# Docker target: show runtime status for compose services
+compose-ps:
+	@DATABASE_URL=$(CURRENT_DB_URL) docker compose ps
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache

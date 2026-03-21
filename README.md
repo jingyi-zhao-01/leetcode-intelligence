@@ -61,6 +61,45 @@ graph TB
 
 **Current Status**: ✅ Per-Question Submission Tracking | ✅ MCP Integration | 🚧 Cross-Question Analytics
 
+## Docker Compose (submission_server + mcp-server)
+
+You can run the two backend services with Docker Compose:
+
+- `submission_server` on TCP `3000`
+- `mcp_server` in MCP `stdio` mode
+
+### Prerequisites
+
+- Docker + Docker Compose installed
+- `.env` exists at project root and contains `DEV_DB_URL` and `PROD_DB_URL`
+
+### Start
+
+```bash
+make compose-build ENV=dev
+make compose-up ENV=dev
+```
+
+For production DB URL:
+
+```bash
+make compose-up ENV=prod
+```
+
+### Stop
+
+```bash
+make compose-down ENV=dev
+```
+
+### Notes
+
+- Compose uses `DATABASE_URL`, passed by `Makefile` from `ENV`:
+  - `ENV=dev` → `DEV_DB_URL`
+  - `ENV=prod` → `PROD_DB_URL`
+- `submission_server` is configured with `SUBMISSION_HOST=0.0.0.0` so port publishing works.
+- `mcp_server` uses `mcp-server-stdio`; it does not expose an HTTP port in this setup.
+
 ## System Architecture
 
 ```mermaid
