@@ -18,6 +18,89 @@ from util import (
 )
 
 
+# === PROBLEM DISCOVERY HELPERS ===
+
+_DIFFICULTY_VALUES = {"easy": "Easy", "medium": "Medium", "hard": "Hard"}
+
+
+def _normalize_slug(value: str) -> str:
+    slug = (value or "").strip()
+    if not slug:
+        raise ValueError("'slug' is required and cannot be empty.")
+    return slug
+
+
+def _normalize_query(value: str) -> str:
+    query = (value or "").strip()
+    if not query:
+        raise ValueError("'query' is required and cannot be empty.")
+    return query
+
+
+def _normalize_difficulty(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = _DIFFICULTY_VALUES.get(value.strip().lower())
+    if not normalized:
+        allowed = ", ".join(sorted(_DIFFICULTY_VALUES.values()))
+        raise ValueError(f"Invalid difficulty '{value}'. Allowed values: {allowed}.")
+    return normalized
+
+
+def _normalize_topic(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    topic = value.strip()
+    return topic or None
+
+
+def _normalize_topics(values: Optional[List[str]]) -> List[str]:
+    if not values:
+        return []
+    topics = []
+    for t in values:
+        topic = (t or "").strip()
+        if topic:
+            topics.append(topic)
+    # Stable de-dup
+    seen = set()
+    deduped = []
+    for t in topics:
+        if t not in seen:
+            seen.add(t)
+            deduped.append(t)
+    return deduped
+
+
+def _normalize_pagination(limit: int, offset: int) -> Tuple[int, int]:
+    safe_limit = max(1, min(int(limit), 100))
+    safe_offset = max(0, int(offset))
+    return safe_limit, safe_offset
+
+
+def _question_to_summary(question: Any) -> Dict[str, Any]:
+    return {
+        "title": question.title,
+        "slug": question.titleSlug,
+        "difficulty": question.difficulty,
+        "topics": question.topicTags or [],
+        "popularity": question.freqBar,
+    }
+
+
+def _sort_params(sort_by: str) -> Tuple[List[Dict[str, str]], str]:
+    key = (sort_by or "title").strip().lower()
+    if key in {"popularity", "freq_bar", "-popularity", "-freq_bar"}:
+        return ([{"freqBar": "desc"}, {"titleSlug": "asc"}], "freq_bar_desc")
+    if key in {"-title", "title_desc"}:
+        return ([{"title": "desc"}, {"titleSlug": "asc"}], "title_desc")
+    if key in {"difficulty", "difficulty_asc"}:
+        return ([{"difficulty": "asc"}, {"titleSlug": "asc"}], "difficulty_asc")
+    if key in {"-difficulty", "difficulty_desc"}:
+        return ([{"difficulty": "desc"}, {"titleSlug": "asc"}], "difficulty_desc")
+    return ([{"title": "asc"}, {"titleSlug": "asc"}], "title_asc")
+
+
 # === REVIEW HELPERS ===
 
 
@@ -365,3 +448,234 @@ async def analyze_thought_progression(db: Prisma, title_slug: str) -> Dict[str, 
             "error": f"Failed to analyze thought progression: {str(e)}",
             "title_slug": title_slug,
         }
+
+
+async def search_problems(
+    db: Prisma,
+    query: str,
+    topic: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Search problems by title query with optional topic and difficulty filters."""
+    try:
+        query = _normalize_query(query)
+        topic = _normalize_topic(topic)
+        difficulty = _normalize_difficulty(difficulty)
+        limit, offset = _normalize_pagination(limit, offset)
+
+        where: Dict[str, Any] = {
+            "title": {"contains": query, "mode": "insensitive"},
+        }
+        if topic:
+            where["topicTags"] = {"has": topic}
+        if difficulty:
+            where["difficulty"] = difficulty
+
+        total = await db.question.count(where=where)
+        questions = await db.question.find_many(
+            where=where,
+            order=[{"title": "asc"}, {"titleSlug": "asc"}],
+            skip=offset,
+            take=limit,
+        )
+
+        return {
+            "query": query,
+            "filters": {"topic": topic, "difficulty": difficulty},
+            "items": [_question_to_summary(q) for q in questions],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to search problems: {exc}"}
+
+
+async def get_problem_details(db: Prisma, slug: str) -> Dict[str, Any]:
+    """Return full problem details and submission summary for a slug."""
+    try:
+        slug = _normalize_slug(slug)
+
+        question = await db.question.find_unique(where={"titleSlug": slug})
+        if not question:
+            return {"error": f"Problem '{slug}' not found."}
+
+        attempts = await db.submission.count(where={"titleSlug": slug})
+        accepted = await db.submission.count(
+            where={"titleSlug": slug, "status": "Accepted"}
+        )
+
+        return {
+            "title": question.title,
+            "slug": question.titleSlug,
+            "difficulty": question.difficulty,
+            "description": question.content,
+            "topics": question.topicTags or [],
+            "related_problems": question.relatedProblems or [],
+            "popularity": question.freqBar,
+            "submission_summary": {
+                "attempts": attempts,
+                "accepted_submissions": accepted,
+                "is_solved": accepted > 0,
+            },
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to get problem details: {exc}"}
+
+
+async def get_related_problems(
+    db: Prisma,
+    slug: str,
+    include_details: bool = True,
+) -> Dict[str, Any]:
+    """List related problems for a given slug."""
+    try:
+        slug = _normalize_slug(slug)
+
+        source = await db.question.find_unique(where={"titleSlug": slug})
+        if not source:
+            return {"error": f"Problem '{slug}' not found."}
+
+        related_slugs = source.relatedProblems or []
+        if not related_slugs:
+            return {
+                "slug": slug,
+                "related_problems": [],
+                "missing_slugs": [],
+            }
+
+        related_rows = await db.question.find_many(
+            where={"titleSlug": {"in": related_slugs}},
+            order=[{"titleSlug": "asc"}],
+        )
+        rows_by_slug = {q.titleSlug: q for q in related_rows}
+
+        missing_slugs = [s for s in related_slugs if s not in rows_by_slug]
+
+        if include_details:
+            related_items = [
+                _question_to_summary(rows_by_slug[s])
+                for s in related_slugs
+                if s in rows_by_slug
+            ]
+        else:
+            related_items = [s for s in related_slugs if s in rows_by_slug]
+
+        return {
+            "slug": slug,
+            "related_problems": related_items,
+            "missing_slugs": missing_slugs,
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to get related problems: {exc}"}
+
+
+async def list_problems_by_filters(
+    db: Prisma,
+    topics: Optional[List[str]] = None,
+    difficulty: Optional[str] = None,
+    sort_by: str = "title",
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Filter problems by topic combination and difficulty with sorting."""
+    try:
+        topics = _normalize_topics(topics)
+        difficulty = _normalize_difficulty(difficulty)
+        limit, offset = _normalize_pagination(limit, offset)
+        order, order_label = _sort_params(sort_by)
+
+        where: Dict[str, Any] = {}
+        if topics:
+            where["topicTags"] = {"hasEvery": topics}
+        if difficulty:
+            where["difficulty"] = difficulty
+
+        total = await db.question.count(where=where)
+        questions = await db.question.find_many(
+            where=where,
+            order=order,
+            skip=offset,
+            take=limit,
+        )
+
+        return {
+            "filters": {"topics": topics, "difficulty": difficulty},
+            "sort_by": order_label,
+            "items": [_question_to_summary(q) for q in questions],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to list problems by filters: {exc}"}
+
+
+async def list_popular_problems(
+    db: Prisma,
+    topic: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Return most popular problems ranked by Question.freqBar."""
+    try:
+        topic = _normalize_topic(topic)
+        difficulty = _normalize_difficulty(difficulty)
+        limit, offset = _normalize_pagination(limit, offset)
+
+        where: Dict[str, Any] = {}
+        if topic:
+            where["topicTags"] = {"has": topic}
+        if difficulty:
+            where["difficulty"] = difficulty
+
+        total = await db.question.count(where=where)
+        questions = await db.question.find_many(
+            where=where,
+            order=[{"freqBar": "desc"}, {"titleSlug": "asc"}],
+            skip=offset,
+            take=limit,
+        )
+
+        return {
+            "filters": {"topic": topic, "difficulty": difficulty},
+            "sort_by": "freq_bar_desc",
+            "items": [_question_to_summary(q) for q in questions],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to list popular problems: {exc}"}
+
+
+async def check_problem_solved(db: Prisma, slug: str) -> Dict[str, Any]:
+    """Check whether a problem has at least one accepted submission."""
+    try:
+        slug = _normalize_slug(slug)
+        accepted = await db.submission.count(
+            where={"titleSlug": slug, "status": "Accepted"}
+        )
+
+        return {
+            "slug": slug,
+            "is_solved": accepted > 0,
+            "accepted_submissions": accepted,
+        }
+    except ValueError as exc:
+        return {"error": str(exc)}
+    except Exception as exc:
+        return {"error": f"Failed to check solved state: {exc}"}
