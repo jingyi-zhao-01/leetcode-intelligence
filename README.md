@@ -138,7 +138,7 @@ flowchart TD
     end
     
     subgraph "Analysis Features"
-        K --> W[get_submission_evolution]
+        K --> W[get_submission_history]
         K --> X[analyze_thought_progression]
         K --> Y[compare_solutions]
         K --> Z[track_improvement_metrics]
@@ -297,7 +297,7 @@ Open problem in Neovim
   - Automatic timestamping and status tracking
   
 - [x] **MCP Server Implementation**
-  - `get_submission_evolution`: Timeline analysis for specific questions
+  - `get_submission_history`: List submissions with id, code, result, mistakes, and time
   - `analyze_thought_progression`: Comment evolution tracking per question
   - FastMCP-based server with stdio transport for GitHub Copilot
   

@@ -113,8 +113,8 @@ def _calculate_evolution_metrics(submissions) -> Dict[str, Any]:
     }
 
 
-async def test_get_submission_evolution(title_slug: str) -> Dict[str, Any]:
-    """Test version of get_submission_evolution."""
+async def test_get_submission_history(title_slug: str) -> Dict[str, Any]:
+    """Test version of get_submission_history."""
     try:
         # Get all submissions for this problem, ordered by creation time
         submissions = await test_db.submission.find_many(
@@ -128,40 +128,28 @@ async def test_get_submission_evolution(title_slug: str) -> Dict[str, Any]:
                 "message": "No submissions found for this problem",
             }
 
-        # Analyze submission evolution
-        evolution_data = {
+        history = {
             "title_slug": title_slug,
             "total_submissions": len(submissions),
-            "first_attempt": submissions[0].createdAt.isoformat(),
-            "latest_attempt": submissions[-1].createdAt.isoformat(),
             "submissions": [],
         }
 
-        # Extract data for each submission
-        for i, submission in enumerate(submissions):
-            submission_data = {
-                "attempt_number": i + 1,
-                "timestamp": submission.createdAt.isoformat(),
-                "status": submission.status,
-                "code_length": len(submission.content or ""),
-                "has_comments": "# " in (submission.content or ""),
-                "content_preview": (
-                    (submission.content or "")[:200] + "..."
-                    if len(submission.content or "") > 200
-                    else submission.content
-                ),
-                "comments_extracted": _extract_comments(submission.content or ""),
-            }
-            evolution_data["submissions"].append(submission_data)
+        for submission in submissions:
+            history["submissions"].append(
+                {
+                    "submissionId": submission.id,
+                    "submittedCode": submission.content or "",
+                    "result": submission.status,
+                    "mistakes": submission.mistake,
+                    "time": submission.createdAt.isoformat(),
+                }
+            )
 
-        # Calculate evolution metrics
-        evolution_data["metrics"] = _calculate_evolution_metrics(submissions)
-
-        return evolution_data
+        return history
 
     except Exception as e:
         return {
-            "error": f"Failed to get submission evolution: {str(e)}",
+            "error": f"Failed to get submission history: {str(e)}",
             "title_slug": title_slug,
         }
 
@@ -254,25 +242,20 @@ def twoSum(nums, target):
     print("✅ Test data created successfully!")
 
 
-async def run_get_submission_evolution_test():
-    """Test the get_submission_evolution function."""
-    print("\n📊 Testing get_submission_evolution...")
+async def run_get_submission_history_test():
+    """Test the get_submission_history function."""
+    print("\n📊 Testing get_submission_history...")
 
-    result = await test_get_submission_evolution("two-sum")
+    result = await test_get_submission_history("two-sum")
 
     print(f"Title slug: {result.get('title_slug')}")
     print(f"Total submissions: {result.get('total_submissions')}")
-    print(f"First attempt: {result.get('first_attempt')}")
-    print(f"Latest attempt: {result.get('latest_attempt')}")
 
     if result.get("submissions"):
-        for i, sub in enumerate(result["submissions"]):
-            print(f"  Attempt {i+1}: {sub['status']} ({sub['code_length']} chars)")
-
-    if result.get("metrics"):
-        metrics = result["metrics"]
-        print(f"Final success rate: {metrics.get('final_success_rate'):.2f}")
-        print(f"Attempts to success: {metrics.get('attempts_to_success')}")
+        for sub in result["submissions"]:
+            print(f"  [{sub['submissionId']}] {sub['result']} @ {sub['time']}")
+            if sub.get("mistakes"):
+                print(f"    Mistakes: {sub['mistakes']}")
 
 
 async def run_analyze_thought_progression_test():
@@ -308,7 +291,7 @@ async def main():
 
     try:
         await setup_test_data()
-        await run_get_submission_evolution_test()
+        await run_get_submission_history_test()
         await run_analyze_thought_progression_test()
     finally:
         await cleanup_test_data()

@@ -51,9 +51,9 @@ async def check_database_contents():
         await debug_db.disconnect()
 
 
-async def test_submission_evolution_debug():
-    """Debug version of submission evolution test."""
-    print("\n🐛 Testing submission evolution with debug info...")
+async def test_submission_history_debug():
+    """Debug version of submission history test."""
+    print("\n🐛 Testing submission history with debug info...")
 
     await debug_db.connect()
 
@@ -79,38 +79,33 @@ async def test_submission_evolution_debug():
                     print(f"  - '{sub.titleSlug}'")
             return
 
-        # Process the submissions
-        evolution_data = {
+        history = {
             "title_slug": title_slug,
             "total_submissions": len(submissions),
-            "first_attempt": submissions[0].createdAt.isoformat(),
-            "latest_attempt": submissions[-1].createdAt.isoformat(),
             "submissions": [],
         }
 
         print(f"✅ Processing {len(submissions)} submissions...")
 
-        for i, submission in enumerate(submissions):
-            print(f"  Processing submission {i+1}: {submission.status}")
+        for submission in submissions:
+            print(f"  Processing submission: {submission.id} - {submission.status}")
+            history["submissions"].append(
+                {
+                    "submissionId": submission.id,
+                    "submittedCode": submission.content or "",
+                    "result": submission.status,
+                    "mistakes": submission.mistake,
+                    "time": submission.createdAt.isoformat(),
+                }
+            )
 
-            submission_data = {
-                "attempt_number": i + 1,
-                "timestamp": submission.createdAt.isoformat(),
-                "status": submission.status,
-                "code_length": len(submission.content or ""),
-                "has_comments": "# " in (submission.content or ""),
-            }
-            evolution_data["submissions"].append(submission_data)
+        print("\n📊 Submission History:")
+        print(f"  Title: {history['title_slug']}")
+        print(f"  Total submissions: {history['total_submissions']}")
 
-        print("\n📊 Evolution Data:")
-        print(f"  Title: {evolution_data['title_slug']}")
-        print(f"  Total submissions: {evolution_data['total_submissions']}")
-        print(f"  First attempt: {evolution_data['first_attempt']}")
-        print(f"  Latest attempt: {evolution_data['latest_attempt']}")
-
-        for sub_data in evolution_data["submissions"]:
+        for sub_data in history["submissions"]:
             print(
-                f"    Attempt {sub_data['attempt_number']}: {sub_data['status']} ({sub_data['code_length']} chars)"
+                f"    [{sub_data['submissionId']}] {sub_data['result']} @ {sub_data['time']}"
             )
 
     finally:
@@ -123,7 +118,7 @@ async def main():
     print("=" * 50)
 
     await check_database_contents()
-    await test_submission_evolution_debug()
+    await test_submission_history_debug()
 
     print("\n🎉 Debug session completed!")
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-LeetCode Submission Evolution MCP Server
-Provides two main tools for analyzing LeetCode submission evolution:
-- get_submission_evolution: Timeline and metrics for a specific problem
+LeetCode Submission History MCP Server
+Provides two main tools for analyzing LeetCode submissions:
+- get_submission_history: List all submissions for a specific problem
 - analyze_thought_progression: Comment and approach evolution analysis
 """
 
@@ -10,24 +10,14 @@ import asyncio
 import sys
 import os
 import subprocess
-from typing import Dict, Any, Optional
 from prisma import Prisma
 
 # Add project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastmcp import FastMCP
-from tool import (
-    get_submission_evolution as get_submission_evolution_impl,
-    analyze_thought_progression as analyze_thought_progression_impl,
-    review_submissions as review_submissions_impl,
-    search_problems as search_problems_impl,
-    get_problem_details as get_problem_details_impl,
-    get_related_problems as get_related_problems_impl,
-    list_problems_by_filters as list_problems_by_filters_impl,
-    list_popular_problems as list_popular_problems_impl,
-    check_problem_solved as check_problem_solved_impl,
-)
+from read_tools import register_read_tools
+from write_tools import register_write_tools
 
 # Create FastMCP server with submission evolution tools
 mcp = FastMCP(name="LeetCode Submission Evolution Server 🚀")
@@ -42,220 +32,11 @@ async def ensure_db_connected():
         await db.connect()
 
 
-# === ORIGINAL DICE TOOLS ===
+# Register CRUD-style Read tools from a dedicated module.
+register_read_tools(mcp, db, ensure_db_connected)
 
-
-# === LEETCODE SUBMISSION EVOLUTION TOOLS ===
-
-
-@mcp.tool
-async def get_submission_evolution(title_slug: str) -> Dict[str, Any]:
-    """
-    Get the evolution of submissions for a specific LeetCode problem.
-
-    Args:
-        title_slug: The problem slug (e.g., "two-sum", "best-time-to-buy-and-sell-stock")
-
-    Returns:
-        Dictionary containing submission timeline, evolution metrics, and insights
-    """
-    await ensure_db_connected()
-    return await get_submission_evolution_impl(db, title_slug)
-
-
-@mcp.tool
-async def analyze_thought_progression(title_slug: str) -> Dict[str, Any]:
-    """
-    Analyze how thoughts and comments evolved across submissions for a problem.
-
-    Args:
-        title_slug: The problem slug
-
-    Returns:
-        Analysis of comment evolution and thought progression
-    """
-    await ensure_db_connected()
-    return await analyze_thought_progression_impl(db, title_slug)
-
-
-@mcp.tool
-async def review_submissions(
-    period: str = "today",
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    Return a structured breakdown of all LeetCode submissions in a time window
-    so the client can generate a summary, error analysis, and improvement advice.
-
-    Time window (pick one mode):
-
-    Shorthand via `period`:
-        - "today"      – current calendar day (UTC)
-        - "yesterday"  – previous calendar day (UTC)
-        - "YYYY-MM-DD" – a specific single day
-
-    Explicit range via `start_date` / `end_date`:
-        - start_date: ISO date string, e.g. "2026-02-01"  (required for range mode)
-        - end_date:   ISO date string, inclusive, e.g. "2026-02-22"  (optional;
-                      defaults to start_date, giving a single-day window)
-        When start_date is provided it takes precedence over `period`.
-
-    Returns:
-        {
-          period:         str,   # human-readable label for the window
-          date_range:     {start: ISO str, end: ISO str},
-          summary_stats:  {
-              total_problems_attempted: int,
-              total_accepted:           int,
-              acceptance_rate_pct:      float,
-              total_submissions:        int,
-              error_type_counts:        {status: count},
-              topics_covered:           [str]
-          },
-          problems: [
-            {
-              title_slug:               str,
-              title:                    str,
-              difficulty:               str,
-              topic_tags:               [str],
-              attempts:                 int,
-              statuses:                 [str],   # ordered chronologically
-              final_status:             str,
-              total_time_spent_minutes: int,
-              first_attempt_at:         ISO str,
-              final_submission_code:    str
-            }
-          ]
-        }
-    """
-    await ensure_db_connected()
-    return await review_submissions_impl(db, period, start_date, end_date)
-
-
-@mcp.tool
-async def search_problems(
-    query: str,
-    topic: Optional[str] = None,
-    difficulty: Optional[str] = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> Dict[str, Any]:
-    """
-    Search problems by title query with optional topic and difficulty filters.
-
-    Args:
-        query: Title text query (case-insensitive contains match)
-        topic: Optional topic tag filter
-        difficulty: Optional difficulty (Easy|Medium|Hard)
-        limit: Max rows to return (1..100)
-        offset: Row offset for pagination (>=0)
-
-    Returns:
-        Filtered list of matching problems with pagination metadata.
-    """
-    await ensure_db_connected()
-    return await search_problems_impl(db, query, topic, difficulty, limit, offset)
-
-
-@mcp.tool
-async def get_problem_details(slug: str) -> Dict[str, Any]:
-    """
-    Get full details for a specific problem.
-
-    Args:
-        slug: Problem slug (e.g., "two-sum")
-
-    Returns:
-        Problem metadata, description, topics, related problems, and submission summary.
-    """
-    await ensure_db_connected()
-    return await get_problem_details_impl(db, slug)
-
-
-@mcp.tool
-async def get_related_problems(
-    slug: str, include_details: bool = True
-) -> Dict[str, Any]:
-    """
-    List related problems for a given problem slug.
-
-    Args:
-        slug: Source problem slug
-        include_details: When true, include title/difficulty/topics/popularity per related problem
-
-    Returns:
-        Related problems and any missing referenced slugs.
-    """
-    await ensure_db_connected()
-    return await get_related_problems_impl(db, slug, include_details)
-
-
-@mcp.tool
-async def list_problems_by_filters(
-    topics: Optional[list[str]] = None,
-    difficulty: Optional[str] = None,
-    sort_by: str = "title",
-    limit: int = 50,
-    offset: int = 0,
-) -> Dict[str, Any]:
-    """
-    List problems matching combined filters.
-
-    Args:
-        topics: Optional topic list; all topics must be present (AND semantics)
-        difficulty: Optional difficulty (Easy|Medium|Hard)
-        sort_by: One of title, -title, difficulty, -difficulty, popularity
-        limit: Max rows to return (1..100)
-        offset: Row offset for pagination (>=0)
-
-    Returns:
-        Filtered, sorted problems with pagination metadata.
-    """
-    await ensure_db_connected()
-    return await list_problems_by_filters_impl(
-        db, topics, difficulty, sort_by, limit, offset
-    )
-
-
-@mcp.tool
-async def list_popular_problems(
-    topic: Optional[str] = None,
-    difficulty: Optional[str] = None,
-    limit: int = 20,
-    offset: int = 0,
-) -> Dict[str, Any]:
-    """
-    Return most popular problems ranked by Question.freqBar descending.
-
-    Args:
-        topic: Optional topic tag filter
-        difficulty: Optional difficulty (Easy|Medium|Hard)
-        limit: Max rows to return (1..100)
-        offset: Row offset for pagination (>=0)
-
-    Returns:
-        Ranked list of problems and pagination metadata.
-    """
-    await ensure_db_connected()
-    return await list_popular_problems_impl(db, topic, difficulty, limit, offset)
-
-
-@mcp.tool
-async def check_problem_solved(slug: str) -> Dict[str, Any]:
-    """
-    Check if a specific problem has been solved by the user.
-
-    Solved is defined as having at least one Accepted submission in the database.
-
-    Args:
-        slug: Problem slug
-
-    Returns:
-        Boolean solved state and accepted submission count.
-    """
-    await ensure_db_connected()
-    return await check_problem_solved_impl(db, slug)
+# Register CRUD-style Write tools from a dedicated module.
+register_write_tools(mcp, db, ensure_db_connected)
 
 
 # === SERVER STARTUP ===

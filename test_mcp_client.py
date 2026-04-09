@@ -10,9 +10,9 @@ async def test_client():
 
     try:
         async with client:
-            # Test calling the get_submission_evolution tool
+            # Test calling the get_submission_history tool
             result = await client.call_tool(
-                "get_submission_evolution",
+                "get_submission_history",
                 {"title_slug": "best-time-to-buy-and-sell-stock"},
             )
             print(f"✅ MCP call successful!")

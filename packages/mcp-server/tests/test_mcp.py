@@ -17,7 +17,7 @@ sys.path.append(
 
 from server import (
     db,
-    get_submission_evolution,
+    get_submission_history,
     analyze_thought_progression,
 )
 
@@ -69,25 +69,20 @@ def twoSum(nums, target):
     print("✅ Test data created successfully!")
 
 
-async def test_get_submission_evolution():
-    """Test the get_submission_evolution function."""
-    print("\n📊 Testing get_submission_evolution...")
+async def test_get_submission_history():
+    """Test the get_submission_history function."""
+    print("\n📊 Testing get_submission_history...")
 
-    result = await get_submission_evolution("two-sum")
+    result = await get_submission_history("two-sum")
 
     print(f"Title slug: {result.get('title_slug')}")
     print(f"Total submissions: {result.get('total_submissions')}")
-    print(f"First attempt: {result.get('first_attempt')}")
-    print(f"Latest attempt: {result.get('latest_attempt')}")
 
     if result.get("submissions"):
-        for i, sub in enumerate(result["submissions"]):
-            print(f"  Attempt {i+1}: {sub['status']} ({sub['code_length']} chars)")
-
-    if result.get("metrics"):
-        metrics = result["metrics"]
-        print(f"Final success rate: {metrics.get('final_success_rate'):.2f}")
-        print(f"Attempts to success: {metrics.get('attempts_to_success')}")
+        for sub in result["submissions"]:
+            print(f"  [{sub['submissionId']}] {sub['result']} @ {sub['time']}")
+            if sub.get("mistakes"):
+                print(f"    Mistakes: {sub['mistakes']}")
 
 
 async def test_analyze_thought_progression():
@@ -124,7 +119,7 @@ async def main():
 
     try:
         await setup_test_data()
-        await test_get_submission_evolution()
+        await test_get_submission_history()
         await test_analyze_thought_progression()
     finally:
         await cleanup_test_data()

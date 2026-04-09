@@ -36,7 +36,7 @@ This directory contains a LeetCode study plan with a structured 14-day problem-s
 
 ## Available Tools
 - `review_submissions` - Review LeetCode submissions in a time window
-- `get_submission_evolution` - Get evolution of submissions for a specific problem
+- `get_submission_history` - List submissions for a specific problem (id, code, result, mistakes, time)
 - `analyze_thought_progression` - Analyze how thoughts evolved across submissions
 
 ## Important Constraint

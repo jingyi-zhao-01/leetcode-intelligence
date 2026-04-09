@@ -13,7 +13,6 @@ from util import (
     extract_comments,
     analyze_comment_themes,
     count_complexity_mentions,
-    calculate_evolution_metrics,
     analyze_overall_progression,
 )
 
@@ -330,16 +329,16 @@ async def review_submissions(
 # === MCP TOOL FUNCTIONS ===
 
 
-async def get_submission_evolution(db: Prisma, title_slug: str) -> Dict[str, Any]:
+async def get_submission_history(db: Prisma, title_slug: str) -> Dict[str, Any]:
     """
-    Get the evolution of submissions for a specific LeetCode problem.
+    Get the submission history for a specific LeetCode problem.
 
     Args:
         db: Prisma database instance
         title_slug: The problem slug (e.g., "two-sum", "best-time-to-buy-and-sell-stock")
 
     Returns:
-        Dictionary containing submission timeline, evolution metrics, and insights
+        Dictionary containing each submission's id, code, result, mistakes, and time
     """
     try:
         # Get all submissions for this problem, ordered by creation time
@@ -354,43 +353,67 @@ async def get_submission_evolution(db: Prisma, title_slug: str) -> Dict[str, Any
                 "message": "No submissions found for this problem",
             }
 
-        # Analyze submission evolution
-        evolution_data = {
+        history = {
             "title_slug": title_slug,
             "total_submissions": len(submissions),
-            "first_attempt": submissions[0].createdAt.isoformat(),
-            "latest_attempt": submissions[-1].createdAt.isoformat(),
             "submissions": [],
         }
 
-        # Extract data for each submission
-        for i, submission in enumerate(submissions):
-            submission_data = {
-                "attempt_number": i + 1,
-                "timestamp": submission.createdAt.isoformat(),
-                "status": submission.status,
-                "code_length": len(submission.content or ""),
-                "has_comments": "# " in (submission.content or ""),
-                "content_preview": (
-                    (submission.content or "")[:200] + "..."
-                    if len(submission.content or "") > 200
-                    else submission.content
-                ),
-                "comments_extracted": extract_comments(submission.content or ""),
-                "thought": submission.thought,
-            }
-            evolution_data["submissions"].append(submission_data)
+        for submission in submissions:
+            history["submissions"].append(
+                {
+                    "submissionId": submission.id,
+                    "submittedCode": submission.content or "",
+                    "result": submission.status,
+                    "mistakes": submission.mistake,
+                    "time": submission.createdAt.isoformat(),
+                }
+            )
 
-        # Calculate evolution metrics
-        evolution_data["metrics"] = calculate_evolution_metrics(submissions)
-
-        return evolution_data
+        return history
 
     except Exception as e:
         return {
-            "error": f"Failed to get submission evolution: {str(e)}",
+            "error": f"Failed to get submission history: {str(e)}",
             "title_slug": title_slug,
         }
+
+
+async def get_submission_detail(db: Prisma, submission_id: str) -> Dict[str, Any]:
+    """
+    Get every field of a single submission by its ID.
+
+    Args:
+        db: Prisma database instance
+        submission_id: The submission's cuid
+
+    Returns:
+        All fields of the Submission record, or a not-found message
+    """
+    try:
+        submission = await db.submission.find_unique(where={"id": submission_id})
+
+        if submission is None:
+            return {
+                "submissionId": submission_id,
+                "message": "Submission not found",
+            }
+
+        return {
+            "submissionId": submission.id,
+            "titleSlug": submission.titleSlug,
+            "submittedCode": submission.content,
+            "result": submission.status,
+            "thought": submission.thought,
+            "mistakes": submission.mistake,
+            "time": submission.createdAt.isoformat(),
+            "submissionDetails": submission.submissionDetails,
+            "isCheat": submission.isCheat,
+            "timeSpentMinutes": submission.timeSpentMinutes,
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to get submission detail: {str(e)}"}
 
 
 async def analyze_thought_progression(db: Prisma, title_slug: str) -> Dict[str, Any]:

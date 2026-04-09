@@ -39,12 +39,12 @@ async def test_mcp_server_tools():
 
     print(f"Available tools: {list(tools.keys())}")
 
-    # Test 1: Get submission evolution
-    print("\n📊 Testing get_submission_evolution tool...")
-    get_submission_evolution_tool = tools.get("get_submission_evolution")
-    if get_submission_evolution_tool:
+    # Test 1: Get submission history
+    print("\n📊 Testing get_submission_history tool...")
+    get_submission_history_tool = tools.get("get_submission_history")
+    if get_submission_history_tool:
         # Call the underlying function directly
-        result = await get_submission_evolution_tool.fn("two-sum")
+        result = await get_submission_history_tool.fn("two-sum")
         print(f"✅ Result: {json.dumps(result, indent=2, default=str)}")
     else:
         print("❌ Tool not found")
@@ -96,7 +96,7 @@ async def main():
 
         print("\n📋 Summary:")
         print(
-            "  ✅ get_submission_evolution - Retrieves submission timeline and metrics"
+            "  ✅ get_submission_history - Retrieves submission list with id, code, result, mistakes, time"
         )
         print(
             "  ✅ analyze_thought_progression - Analyzes comment evolution and themes"

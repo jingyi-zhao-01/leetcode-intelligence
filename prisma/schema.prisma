@@ -27,6 +27,7 @@ model Submission {
   content           String
   status            String
   thought           String?  @db.Text
+  mistake           String?  @db.Text
   createdAt         DateTime @default(now()) @db.Timestamptz(6)
   submissionDetails Json?
   isCheat           Boolean  @default(false)
