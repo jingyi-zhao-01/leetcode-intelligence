@@ -59,9 +59,9 @@ endif
 
 # --- Shared Command Definitions ---
 PRISMA_RUN = uv run prisma
-PRISMA_SCHEMA = --schema prisma/schema.prisma
-SUB_ENV = PYTHONPATH=packages/submission_server/src:$$PYTHONPATH
-MCP_RUN = uv run python packages/mcp-server/src/server.py
+PRISMA_SCHEMA = --schema shared/prisma/schema.prisma
+SUB_ENV = PYTHONPATH=services/submission-server/src:$$PYTHONPATH
+MCP_RUN = uv run python services/mcp-server/src/server.py
 
 # --- Unified Execution Targets ---
 mcp: $(PRISMA_GEN_TARGET)

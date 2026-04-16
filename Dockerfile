@@ -12,8 +12,8 @@ RUN apt-get update \
 RUN pip install --no-cache-dir uv
 
 COPY pyproject.toml uv.lock ./
-COPY packages ./packages
-COPY prisma ./prisma
+COPY services ./services
+COPY shared ./shared
 
 RUN uv sync --frozen --no-dev
 

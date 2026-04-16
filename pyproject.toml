@@ -26,7 +26,7 @@ dev = [
 exclude = ["*"]  # workspace root — no Python to ship
 
 [tool.uv.workspace]
-members = ["packages/submission_server", "packages/mcp-server", "packages/ingestor"]
+members = ["services/submission-server", "services/mcp-server", "services/ingestor"]
 
 [tool.uv.sources]
 leetcode-submissions = { workspace = true }
@@ -34,8 +34,8 @@ leetcode-mcp-server  = { workspace = true }
 leetcode-ingestor    = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["packages"]
-pythonpath = ["packages/submission_server/src", "packages/mcp-server/src"]
+testpaths = ["services"]
+pythonpath = ["services/submission-server/src", "services/mcp-server/src"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

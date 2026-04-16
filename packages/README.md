@@ -1,32 +1,8 @@
-# LeetCode Problem Graph Visualization
+# LeetCode Graph UI
 
-Full-stack web application for visualizing LeetCode problem relationships with acceptance rates, filtering, and interactive exploration.
+Web frontend for visualizing LeetCode problem relationships with acceptance rates, filtering, and interactive exploration.
 
-## Architecture
-
-- **Backend**: FastAPI (Python) on port 8000 (unified submissions + graph API)
-- **Frontend**: Next.js (TypeScript + React) on port 3000
-- **Visualization**: D3-force for interactive graph
-- **Database**: PostgreSQL via Prisma
-
-## Quick Start
-
-### 1. Install Dependencies
-
-```bash
-cd packages
-make install-all
-```
-
-### 2. Setup Environment
-
-```bash
-# Ensure DATABASE_URL is set in packages/submission_server/.env
-cd submission_server
-cat .env  # Should contain DATABASE_URL
-```
-
-### 3. Generate Prisma Client
+**Note**: As of April 2026, this is the only package in the `packages/` directory. The submission server, MCP server, and ingestor have been moved to `services/` to better reflect their nature as standalone microservices rather than reusable packages.
 
 ```bash
 cd packages
