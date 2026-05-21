@@ -4,9 +4,9 @@
       "type": "stdio",
       "command": "/usr/bin/uv",
       "args": ["run", "mcp-server-stdio"],
-      "cwd": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}/services/mcp-server",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/packages/mcp-server/src"
+        "PYTHONPATH": "${workspaceFolder}/services/mcp-server/src"
       }
     }
   }

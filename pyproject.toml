@@ -10,11 +10,7 @@ authors = [{name = "OpenHands", email = "openhands@all-hands.dev"}]
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.12"
-dependencies = [
-    "leetcode-submissions",
-    "leetcode-mcp-server",
-    "leetcode-ingestor",
-]
+dependencies = []
 
 [dependency-groups]
 dev = [
@@ -24,14 +20,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 exclude = ["*"]  # workspace root — no Python to ship
-
-[tool.uv.workspace]
-members = ["services/submission-server", "services/mcp-server", "services/ingestor"]
-
-[tool.uv.sources]
-leetcode-submissions = { workspace = true }
-leetcode-mcp-server  = { workspace = true }
-leetcode-ingestor    = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["services"]

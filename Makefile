@@ -1,24 +1,17 @@
-.PHONY: help install mcp submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats compose-build compose-up compose-down compose-logs compose-ps clean
+.PHONY: help install mcp submission analytics test prisma-generate prisma-db-push prisma-generate-prod prisma-db-push-prod submission-stats clean prisma-pull
 
 help:
 	@echo "Available commands:"
 	@echo "  make install              - Install all dependencies (uv sync + npm)"
-	@echo "  make mcp [ENV=dev|prod]   - Start MCP server (default: dev)"
-	@echo "  make submission [ENV=...] - Start Submission server"
-	@echo "  make analytics [ENV=...]  - Start Analytics API"
-	@echo "  make dev-mcp              - Alias for make mcp ENV=dev"
-	@echo "  make prod-mcp             - Alias for make mcp ENV=prod"
-	@echo "  make dev-frontend         - Start Next.js frontend"
-	@echo "  make test                 - Run Python tests"
-	@echo "  make prisma-generate      - Generate Prisma client for current ENV"
-	@echo "  make prisma-db-push       - Push schema to current ENV DB"
-	@echo "  make submission-stats     - Show submission statistics"
-	@echo "  make compose-build        - [Docker target] Build Docker Compose images"
-	@echo "  make compose-up [ENV=...] - [Docker target] Start Compose stack (submission + mcp)"
-	@echo "  make compose-down         - [Docker target] Stop and remove Compose stack"
-	@echo "  make compose-logs         - [Docker target] Tail logs for Compose services"
-	@echo "  make compose-ps           - [Docker target] Show Compose service status"
-	@echo "  make clean                - Remove build artifacts and caches"
+	@echo "  make mcp                 - Start MCP server"
+	@echo "  make submission          - Start Submission server"
+	@echo "  make analytics           - Start Analytics API"
+	@echo "  make test                - Run Python tests"
+	@echo "  make prisma-generate     - Generate Prisma client"
+	@echo "  make prisma-db-push      - Push schema to DB"
+	@echo "  make submission-stats    - Show submission statistics"
+	@echo "  make clean               - Remove build artifacts and caches"
+	@echo "  make prisma-pull         - Pull schema from DB"
 	@echo ""
 	@echo "Port allocation:"
 	@echo "  - Port 3000: TCP submission server"
@@ -26,131 +19,68 @@ help:
 	@echo "  - Port 8000: Analytics API"
 
 install:
-	uv sync --dev
+	uv sync
 	cd packages/graph-ui && npm install
 
-# Load environment variables from .env file
--include .env
-export
-
-# Default environment
-ENV ?= dev
-
-# Support for dev and prod as arguments (make mcp dev)
-ifneq ($(filter dev,$(MAKECMDGOALS)),)
-    ENV := dev
-endif
-ifneq ($(filter prod,$(MAKECMDGOALS)),)
-    ENV := prod
-endif
-
-# Prevents make from complaining about dev and prod as missing targets
-dev prod:
-	@:
-
-# Select database URL based on ENV
-ifeq ($(ENV),prod)
-CURRENT_DB_URL = $(PROD_DB_URL)
-PRISMA_GEN_TARGET = prisma-generate-prod
-else
-CURRENT_DB_URL = $(DEV_DB_URL)
-PRISMA_GEN_TARGET = prisma-generate-dev
-endif
-
-# --- Shared Command Definitions ---
-PRISMA_RUN = uv run prisma
-PRISMA_SCHEMA = --schema shared/prisma/schema.prisma
-SUB_ENV = PYTHONPATH=services/submission-server/src:$$PYTHONPATH
-MCP_RUN = uv run python services/mcp-server/src/server.py
-
-# --- Unified Execution Targets ---
-mcp: $(PRISMA_GEN_TARGET)
-	@echo "Starting MCP Server | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) $(MCP_RUN)
-
-# Target specifically for stdio-based MCP servers (e.g. for VS Code config)
-# Redirects all build/setup output to stderr to keep stdout clean for JSON-RPC
-mcp-stdio: 
-	@$(MAKE) $(PRISMA_GEN_TARGET) >&2
-	@echo "Starting MCP Server (stdio) | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) uv run mcp-server-stdio
-
-submission: $(PRISMA_GEN_TARGET)
-	@echo "Starting Submission Server | Environment: $(ENV)" >&2
-	@$(SUB_ENV) DATABASE_URL=$(CURRENT_DB_URL) uv run submission-server
-
-analytics: $(PRISMA_GEN_TARGET)
-	@echo "Starting Analytics API | Environment: $(ENV)" >&2
-	@$(SUB_ENV) DATABASE_URL=$(CURRENT_DB_URL) uv run analytics-server
-
-# --- Legacy/Convenience Aliases ---
-dev-mcp:
-	@$(MAKE) mcp ENV=dev
-prod-mcp:
-	@$(MAKE) mcp ENV=prod
-dev-submission:
-	@$(MAKE) submission ENV=dev
-prod-submission:
-	@$(MAKE) submission ENV=prod
-dev-analytics:
-	@$(MAKE) analytics ENV=dev
-
-# --- Prisma Operations ---
-prisma-generate:
-	DATABASE_URL=$(CURRENT_DB_URL) $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
-
-prisma-db-push:
-	DATABASE_URL=$(CURRENT_DB_URL) $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
-
-prisma-generate-dev:
-	DATABASE_URL=$(DEV_DB_URL) $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
-
-prisma-generate-prod:
-	DATABASE_URL=$(PROD_DB_URL) $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
-
-prisma-db-push-dev:
-	DATABASE_URL=$(DEV_DB_URL) $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
-
-prisma-db-push-prod:
-	DATABASE_URL=$(PROD_DB_URL) $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
-
-# --- Standard Targets ---
-test: prisma-generate-dev
-	@echo "Running Tests | Environment: dev"
-	DATABASE_URL=$(DEV_DB_URL) uv run pytest
-
-dev-frontend:
-	@echo "Starting Frontend | Port: 3001"
-	cd packages/graph-ui && PORT=3001 npm run dev
-
-submission-stats: prisma-generate-dev
-	@echo "Fetching Submission Stats | Environment: dev"
-	$(SUB_ENV) uv run submission-stats
-
-# --- Docker Targets ---
-# Docker target: build all service images defined in docker-compose.yml
-compose-build:
-	@echo "Building Compose images | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) docker compose build
-
-# Docker target: start submission_server and mcp_server in detached mode
-compose-up:
-	@echo "Starting Compose stack | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) docker compose up -d
-
-# Docker target: stop and remove services, network, and compose resources
-compose-down:
-	@DATABASE_URL=$(CURRENT_DB_URL) docker compose down
-
-# Docker target: stream recent logs from submission_server and mcp_server
-compose-logs:
-	@DATABASE_URL=$(CURRENT_DB_URL) docker compose logs -f submission_server mcp_server
-
-# Docker target: show runtime status for compose services
-compose-ps:
-	@DATABASE_URL=$(CURRENT_DB_URL) docker compose ps
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	cd packages/graph-ui && rm -rf .next node_modules/.cache out
+
+
+# Load environment variables from .env file
+-include .env
+export
+
+
+
+# Prisma
+CURRENT_DB_URL = $(or $(DATABASE_URL),$(PROD_DB_URL),$(DEV_DB_URL))
+CURRENT_DB_URL_CLEAN = $(patsubst "%",%,$(strip $(CURRENT_DB_URL)))
+
+PRISMA_RUN = uv run prisma
+PRISMA_SCHEMA = --schema microservices/shared/prisma/schema.prisma
+MCP_RUN = uv run python microservices/mcp-server/src/server.py
+
+
+prisma-pull:
+	@if [ -z "$(CURRENT_DB_URL_CLEAN)" ]; then \
+	  echo "Error: Set DATABASE_URL (or PROD_DB_URL/DEV_DB_URL) in .env"; exit 1; \
+	fi
+	DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" $(PRISMA_RUN) db pull $(PRISMA_SCHEMA)
+
+
+prisma-generate:
+	DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" $(PRISMA_RUN) generate $(PRISMA_SCHEMA)
+
+
+
+# prisma-db-push:
+# 	DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" $(PRISMA_RUN) db push $(PRISMA_SCHEMA)
+
+
+
+
+
+#----------------------------------------
+
+mcp: prisma-generate
+	@echo "Starting MCP Server" >&2
+	@DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" $(MCP_RUN)
+
+submission: prisma-generate
+	@echo "Starting Submission Server" >&2
+	@DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" uv run python microservices/submission-server/src/submission_server.py
+
+analytics: prisma-generate
+	@echo "Starting Analytics API" >&2
+	@DATABASE_URL="$(CURRENT_DB_URL_CLEAN)" uv run analytics-server
+
+
+submission-stats: prisma-generate
+	@echo "Fetching Submission Stats"
+	uv run submission-stats
+
+
+

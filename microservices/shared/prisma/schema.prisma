@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Question {
+  id              String   @id @default(cuid())
+  difficulty      String
+  title           String
+  titleSlug       String   @unique
+  freqBar         Float?
+  topicTags       String[]
+  relatedProblems String[]
+  content         String?
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([topicTags], type: Gin)
+}
+
+model Submission {
+  id                String     @id @default(cuid())
+  titleSlug         String?
+  content           String
+  status            String
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  submissionDetails Json?
+  isCheat           Boolean    @default(false)
+  timeSpentMinutes  Int?
+  thought           String?
+  mistake           String?
+  followUps         FollowUp[]
+}
+
+model FollowUp {
+  id           String     @id @default(cuid())
+  submissionId String
+  content      String
+  isResolved   Boolean    @default(false)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
