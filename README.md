@@ -100,6 +100,22 @@ make compose-down ENV=dev
 - `submission_server` is configured with `SUBMISSION_HOST=0.0.0.0` so port publishing works.
 - `mcp_server` uses `mcp-server-stdio`; it does not expose an HTTP port in this setup.
 
+## Submission Service Image
+
+Build the standalone `leetcode-submission-service` image:
+
+```bash
+docker build -f docker/leetcode-submission-service/Dockerfile -t leetcode-submission-service:latest .
+```
+
+Run it with your database URL:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  leetcode-submission-service:latest
+```
+
 ## System Architecture
 
 ```mermaid
