@@ -21,6 +21,7 @@ export class IntelligenceService {
   private readonly promptGenerator: PromptGenerator;
   private readonly responseService: PromptResponseService;
   private readonly recommendationService: FocusRecommendationService;
+  private dbQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: IntelligenceConfig) {
     const apiKey = this.config.OPEN_ROUTER_API_KEY;
@@ -50,50 +51,71 @@ export class IntelligenceService {
   }
 
   async start(): Promise<void> {
-    logger.info("connecting Prisma client");
-    await this.prisma.$connect();
-    logger.info("Prisma connected");
+    logger.info("intelligence service ready");
   }
 
   async stop(): Promise<void> {
-    logger.info("disconnecting Prisma client");
-    await this.prisma.$disconnect().catch(() => undefined);
-    logger.info("Prisma disconnected");
+    logger.info("intelligence service stopped");
   }
 
   async health(): Promise<Record<string, unknown>> {
-    const count = await this.prisma.intelligencePromptEvent.count();
-    return {
-      status: "ok",
-      service: "leetcode-intelligence-service",
-      prompts: count,
-    };
+    return this.withDatabase(async () => {
+      const count = await this.prisma.intelligencePromptEvent.count();
+      return {
+        status: "ok",
+        service: "leetcode-intelligence-service",
+        prompts: count,
+      };
+    });
   }
 
   async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
-    return this.promptGenerator.generate(triggerSource, transport);
+    return this.withDatabase(() => this.promptGenerator.generate(triggerSource, transport));
   }
 
   async attachPromptMessage(promptEventId: string, messageId: string): Promise<void> {
-    await this.prisma.intelligencePromptEvent.update({
-      where: { id: promptEventId },
-      data: {
-        discordMessageId: messageId,
-      },
+    await this.withDatabase(async () => {
+      await this.prisma.intelligencePromptEvent.update({
+        where: { id: promptEventId },
+        data: {
+          discordMessageId: messageId,
+        },
+      });
     });
   }
 
   async scorePromptReply(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
-    return this.responseService.accept(promptEventId, rawReply);
+    return this.withDatabase(() => this.responseService.accept(promptEventId, rawReply));
   }
 
   async scorePromptReplyByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null> {
-    return this.responseService.acceptByMessageId(messageId, rawReply);
+    return this.withDatabase(() => this.responseService.acceptByMessageId(messageId, rawReply));
   }
 
   async recommendFocus(limit?: number): Promise<FocusRecommendationResult> {
-    const resolvedLimit = limit ?? this.config.INTELLIGENCE_RECOMMEND_TOP_K;
-    return this.recommendationService.recommend(resolvedLimit);
+    return this.withDatabase(async () => {
+      const resolvedLimit = limit ?? this.config.INTELLIGENCE_RECOMMEND_TOP_K;
+      return this.recommendationService.recommend(resolvedLimit);
+    });
+  }
+
+  private async withDatabase<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.dbQueue;
+    let release: () => void = () => undefined;
+
+    this.dbQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await previous;
+    await this.prisma.$connect();
+
+    try {
+      return await operation();
+    } finally {
+      await this.prisma.$disconnect().catch(() => undefined);
+      release();
+    }
   }
 }
 

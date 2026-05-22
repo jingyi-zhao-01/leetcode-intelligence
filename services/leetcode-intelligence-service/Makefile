@@ -1,7 +1,7 @@
 ROOT_DIR := ../..
 SERVICE_DIR := services/leetcode-intelligence-service
 
-.PHONY: help intelligence intelligence-cli intelligence-server intelligence-recommender intelligence-prompt-dispatch intelligence-prompt-listener intelligence-image-start intelligence-image-stop prisma-generate
+.PHONY: help intelligence intelligence-cli intelligence-server intelligence-recommender intelligence-prompt-dispatch intelligence-prompt-listener prisma-generate
 
 help:
 	@echo "Available commands:"
@@ -13,10 +13,6 @@ help:
 	@echo "  make intelligence-prompt-dispatch - Scheduled prompt dispatcher for PROMPT_DISCORD_CHANNEL_ID"
 	@echo "  make intelligence-prompt-listener - Always-on prompt response listener for PROMPT_DISCORD_CHANNEL_ID"
 	@echo "  make intelligence-recommender - Scheduled recommendation push for RECOMMEND_DISCORD_CHANNEL_ID"
-	@echo ""
-	@echo "Image Run"
-	@echo "  make intelligence-image-start - Start intelligence service from Docker image"
-	@echo "  make intelligence-image-stop  - Stop intelligence service Docker container"
 	@echo ""
 	@echo "Other"
 	@echo "  make prisma-generate          - Generate Prisma JS client from repo root"
@@ -71,10 +67,3 @@ intelligence-recommender: prisma-generate
 		INTELLIGENCE_RECOMMEND_CRON=$(INTELLIGENCE_RECOMMEND_CRON) \
 		npm run --workspace $(SERVICE_DIR) intelligence-recommender
 
-# Start the intelligence Docker image with all runtime env vars.
-intelligence-image-start:
-	@cd $(ROOT_DIR) && $(MAKE) -C docker intelligence-image-start
-
-# Stop and remove the intelligence Docker container if it is running.
-intelligence-image-stop:
-	@cd $(ROOT_DIR) && $(MAKE) -C docker intelligence-image-stop

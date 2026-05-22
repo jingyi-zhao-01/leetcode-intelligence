@@ -16,42 +16,83 @@ Intelligence service for prompting, scoring, and focus recommendations.
 - `make intelligence-prompt-dispatch` - scheduled Discord prompt dispatcher
 - `make intelligence-prompt-listener` - always-on Discord reply listener
 - `make intelligence-recommender` - periodic focus recommender and push channel
-- `make intelligence-image-start` - run the service from Docker image
+- `make -C docker intelligence-image-start` - run the service from Docker image
+- `make -C docker intelligence-image-stop` - stop the Docker container
 
 ## Helm Values Sample
 
 Use your existing SSM/External Secret setup for sensitive values. Keep secrets out of `values.yaml` and inject them from an external secret store.
 
+Recommended values file for homelab:
+
+- `homelab.value.yaml` in this directory
+
 ```yaml
-image:
-  repository: ghcr.io/<owner>/leetcode-intelligence-service
-  tag: latest
-
-service:
-  port: 8030
-
-env:
-  MODEL: openai/gpt-4o-mini
-  INTELLIGENCE_HOST: "0.0.0.0"
-  INTELLIGENCE_PROMPT_CRON: "0 9 * * *"
-  INTELLIGENCE_RECOMMEND_CRON: "0 20 * * *"
-  INTELLIGENCE_RECOMMEND_TOP_K: "5"
-  INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: "30"
-  PROMPT_DISCORD_CHANNEL_ID: "<prompt-channel-id>"
-  RECOMMEND_DISCORD_CHANNEL_ID: "<recommend-channel-id>"
-
-existingSecret:
-  name: leetcode-intelligence-service-secrets
-  keys:
-    DATABASE_URL: DATABASE_URL
-    OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
-    DISCORD_BOT_TOKEN: DISCORD_BOT_TOKEN
+# Apply with your own chart path/release name.
+helm upgrade --install leetcode-intelligence <chart-path> -f homelab.value.yaml
 ```
 
 Suggested secret source:
 - SSM Parameter Store or AWS External Secrets Operator
 - Mount or sync the secret into `leetcode-intelligence-service-secrets`
 - Keep `DATABASE_URL`, `OPEN_ROUTER_API_KEY`, and `DISCORD_BOT_TOKEN` out of Helm values
+
+## k3s Integration
+
+Use the checked-in manifest file in this directory:
+
+- `homelab-k3s.yml`
+
+### 1) Prepare configuration
+
+- Edit `homelab-k3s.yml` placeholders before deployment:
+	- `<owner>` in image path
+	- `<postgres-url>`
+	- `<openrouter-key>`
+	- `<discord-bot-token>`
+	- `<prompt-channel-id>`
+	- `<recommend-channel-id>`
+
+### 2) Apply resources
+
+```bash
+kubectl apply -f homelab-k3s.yml
+```
+
+### 3) Verify all workloads are running
+
+```bash
+kubectl -n leetcode get deploy
+kubectl -n leetcode get pods
+kubectl -n leetcode logs deploy/intelligence-server --tail=100
+kubectl -n leetcode logs deploy/intelligence-prompt-listener --tail=100
+kubectl -n leetcode logs deploy/intelligence-prompt-dispatch --tail=100
+kubectl -n leetcode logs deploy/intelligence-recommender --tail=100
+```
+
+Expected deployments:
+
+- `intelligence-server`
+- `intelligence-prompt-listener`
+- `intelligence-prompt-dispatch`
+- `intelligence-recommender`
+
+### 4) If only server is running
+
+- Confirm you applied `homelab-k3s.yml` (not only Helm values).
+- Re-check deployment list with `kubectl -n leetcode get deploy`.
+- If prompt/recommend deployments exist but pods are failing, inspect events:
+
+```bash
+kubectl -n leetcode describe pod <pod-name>
+```
+
+- Verify secret/config values are present and valid:
+
+```bash
+kubectl -n leetcode get secret leetcode-intelligence-secrets -o yaml
+kubectl -n leetcode get configmap leetcode-intelligence-config -o yaml
+```
 
 ## HTTP API
 

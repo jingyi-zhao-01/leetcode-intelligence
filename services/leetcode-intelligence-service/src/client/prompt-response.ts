@@ -28,7 +28,6 @@ export class PromptResponseClient {
 
   async start(): Promise<void> {
     logger.info({ channelId: this.config.channelId }, "starting client");
-    await this.service.start();
     this.discord.on("error", (error) => {
       logger.error({ err: error }, "discord client error");
     });
@@ -50,7 +49,6 @@ export class PromptResponseClient {
     logger.info("stopping client");
     this.discord.removeAllListeners();
     await this.discord.destroy().catch(() => undefined);
-    await this.service.stop();
     logger.info("client stopped");
   }
 

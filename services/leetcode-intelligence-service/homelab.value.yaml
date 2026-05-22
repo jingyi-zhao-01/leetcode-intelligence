@@ -1,0 +1,29 @@
+# Homelab Helm values for leetcode-intelligence-service.
+# Use with your chart as: helm upgrade --install <release> <chart> -f homelab.value.yaml
+# Keep sensitive values in external secrets and reference them via existingSecret.
+
+image:
+  repository: ghcr.io/<owner>/leetcode-intelligence-service
+  tag: latest
+
+service:
+  port: 8030
+
+env:
+  MODEL: openai/gpt-4o-mini
+  INTELLIGENCE_HOST: "0.0.0.0"
+  INTELLIGENCE_PORT: "8030"
+  INTELLIGENCE_PROMPT_CRON: "0 9 * * *"
+  INTELLIGENCE_RECOMMEND_CRON: "0 20 * * *"
+  INTELLIGENCE_RECOMMEND_TOP_K: "5"
+  INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: "30"
+  PROMPT_DISCORD_CHANNEL_ID: "<prompt-channel-id>"
+  RECOMMEND_DISCORD_CHANNEL_ID: "<recommend-channel-id>"
+  TZ: "UTC"
+
+existingSecret:
+  name: leetcode-intelligence-service-secrets
+  keys:
+    DATABASE_URL: DATABASE_URL
+    OPEN_ROUTER_API_KEY: OPEN_ROUTER_API_KEY
+    DISCORD_BOT_TOKEN: DISCORD_BOT_TOKEN
