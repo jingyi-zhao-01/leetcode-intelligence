@@ -9,7 +9,7 @@ loadDotenv({ path: path.resolve(process.cwd(), ".env") });
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  OPEN_ROUTER_API_KEY: z.string().min(1),
+  OPEN_ROUTER_API_KEY: z.string().min(1).optional(),
   DISCORD_BOT_TOKEN: z.string().min(1).optional(),
   PROMPT_DISCORD_CHANNEL_ID: z.string().min(1).optional(),
   RECOMMEND_DISCORD_CHANNEL_ID: z.string().min(1).optional(),
@@ -33,19 +33,8 @@ export const loadIntelligenceConfig = (): IntelligenceConfig => {
     throw new Error(`Invalid intelligence service environment: ${issues}`);
   }
 
-  const promptChannelId = parsed.data.PROMPT_DISCORD_CHANNEL_ID;
-  const recommendChannelId = parsed.data.RECOMMEND_DISCORD_CHANNEL_ID;
-  if (!promptChannelId) {
-    throw new Error("PROMPT_DISCORD_CHANNEL_ID is required.");
-  }
-  if (!recommendChannelId) {
-    throw new Error("RECOMMEND_DISCORD_CHANNEL_ID is required.");
-  }
-
   return {
     ...parsed.data,
-    PROMPT_DISCORD_CHANNEL_ID: promptChannelId,
-    RECOMMEND_DISCORD_CHANNEL_ID: recommendChannelId,
     INTELLIGENCE_PROMPT_CRON: parsed.data.INTELLIGENCE_PROMPT_CRON ?? "0 9 * * *",
   };
 };
