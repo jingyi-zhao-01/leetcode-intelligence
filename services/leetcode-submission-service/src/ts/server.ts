@@ -1,5 +1,5 @@
 import net from "node:net";
-import { PrismaClient } from "../../../node_modules/@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { TimerManager } from "./timer.js";
 

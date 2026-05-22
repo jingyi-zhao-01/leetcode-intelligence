@@ -1,7 +1,3 @@
-generator client {
-  provider = "prisma-client-py"
-}
-
 generator jsclient {
   provider = "prisma-client-js"
 }
@@ -26,14 +22,24 @@ model Question {
 }
 
 model Submission {
-  id                String   @id @default(cuid())
+  id                String     @id @default(cuid())
   titleSlug         String?
   content           String
   status            String
-  thought           String?  @db.Text
-  mistake           String?  @db.Text
-  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
   submissionDetails Json?
-  isCheat           Boolean  @default(false)
+  isCheat           Boolean    @default(false)
   timeSpentMinutes  Int?
+  thought           String?
+  mistake           String?
+  FollowUp          FollowUp[]
+}
+
+model FollowUp {
+  id           String     @id
+  submissionId String
+  content      String
+  isResolved   Boolean    @default(false)
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  Submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 }

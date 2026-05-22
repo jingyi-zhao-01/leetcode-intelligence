@@ -5,12 +5,12 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
-      PYTHONPATH: services/submission-server/src
+      PYTHONPATH: services/leetcode-submission-service/src
       SUBMISSION_HOST: 0.0.0.0
       SUBMISSION_PORT: 3000
     command: >-
-      sh -c "uv run prisma generate --schema services/prisma/schema.prisma &&
-      cd services/submission-server && npm run submission-server"
+      sh -c "npm exec prisma -- generate --generator jsclient --schema services/shared/prisma/schema.prisma &&
+       cd services/leetcode-submission-service && npm run submission-server"
     ports:
       - "3000:3000"
     restart: unless-stopped
@@ -23,8 +23,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       MCP_PORT: 8000
     command: >-
-      sh -c "uv run prisma generate --schema services/prisma/schema.prisma &&
-      cd services/mcp-server && npm run mcp-server-stdio"
+      sh -c "npm exec prisma -- generate --generator jsclient --schema services/shared/prisma/schema.prisma &&
+       cd services/leetcode-mcp-service && npm run mcp-server-stdio"
     stdin_open: true
     tty: true
     restart: unless-stopped

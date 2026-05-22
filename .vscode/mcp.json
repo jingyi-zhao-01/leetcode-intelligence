@@ -6,7 +6,7 @@
       "args": ["run", "mcp-server-stdio"],
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/packages/mcp-server/src"
+        "PYTHONPATH": "${workspaceFolder}/services/leetcode-mcp-service/src"
       }
     }
   }

@@ -4,7 +4,7 @@ This directory contains standalone microservices for the LeetCode analytics plat
 
 ## Services
 
-### 1. **submission-server** — Submission Tracking & Analytics Backend
+### 1. **leetcode-submission-service** — Submission Tracking & Analytics Backend
 Dual-server backend for receiving and analyzing LeetCode submissions.
 
 **Components**:
@@ -27,7 +27,7 @@ Dual-server backend for receiving and analyzing LeetCode submissions.
 
 ---
 
-### 2. **mcp-server** — Model Context Protocol Server
+### 2. **leetcode-mcp-service** — Model Context Protocol Server
 LLM integration server for analyzing submission evolution and helping AI assistants understand coding patterns.
 
 **Features**:
@@ -41,7 +41,7 @@ LLM integration server for analyzing submission evolution and helping AI assista
 - `mcp-server-dev` — Development mode with auto-reload
 
 **Database**: PostgreSQL via Prisma ORM  
-**Depends On**: submission-server (shares the same database)
+**Depends On**: leetcode-submission-service (shares the same database)
 
 ---
 
@@ -63,7 +63,7 @@ ETL service for ingesting LeetCode problems from the LeetCode API into the datab
 ## Shared Configuration
 
 All services share:
-- **Prisma Schema**: `./prisma/schema.prisma`
+- **Prisma Schema**: `services/shared/prisma/schema.prisma`
 - **Environment**: `.env` file at repository root with `DATABASE_URL`
 
 ## Running Services
@@ -110,4 +110,4 @@ service-name/
 - **Database**: PostgreSQL 12+
 - **Package Manager**: `uv`
 
-All services use the shared Prisma schema at `services/prisma/schema.prisma` and depend on a single PostgreSQL database.
+All services use the shared Prisma schema at `services/shared/prisma/schema.prisma` and depend on a single PostgreSQL database.

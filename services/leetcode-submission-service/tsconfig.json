@@ -11,5 +11,5 @@
     "types": ["node"],
     "outDir": "dist"
   },
-  "include": ["ts/**/*.ts", "ts/**/*.d.ts"]
+  "include": ["src/ts/**/*.ts", "src/ts/**/*.d.ts"]
 }
