@@ -6,6 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "intelligence-cli": "tsx src/cli.ts",
+    "intelligence-prompt-dispatch": "tsx src/prompt-dispatch.ts",
+    "intelligence-prompt-response": "tsx src/prompt-response.ts",
+    "intelligence-recommender": "tsx src/recommender.ts",
     "intelligence-server": "tsx src/server.ts",
     "intelligence-server-dev": "tsx watch src/server.ts"
   },

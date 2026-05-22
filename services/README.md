@@ -60,6 +60,20 @@ ETL service for ingesting LeetCode problems from the LeetCode API into the datab
 
 ---
 
+### 4. **leetcode-intelligence-service** — Prompting, Scoring & Recommendations
+TypeScript service for prompting solutions, scoring replies, and generating focus recommendations.
+
+**Entry Points**:
+- `intelligence-cli` — One-off CLI prompt/response session
+- `intelligence-server` — HTTP API server
+- `intelligence-prompt-dispatch` — Scheduled prompt dispatcher
+- `intelligence-prompt-response` — Always-on prompt response listener
+- `intelligence-recommender` — Periodic focus recommender
+
+**Database**: PostgreSQL via Prisma ORM
+
+---
+
 ## Shared Configuration
 
 All services share:

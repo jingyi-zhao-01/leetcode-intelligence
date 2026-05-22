@@ -1,4 +1,4 @@
-.PHONY: help install mcp mcp-stdio submission intelligence analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop intelligence-image-start intelligence-image-stop compose-build compose-up compose-down compose-logs compose-ps clean
+.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop compose-build compose-up compose-down compose-logs compose-ps clean
 
 help:
 	@echo "Available commands:"
@@ -12,7 +12,6 @@ help:
 	@echo "  make mcp                    - Start MCP server"
 	@echo "  make mcp-stdio              - Start MCP server in stdio mode"
 	@echo "  make submission             - Start Submission server"
-	@echo "  make intelligence           - Start Intelligence CLI client"
 	@echo "  make dev-mcp                - Alias for make mcp"
 	@echo "  make prod-mcp               - Alias for make mcp"
 	@echo "  make analytics              - Start Analytics API"
@@ -23,8 +22,6 @@ help:
 	@echo "Image Run"
 	@echo "  make submission-image-start   - Start submission server from Docker image"
 	@echo "  make submission-image-stop    - Stop submission server Docker container"
-	@echo "  make intelligence-image-start - Start intelligence service from Docker image"
-	@echo "  make intelligence-image-stop  - Stop intelligence service Docker container"
 	@echo "  make compose-build            - Build Docker Compose images"
 	@echo "  make compose-up               - Start Compose stack (submission + mcp)"
 	@echo "  make compose-down             - Stop and remove Compose stack"
@@ -55,9 +52,6 @@ SUB_ENV = PYTHONPATH=services/leetcode-submission-service/src:$$PYTHONPATH
 SUBMISSION_IMAGE ?= leetcode-submission-service:latest
 SUBMISSION_CONTAINER_NAME ?= leetcode-submission-service
 SUBMISSION_HOST_PORT ?= 3000
-INTELLIGENCE_IMAGE ?= leetcode-intelligence-service:latest
-INTELLIGENCE_CONTAINER_NAME ?= leetcode-intelligence-service
-INTELLIGENCE_HOST_PORT ?= 8030
 
 # --- Prisma Targets ---
 prisma-generate:
@@ -85,13 +79,6 @@ submission: prisma-generate
 	@echo "Starting Submission Server" >&2
 	@DATABASE_URL=$(DATABASE_URL) npm run --workspace services/leetcode-submission-service submission-server
 
-intelligence: prisma-generate
-	@echo "Starting Intelligence CLI Client" >&2
-	@DATABASE_URL=$(DATABASE_URL) \
-		OPEN_ROUTER_API_KEY=$(OPEN_ROUTER_API_KEY) \
-		MODEL=$(MODEL) \
-		npm run --workspace services/leetcode-intelligence-service intelligence-cli
-
 test:
 	@echo "Running Tests"
 	DATABASE_URL=$(DATABASE_URL) uv run pytest
@@ -115,22 +102,6 @@ submission-image-start:
 submission-image-stop:
 	@echo "Stopping submission server container $(SUBMISSION_CONTAINER_NAME)" >&2
 	@docker rm -f $(SUBMISSION_CONTAINER_NAME) >/dev/null 2>&1 || true
-
-intelligence-image-start:
-	@echo "Starting intelligence service from image $(INTELLIGENCE_IMAGE) on port $(INTELLIGENCE_HOST_PORT)" >&2
-	@docker rm -f $(INTELLIGENCE_CONTAINER_NAME) >/dev/null 2>&1 || true
-	@docker run --rm --name $(INTELLIGENCE_CONTAINER_NAME) -p $(INTELLIGENCE_HOST_PORT):8030 \
-		-e DATABASE_URL=$(DATABASE_URL) \
-		-e OPEN_ROUTER_API_KEY=$(OPEN_ROUTER_API_KEY) \
-		-e API_KEY=$(API_KEY) \
-		-e MODEL=$(MODEL) \
-		-e DISCORD_BOT_TOKEN=$(DISCORD_BOT_TOKEN) \
-		-e DISCORD_CHANNEL_ID=$(DISCORD_CHANNEL_ID) \
-		$(INTELLIGENCE_IMAGE)
-
-intelligence-image-stop:
-	@echo "Stopping intelligence service container $(INTELLIGENCE_CONTAINER_NAME)" >&2
-	@docker rm -f $(INTELLIGENCE_CONTAINER_NAME) >/dev/null 2>&1 || true
 
 # --- Compose Targets ---
 # Docker target: build all service images defined in docker-compose.yml

@@ -2,10 +2,16 @@ export type IntelligenceConfig = {
   DATABASE_URL: string;
   OPEN_ROUTER_API_KEY?: string;
   API_KEY?: string;
+  DISCORD_BOT_TOKEN?: string;
+  PROMPT_DISCORD_CHANNEL_ID?: string;
+  RECOMMEND_DISCORD_CHANNEL_ID?: string;
   MODEL: string;
   INTELLIGENCE_PORT: number;
   INTELLIGENCE_HOST: string;
-  INTELLIGENCE_CRON: string;
+  INTELLIGENCE_PROMPT_CRON: string;
+  INTELLIGENCE_RECOMMEND_CRON: string;
+  INTELLIGENCE_RECOMMEND_TOP_K: number;
+  INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: number;
   INTELLIGENCE_MAX_CANDIDATES: number;
   INTELLIGENCE_SELECTION_WINDOW: number;
   INTELLIGENCE_MIN_WEIGHT: number;
@@ -80,3 +86,25 @@ export type PromptEventWithRelations = {
 export interface ScoringAlgorithm {
   score(request: ScoreRequest): Promise<LlmScore>;
 }
+
+export type FocusRecommendation = {
+  questionSlug: string;
+  title: string;
+  difficulty: string;
+  priority: number;
+  signals: {
+    weight: number;
+    failureRate: number;
+    stalenessDays: number;
+    promptCount: number;
+    avgScore: number | null;
+  };
+  reason: string;
+};
+
+export type FocusRecommendationResult = {
+  generatedAt: string;
+  lookbackDays: number;
+  recommendations: FocusRecommendation[];
+  narrative: string;
+};
