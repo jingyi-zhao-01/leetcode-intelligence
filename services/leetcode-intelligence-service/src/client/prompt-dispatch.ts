@@ -38,7 +38,7 @@ export class PromptDispatchClient {
     this.discord.on("error", (error) => {
       logger.error({ err: error }, "discord client error");
     });
-    this.discord.once("ready", () => {
+    this.discord.once("clientReady", () => {
       logger.info(
         {
           userTag: this.discord.user?.tag ?? "unknown",

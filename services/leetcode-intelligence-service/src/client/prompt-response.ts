@@ -32,7 +32,7 @@ export class PromptResponseClient {
       logger.error({ err: error }, "discord client error");
     });
     this.discord.on("messageCreate", (message: Message) => void this.handleMessage(message));
-    this.discord.once("ready", () => {
+    this.discord.once("clientReady", () => {
       logger.info(
         {
           userTag: this.discord.user?.tag ?? "unknown",
