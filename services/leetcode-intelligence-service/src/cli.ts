@@ -1,5 +1,8 @@
 import { createIntelligenceService } from "./intelligence.ts";
+import { createLogger } from "./logger.ts";
 import { runCliIntelligenceClient } from "./client/index.ts";
+
+const logger = createLogger("cli");
 
 async function main(): Promise<void> {
   const service = await createIntelligenceService();
@@ -9,6 +12,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "unhandled error");
   process.exit(1);
 }

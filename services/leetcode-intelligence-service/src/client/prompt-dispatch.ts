@@ -2,6 +2,9 @@ import cron from "node-cron";
 import { Client, ChannelType, GatewayIntentBits } from "discord.js";
 
 import type { IntelligenceService } from "../intelligence.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("client/prompt-dispatch");
 
 export type PromptDispatchClientConfig = {
   botToken: string;
@@ -30,54 +33,70 @@ export class PromptDispatchClient {
   ) {}
 
   async start(): Promise<void> {
-    console.error("[discord][prompt-dispatch] starting client");
+    logger.info("starting client");
     await this.service.start();
     this.discord.on("error", (error) => {
-      console.error("[discord][prompt-dispatch] discord client error", error);
+      logger.error({ err: error }, "discord client error");
     });
     this.discord.once("ready", () => {
-      console.error(`🧠 Prompt scheduler ready as ${this.discord.user?.tag ?? "unknown"} for channel ${this.config.channelId}`);
+      logger.info(
+        {
+          userTag: this.discord.user?.tag ?? "unknown",
+          channelId: this.config.channelId,
+        },
+        "ready",
+      );
     });
 
     this.cronTask = cron.schedule(this.config.cronSchedule, () => void this.dispatchPrompt(), {
       timezone: this.config.timezone ?? process.env.TZ ?? "UTC",
     });
-    console.error(
-      `[discord][prompt-dispatch] cron scheduled channel=${this.config.channelId} schedule="${this.config.cronSchedule}" timezone=${this.config.timezone ?? process.env.TZ ?? "UTC"}`,
+    logger.info(
+      {
+        channelId: this.config.channelId,
+        schedule: this.config.cronSchedule,
+        timezone: this.config.timezone ?? process.env.TZ ?? "UTC",
+      },
+      "cron scheduled",
     );
 
-    console.error("[discord][prompt-dispatch] logging in bot");
+    logger.info("logging in bot");
     await this.discord.login(this.config.botToken);
   }
 
   async stop(): Promise<void> {
-    console.error("[discord][prompt-dispatch] stopping client");
+    logger.info("stopping client");
     this.cronTask?.stop();
     this.cronTask = null;
     this.discord.removeAllListeners();
     await this.discord.destroy().catch(() => undefined);
     await this.service.stop();
-    console.error("[discord][prompt-dispatch] client stopped");
+    logger.info("client stopped");
   }
 
   private async dispatchPrompt(): Promise<void> {
-    console.error(`[discord][prompt-dispatch] cron tick: dispatching prompt to channel ${this.config.channelId}`);
+    logger.info({ channelId: this.config.channelId }, "cron tick: dispatching prompt");
     try {
       const prompt = await this.service.triggerPrompt("scheduled", { channelId: this.config.channelId });
       if (prompt.ok !== true || typeof prompt.promptText !== "string" || typeof prompt.promptEventId !== "string") {
-        console.error("[discord][prompt-dispatch] no prompt dispatched (service returned non-ready payload)");
+        logger.warn("no prompt dispatched (service returned non-ready payload)");
         return;
       }
 
       const channel = await resolveTextChannel(this.discord, this.config.channelId);
       const sentMessage = await channel.send({ content: prompt.promptText });
-      console.error(
-        `[discord][prompt-dispatch] sent prompt message channel=${this.config.channelId} messageId=${sentMessage.id} promptEventId=${prompt.promptEventId}`,
+      logger.info(
+        {
+          channelId: this.config.channelId,
+          messageId: sentMessage.id,
+          promptEventId: prompt.promptEventId,
+        },
+        "sent prompt message",
       );
       await this.service.attachPromptMessage(prompt.promptEventId, sentMessage.id);
-      console.error(`[discord][prompt-dispatch] linked messageId=${sentMessage.id} to promptEventId=${prompt.promptEventId}`);
+      logger.info({ messageId: sentMessage.id, promptEventId: prompt.promptEventId }, "linked prompt message");
     } catch (error) {
-      console.error("[discord][prompt-dispatch] dispatch failed", error);
+      logger.error({ err: error }, "dispatch failed");
     }
   }
 }

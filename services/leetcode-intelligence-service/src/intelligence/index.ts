@@ -11,6 +11,9 @@ import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, ReplyScorer } fro
 import { PromptGenerator } from "./prompt.ts";
 import { PromptResponseService } from "./response.ts";
 import { FocusRecommendationService } from "./recommendation.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("intelligence");
 
 export class IntelligenceService {
   private readonly prisma: any = new PrismaClient();
@@ -21,8 +24,14 @@ export class IntelligenceService {
 
   constructor(private readonly config: IntelligenceConfig) {
     const apiKey = this.config.OPEN_ROUTER_API_KEY;
-    console.error(
-      `[intelligence] init model=${this.config.MODEL} openRouterKeyPresent=${Boolean(apiKey)} promptChannelConfigured=${Boolean(this.config.PROMPT_DISCORD_CHANNEL_ID)} recommendChannelConfigured=${Boolean(this.config.RECOMMEND_DISCORD_CHANNEL_ID)}`,
+    logger.info(
+      {
+        model: this.config.MODEL,
+        openRouterKeyPresent: Boolean(apiKey),
+        promptChannelConfigured: Boolean(this.config.PROMPT_DISCORD_CHANNEL_ID),
+        recommendChannelConfigured: Boolean(this.config.RECOMMEND_DISCORD_CHANNEL_ID),
+      },
+      "initializing service",
     );
 
     this.openRouter = apiKey
@@ -41,15 +50,15 @@ export class IntelligenceService {
   }
 
   async start(): Promise<void> {
-    console.error("[intelligence] connecting Prisma client");
+    logger.info("connecting Prisma client");
     await this.prisma.$connect();
-    console.error("[intelligence] Prisma connected");
+    logger.info("Prisma connected");
   }
 
   async stop(): Promise<void> {
-    console.error("[intelligence] disconnecting Prisma client");
+    logger.info("disconnecting Prisma client");
     await this.prisma.$disconnect().catch(() => undefined);
-    console.error("[intelligence] Prisma disconnected");
+    logger.info("Prisma disconnected");
   }
 
   async health(): Promise<Record<string, unknown>> {

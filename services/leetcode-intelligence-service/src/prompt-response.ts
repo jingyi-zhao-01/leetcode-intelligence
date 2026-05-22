@@ -1,6 +1,9 @@
 import { createIntelligenceService } from "./intelligence.ts";
+import { createLogger } from "./logger.ts";
 import { loadIntelligenceConfig } from "./intelligence/env.ts";
 import { PromptResponseClient } from "./client/index.ts";
+
+const logger = createLogger("prompt-response");
 
 async function main(): Promise<void> {
   const config = loadIntelligenceConfig();
@@ -20,6 +23,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "unhandled error");
   process.exit(1);
 }

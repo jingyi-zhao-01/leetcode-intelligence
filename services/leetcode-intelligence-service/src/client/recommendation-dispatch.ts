@@ -2,6 +2,9 @@ import cron from "node-cron";
 import { Client, ChannelType, GatewayIntentBits } from "discord.js";
 
 import type { IntelligenceService } from "../intelligence.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("client/recommendation-dispatch");
 
 export type RecommendationDispatchClientConfig = {
   botToken: string;
@@ -41,40 +44,49 @@ export class RecommendationDispatchClient {
   ) {}
 
   async start(): Promise<void> {
-    console.error("[discord][recommendation-dispatch] starting client");
+    logger.info("starting client");
     await this.service.start();
     this.discord.on("error", (error) => {
-      console.error("[discord][recommendation-dispatch] discord client error", error);
+      logger.error({ err: error }, "discord client error");
     });
     this.discord.once("ready", () => {
-      console.error(`🧠 Recommendation scheduler ready as ${this.discord.user?.tag ?? "unknown"} for channel ${this.config.channelId}`);
+      logger.info(
+        {
+          userTag: this.discord.user?.tag ?? "unknown",
+          channelId: this.config.channelId,
+        },
+        "ready",
+      );
     });
 
     this.cronTask = cron.schedule(this.config.cronSchedule, () => void this.dispatchRecommendation(), {
       timezone: this.config.timezone ?? process.env.TZ ?? "UTC",
     });
-    console.error(
-      `[discord][recommendation-dispatch] cron scheduled channel=${this.config.channelId} schedule="${this.config.cronSchedule}" timezone=${this.config.timezone ?? process.env.TZ ?? "UTC"}`,
+    logger.info(
+      {
+        channelId: this.config.channelId,
+        schedule: this.config.cronSchedule,
+        timezone: this.config.timezone ?? process.env.TZ ?? "UTC",
+      },
+      "cron scheduled",
     );
 
-    console.error("[discord][recommendation-dispatch] logging in bot");
+    logger.info("logging in bot");
     await this.discord.login(this.config.botToken);
   }
 
   async stop(): Promise<void> {
-    console.error("[discord][recommendation-dispatch] stopping client");
+    logger.info("stopping client");
     this.cronTask?.stop();
     this.cronTask = null;
     this.discord.removeAllListeners();
     await this.discord.destroy().catch(() => undefined);
     await this.service.stop();
-    console.error("[discord][recommendation-dispatch] client stopped");
+    logger.info("client stopped");
   }
 
   private async dispatchRecommendation(): Promise<void> {
-    console.error(
-      `[discord][recommendation-dispatch] cron tick: dispatching recommendations to channel=${this.config.channelId} topK=${this.config.topK}`,
-    );
+    logger.info({ channelId: this.config.channelId, topK: this.config.topK }, "cron tick: dispatching recommendations");
     try {
       const result = await this.service.recommendFocus(this.config.topK);
       const channel = await resolveTextChannel(this.discord, this.config.channelId);
@@ -87,11 +99,16 @@ export class RecommendationDispatchClient {
       ].join("\n");
 
       const sentMessage = await channel.send({ content: body.slice(0, 1800) });
-      console.error(
-        `[discord][recommendation-dispatch] sent recommendations messageId=${sentMessage.id} channel=${this.config.channelId} count=${result.recommendations.length}`,
+      logger.info(
+        {
+          messageId: sentMessage.id,
+          channelId: this.config.channelId,
+          count: result.recommendations.length,
+        },
+        "sent recommendations message",
       );
     } catch (error) {
-      console.error("[discord][recommendation-dispatch] dispatch failed", error);
+      logger.error({ err: error }, "dispatch failed");
     }
   }
 }

@@ -1,6 +1,9 @@
 import { createIntelligenceService } from "./intelligence.ts";
+import { createLogger } from "./logger.ts";
 import { loadIntelligenceConfig } from "./intelligence/env.ts";
 import { RecommendationDispatchClient } from "./client/index.ts";
+
+const logger = createLogger("recommender");
 
 const main = async (): Promise<void> => {
   const config = loadIntelligenceConfig();
@@ -23,6 +26,6 @@ const main = async (): Promise<void> => {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "unhandled error");
   process.exit(1);
 }

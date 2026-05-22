@@ -5,6 +5,9 @@ import {
   type LlmScore,
   type ScoreRequest,
 } from "./types.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("intelligence/scoring");
 
 const summarizeError = (error: unknown): string => {
   if (!(error instanceof Error)) {
@@ -89,8 +92,13 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
   ) {}
 
   async score(request: ScoreRequest): Promise<LlmScore> {
-    console.error(
-      `[intelligence][scoring] requesting OpenRouter score model=${this.model} questionSlug=${request.questionSlug} replyChars=${request.rawReply.length}`,
+    logger.info(
+      {
+        model: this.model,
+        questionSlug: request.questionSlug,
+        replyChars: request.rawReply.length,
+      },
+      "requesting OpenRouter score",
     );
 
     const response = await this.openRouter.chat.send({
@@ -122,7 +130,7 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
 
     const text = response.choices?.[0]?.message?.content ?? "{}";
     if (!response.choices?.length) {
-      console.warn(`[intelligence][scoring] OpenRouter response had no choices model=${this.model} questionSlug=${request.questionSlug}`);
+      logger.warn({ model: this.model, questionSlug: request.questionSlug }, "OpenRouter response had no choices");
     }
     return parseStructuredJson(text);
   }
@@ -148,7 +156,7 @@ export class ReplyScorer {
     try {
       return await this.primary.score(request);
     } catch (error) {
-      console.warn(`OpenRouter scoring unavailable, using fallback scorer: ${summarizeError(error)}`);
+      logger.warn({ err: error }, "OpenRouter scoring unavailable, using fallback scorer");
       return this.fallback.score(request);
     }
   }

@@ -5,6 +5,9 @@ import type {
 	FocusRecommendationResult,
 	IntelligenceConfig,
 } from "./types.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("intelligence/recommendation");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -225,8 +228,12 @@ export class FocusRecommendationService {
 		}
 
 		try {
-			console.error(
-				`[intelligence][recommendation] requesting narrative model=${this.config.MODEL} recommendationCount=${recommendations.length}`,
+			logger.info(
+				{
+					model: this.config.MODEL,
+					recommendationCount: recommendations.length,
+				},
+				"requesting narrative",
 			);
 
 			const response = await this.openRouter.chat.send({
@@ -251,12 +258,12 @@ export class FocusRecommendationService {
 
 			const content = response.choices?.[0]?.message?.content?.trim();
 			if (!content) {
-				console.warn("[intelligence][recommendation] OpenRouter narrative response was empty, using fallback summary");
+				logger.warn("OpenRouter narrative response was empty, using fallback summary");
 				return `Focus next: ${recommendations.map((item) => item.questionSlug).join(", ")}.`;
 			}
 			return content;
 		} catch (error) {
-			console.warn(`Recommendation narrative fallback used: ${summarizeError(error)}`);
+			logger.warn({ err: error }, "Recommendation narrative fallback used");
 			return `Focus next: ${recommendations.map((item) => item.questionSlug).join(", ")}.`;
 		}
 	}

@@ -2,6 +2,9 @@ import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
 import type { IntelligenceService } from "../intelligence.ts";
+import { createLogger } from "../logger.ts";
+
+const logger = createLogger("client/cli");
 
 type CliPromptResult = {
   ok: true;
@@ -32,7 +35,7 @@ export async function runCliIntelligenceClient(service: IntelligenceService): Pr
     const result = await service.triggerPrompt("cli", { channelId: "cli" });
 
     if (isCliPromptFailure(result)) {
-      console.error(result.message);
+      logger.error({ message: result.message }, "prompt generation failed");
       return;
     }
 
@@ -40,16 +43,14 @@ export async function runCliIntelligenceClient(service: IntelligenceService): Pr
       throw new Error("Unexpected prompt result shape.");
     }
 
-    console.log(`Question: ${result.questionSlug}`);
-    console.log("");
-    console.log(result.promptText);
+    process.stdout.write(`Question: ${result.questionSlug}\n\n${result.promptText}\n`);
 
     const rl = readline.createInterface({ input, output });
     const reply = await rl.question("\nYour reply: ");
     rl.close();
 
     const scored = await service.scorePromptReply(result.promptEventId, reply);
-    console.log(JSON.stringify(scored, null, 2));
+    process.stdout.write(`${JSON.stringify(scored, null, 2)}\n`);
   } finally {
     await service.stop();
   }

@@ -1,6 +1,9 @@
 import { createIntelligenceService } from "./intelligence.ts";
+import { createLogger } from "./logger.ts";
 import { loadIntelligenceConfig } from "./intelligence/env.ts";
 import { PromptDispatchClient } from "./client/index.ts";
+
+const logger = createLogger("prompt-dispatch");
 
 async function main(): Promise<void> {
   const config = loadIntelligenceConfig();
@@ -9,10 +12,10 @@ async function main(): Promise<void> {
   }
 
   const service = await createIntelligenceService();
-    const client = new PromptDispatchClient(service, {
-      botToken: config.DISCORD_BOT_TOKEN,
-      channelId: config.PROMPT_DISCORD_CHANNEL_ID,
-      cronSchedule: config.INTELLIGENCE_PROMPT_CRON,
+  const client = new PromptDispatchClient(service, {
+    botToken: config.DISCORD_BOT_TOKEN,
+    channelId: config.PROMPT_DISCORD_CHANNEL_ID,
+    cronSchedule: config.INTELLIGENCE_PROMPT_CRON,
     timezone: process.env.TZ ?? "UTC",
   });
 
@@ -22,6 +25,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "unhandled error");
   process.exit(1);
 }

@@ -1,8 +1,10 @@
 import express from "express";
 
 import { createIntelligenceService } from "./intelligence.ts";
+import { createLogger } from "./logger.ts";
 
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);
+const logger = createLogger("server");
 
 const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,15 +29,15 @@ async function main(): Promise<void> {
     while (!ready) {
       attempt += 1;
       try {
-        console.error(`[intelligence] startup attempt=${attempt}: connecting dependencies`);
+        logger.info({ attempt }, "startup attempt: connecting dependencies");
         await service.start();
         ready = true;
         startupError = null;
-        console.error("[intelligence] startup complete");
+        logger.info("startup complete");
         return;
       } catch (error) {
         startupError = error;
-        console.error(`[intelligence] startup failed attempt=${attempt}: ${formatError(error)}`);
+        logger.error({ attempt, err: error }, "startup failed");
         await sleep(STARTUP_RETRY_MS);
       }
     }
@@ -153,7 +155,7 @@ async function main(): Promise<void> {
   const port = Number(process.env.INTELLIGENCE_PORT ?? 8030);
   const host = process.env.INTELLIGENCE_HOST ?? "0.0.0.0";
   app.listen(port, host, () => {
-    console.error(`Intelligence HTTP server listening on ${host}:${port}`);
+    logger.info({ host, port }, "HTTP server listening");
   });
 
   process.on("SIGINT", async () => {
@@ -170,6 +172,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "unhandled startup error");
   process.exit(1);
 }
