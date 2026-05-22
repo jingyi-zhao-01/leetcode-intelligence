@@ -14,7 +14,7 @@ Intelligence service for prompting, scoring, and focus recommendations.
 - `make intelligence-cli` - one-off CLI prompt/response session
 - `make intelligence-server` - HTTP API server
 - `make intelligence-prompt-dispatch` - scheduled Discord prompt dispatcher
-- `make intelligence-prompt-response` - always-on Discord reply listener
+- `make intelligence-prompt-listener` - always-on Discord reply listener
 - `make intelligence-recommender` - periodic focus recommender and push channel
 - `make intelligence-image-start` - run the service from Docker image
 

@@ -1,7 +1,7 @@
 ROOT_DIR := ../..
 SERVICE_DIR := services/leetcode-intelligence-service
 
-.PHONY: help intelligence intelligence-cli intelligence-server intelligence-recommender intelligence-prompt-dispatch intelligence-prompt-response intelligence-image-start intelligence-image-stop prisma-generate
+.PHONY: help intelligence intelligence-cli intelligence-server intelligence-recommender intelligence-prompt-dispatch intelligence-prompt-listener intelligence-image-start intelligence-image-stop prisma-generate
 
 help:
 	@echo "Available commands:"
@@ -11,7 +11,7 @@ help:
 	@echo "  make intelligence-cli         - Start the CLI prompt/response session"
 	@echo "  make intelligence-server      - Start the HTTP API server"
 	@echo "  make intelligence-prompt-dispatch - Scheduled prompt dispatcher for PROMPT_DISCORD_CHANNEL_ID"
-	@echo "  make intelligence-prompt-response - Always-on prompt response listener for PROMPT_DISCORD_CHANNEL_ID"
+	@echo "  make intelligence-prompt-listener - Always-on prompt response listener for PROMPT_DISCORD_CHANNEL_ID"
 	@echo "  make intelligence-recommender - Scheduled recommendation push for RECOMMEND_DISCORD_CHANNEL_ID"
 	@echo ""
 	@echo "Image Run"
@@ -56,11 +56,12 @@ intelligence-prompt-dispatch: prisma-generate
 		npm run --workspace $(SERVICE_DIR) intelligence-prompt-dispatch
 
 # Run the always-on Discord reply listener in the prompt channel.
-intelligence-prompt-response: prisma-generate
+intelligence-prompt-listener: prisma-generate
 	@cd $(ROOT_DIR) && DATABASE_URL=$(DATABASE_URL) \
+		OPEN_ROUTER_API_KEY=$(OPEN_ROUTER_API_KEY) \
 		DISCORD_BOT_TOKEN=$(DISCORD_BOT_TOKEN) \
 		PROMPT_DISCORD_CHANNEL_ID=$(PROMPT_DISCORD_CHANNEL_ID) \
-		npm run --workspace $(SERVICE_DIR) intelligence-prompt-response
+		npm run --workspace $(SERVICE_DIR) intelligence-prompt-listener
 
 # Run the focus recommendation dispatcher on the recommendation channel.
 intelligence-recommender: prisma-generate

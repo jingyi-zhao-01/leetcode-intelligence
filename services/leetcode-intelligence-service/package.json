@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:openrouter-model": "tsx __test__/openrouter-model.test.ts",
     "intelligence-cli": "tsx src/cli.ts",
     "intelligence-prompt-dispatch": "tsx src/prompt-dispatch.ts",
-    "intelligence-prompt-response": "tsx src/prompt-response.ts",
+    "intelligence-prompt-listener": "tsx src/prompt-response.ts",
     "intelligence-recommender": "tsx src/recommender.ts",
     "intelligence-server": "tsx src/server.ts",
     "intelligence-server-dev": "tsx watch src/server.ts"

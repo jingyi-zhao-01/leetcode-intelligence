@@ -21,6 +21,10 @@ export class IntelligenceService {
 
   constructor(private readonly config: IntelligenceConfig) {
     const apiKey = this.config.OPEN_ROUTER_API_KEY;
+    console.error(
+      `[intelligence] init model=${this.config.MODEL} openRouterKeyPresent=${Boolean(apiKey)} promptChannelConfigured=${Boolean(this.config.PROMPT_DISCORD_CHANNEL_ID)} recommendChannelConfigured=${Boolean(this.config.RECOMMEND_DISCORD_CHANNEL_ID)}`,
+    );
+
     this.openRouter = apiKey
       ? new OpenRouter({
           apiKey,
@@ -37,11 +41,15 @@ export class IntelligenceService {
   }
 
   async start(): Promise<void> {
+    console.error("[intelligence] connecting Prisma client");
     await this.prisma.$connect();
+    console.error("[intelligence] Prisma connected");
   }
 
   async stop(): Promise<void> {
+    console.error("[intelligence] disconnecting Prisma client");
     await this.prisma.$disconnect().catch(() => undefined);
+    console.error("[intelligence] Prisma disconnected");
   }
 
   async health(): Promise<Record<string, unknown>> {

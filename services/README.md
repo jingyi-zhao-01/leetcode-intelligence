@@ -67,7 +67,7 @@ TypeScript service for prompting solutions, scoring replies, and generating focu
 - `intelligence-cli` — One-off CLI prompt/response session
 - `intelligence-server` — HTTP API server
 - `intelligence-prompt-dispatch` — Scheduled prompt dispatcher
-- `intelligence-prompt-response` — Always-on prompt response listener
+- `intelligence-prompt-listener` — Always-on prompt response listener
 - `intelligence-recommender` — Periodic focus recommender
 
 **Database**: PostgreSQL via Prisma ORM

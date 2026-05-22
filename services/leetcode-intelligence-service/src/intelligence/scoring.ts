@@ -6,6 +6,39 @@ import {
   type ScoreRequest,
 } from "./types.ts";
 
+const summarizeError = (error: unknown): string => {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  const details = error as Error & {
+    status?: number;
+    statusCode?: number;
+    code?: string;
+    cause?: unknown;
+    body?: unknown;
+    response?: {
+      status?: number;
+      statusText?: string;
+      data?: unknown;
+      body?: unknown;
+    };
+  };
+
+  const status = details.statusCode ?? details.status ?? details.response?.status;
+  const code = details.code;
+  const responseBody = details.body ?? details.response?.data ?? details.response?.body;
+
+  const parts = [
+    `${details.name}: ${details.message}`,
+    status ? `status=${status}` : "",
+    code ? `code=${code}` : "",
+    responseBody ? `response=${JSON.stringify(responseBody)}` : "",
+  ].filter(Boolean);
+
+  return parts.join(" | ");
+};
+
 const clamp = (value: number, min: number, max: number): number => {
   return Math.max(min, Math.min(max, value));
 };
@@ -56,6 +89,10 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
   ) {}
 
   async score(request: ScoreRequest): Promise<LlmScore> {
+    console.error(
+      `[intelligence][scoring] requesting OpenRouter score model=${this.model} questionSlug=${request.questionSlug} replyChars=${request.rawReply.length}`,
+    );
+
     const response = await this.openRouter.chat.send({
       chatRequest: {
         model: this.model,
@@ -84,6 +121,9 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
     });
 
     const text = response.choices?.[0]?.message?.content ?? "{}";
+    if (!response.choices?.length) {
+      console.warn(`[intelligence][scoring] OpenRouter response had no choices model=${this.model} questionSlug=${request.questionSlug}`);
+    }
     return parseStructuredJson(text);
   }
 }
@@ -108,7 +148,7 @@ export class ReplyScorer {
     try {
       return await this.primary.score(request);
     } catch (error) {
-      console.warn(`OpenRouter scoring unavailable, using fallback scorer: ${String(error)}`);
+      console.warn(`OpenRouter scoring unavailable, using fallback scorer: ${summarizeError(error)}`);
       return this.fallback.score(request);
     }
   }

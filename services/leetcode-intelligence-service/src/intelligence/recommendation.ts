@@ -56,6 +56,36 @@ const buildReason = (recommendation: FocusRecommendation): string => {
 	].join(", ");
 };
 
+const summarizeError = (error: unknown): string => {
+	if (!(error instanceof Error)) {
+		return String(error);
+	}
+
+	const details = error as Error & {
+		status?: number;
+		statusCode?: number;
+		code?: string;
+		body?: unknown;
+		response?: {
+			status?: number;
+			statusText?: string;
+			data?: unknown;
+			body?: unknown;
+		};
+	};
+
+	const status = details.statusCode ?? details.status ?? details.response?.status;
+	const code = details.code;
+	const responseBody = details.body ?? details.response?.data ?? details.response?.body;
+
+	return [
+		`${details.name}: ${details.message}`,
+		status ? `status=${status}` : "",
+		code ? `code=${code}` : "",
+		responseBody ? `response=${JSON.stringify(responseBody)}` : "",
+	].filter(Boolean).join(" | ");
+};
+
 export class FocusRecommendationService {
 	constructor(
 		private readonly prisma: any,
@@ -195,6 +225,10 @@ export class FocusRecommendationService {
 		}
 
 		try {
+			console.error(
+				`[intelligence][recommendation] requesting narrative model=${this.config.MODEL} recommendationCount=${recommendations.length}`,
+			);
+
 			const response = await this.openRouter.chat.send({
 				chatRequest: {
 					model: this.config.MODEL,
@@ -217,11 +251,12 @@ export class FocusRecommendationService {
 
 			const content = response.choices?.[0]?.message?.content?.trim();
 			if (!content) {
+				console.warn("[intelligence][recommendation] OpenRouter narrative response was empty, using fallback summary");
 				return `Focus next: ${recommendations.map((item) => item.questionSlug).join(", ")}.`;
 			}
 			return content;
 		} catch (error) {
-			console.warn(`Recommendation narrative fallback used: ${String(error)}`);
+			console.warn(`Recommendation narrative fallback used: ${summarizeError(error)}`);
 			return `Focus next: ${recommendations.map((item) => item.questionSlug).join(", ")}.`;
 		}
 	}
