@@ -9,8 +9,67 @@ import type {
   PromptTransport,
 } from "./types.ts";
 
+const DISCORD_DESCRIPTION_MAX_CHARS = 1200;
+
+const decodeHtmlEntities = (text: string): string => {
+  const namedEntities: Record<string, string> = {
+    nbsp: " ",
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+  };
+
+  return text
+    .replace(/&([a-z]+);/gi, (match, entityName: string) => namedEntities[entityName.toLowerCase()] ?? match)
+    .replace(/&#(\d+);/g, (match, codePointRaw: string) => {
+      const codePoint = Number.parseInt(codePointRaw, 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+    })
+    .replace(/&#x([\da-f]+);/gi, (match, codePointRaw: string) => {
+      const codePoint = Number.parseInt(codePointRaw, 16);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+    });
+};
+
+const htmlToDiscordText = (html: string): string => {
+  const withStructure = html
+    .replace(/<br\s*\/?>(\s*)/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<p[^>]*>/gi, "")
+    .replace(/<li[^>]*>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/?(?:ul|ol)[^>]*>/gi, "\n")
+    .replace(/<pre[^>]*>/gi, "\n```text\n")
+    .replace(/<\/pre>/gi, "\n```\n")
+    .replace(/<code[^>]*>/gi, "`")
+    .replace(/<\/code>/gi, "`")
+    .replace(/<\/?(?:strong|b)[^>]*>/gi, "**")
+    .replace(/<\/?(?:em|i)[^>]*>/gi, "*");
+
+  const withoutTags = withStructure.replace(/<[^>]+>/g, "");
+  const decoded = decodeHtmlEntities(withoutTags);
+
+  return decoded
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const formatProblemDescription = (rawDescription: string): string => {
+  const cleaned = htmlToDiscordText(rawDescription);
+  if (cleaned.length <= DISCORD_DESCRIPTION_MAX_CHARS) {
+    return cleaned;
+  }
+
+  return `${cleaned.slice(0, DISCORD_DESCRIPTION_MAX_CHARS)}\n\n...(truncated for Discord readability)`;
+};
+
 const buildPromptText = (question: CandidateQuestion, submission: CandidateSubmission): string => {
-  const description = question.content?.trim() || `${question.title} (${question.difficulty})`;
+  const description = question.content
+    ? formatProblemDescription(question.content)
+    : `${question.title} (${question.difficulty})`;
 
   return [
     `Problem: ${question.title} [${question.titleSlug}]`,
