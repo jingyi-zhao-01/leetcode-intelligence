@@ -105,7 +105,7 @@ make compose-down ENV=dev
 Build the standalone `leetcode-submission-service` image:
 
 ```bash
-docker build -f docker/leetcode-submission-service/Dockerfile -t leetcode-submission-service:latest .
+docker build -f docker/leetcode-submission-service.Dockerfile -t leetcode-submission-service:latest .
 ```
 
 Run it with your database URL:
