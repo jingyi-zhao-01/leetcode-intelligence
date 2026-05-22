@@ -63,7 +63,7 @@ ETL service for ingesting LeetCode problems from the LeetCode API into the datab
 ## Shared Configuration
 
 All services share:
-- **Prisma Schema**: `../shared/prisma/schema.prisma`
+- **Prisma Schema**: `./prisma/schema.prisma`
 - **Environment**: `.env` file at repository root with `DATABASE_URL`
 
 ## Running Services
@@ -110,4 +110,4 @@ service-name/
 - **Database**: PostgreSQL 12+
 - **Package Manager**: `uv`
 
-All services use the shared Prisma schema at `shared/prisma/schema.prisma` and depend on a single PostgreSQL database.
+All services use the shared Prisma schema at `services/prisma/schema.prisma` and depend on a single PostgreSQL database.

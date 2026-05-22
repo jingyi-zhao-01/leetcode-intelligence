@@ -6,21 +6,18 @@ This directory contains shared configuration and data structures used by all ser
 
 ```
 shared/
-├── prisma/
-│   ├── schema.prisma       # Shared Prisma database schema
-│   └── migrations/         # (if migrations are versioned)
 ├── types/                  # Shared type definitions
 ├── utils/                  # Shared utility functions/modules
-└── README.md              # This file
+└── README.md               # This file
 ```
 
 ## Components
 
-### `prisma/`
-Contains the single source of truth for database schema shared by all services (submission-server, mcp-server, ingestor).
+### Prisma Schema
+The single source of truth for database schema is now located at `services/prisma/schema.prisma` and shared by all services (submission-server, mcp-server, ingestor).
 
-**Key Files**:
-- `schema.prisma` — PostgreSQL schema definitions
+**Key File**:
+- `services/prisma/schema.prisma` — PostgreSQL schema definitions
   - Models: User, Problem, Submission, Session, etc.
   - Relations between entities
   - Indexes and constraints
@@ -28,7 +25,7 @@ Contains the single source of truth for database schema shared by all services (
 **Usage**:
 All services reference this schema during Prisma client generation:
 ```bash
-prisma generate --schema shared/prisma/schema.prisma
+prisma generate --schema services/prisma/schema.prisma
 ```
 
 **Migrations**:
