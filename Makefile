@@ -1,4 +1,4 @@
-.PHONY: help install mcp submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats compose-build compose-up compose-down compose-logs compose-ps clean
+.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-generate-dev prisma-generate-prod prisma-db-push-dev prisma-db-push-prod submission-stats compose-build compose-up compose-down compose-logs compose-ps clean
 
 help:
 	@echo "Available commands:"
@@ -27,6 +27,8 @@ help:
 
 install:
 	uv sync --dev
+	cd services/submission-server && npm install
+	cd services/mcp-server && npm install
 	cd packages/graph-ui && npm install
 
 # Load environment variables from .env file
@@ -59,25 +61,26 @@ endif
 
 # --- Shared Command Definitions ---
 PRISMA_RUN = uv run prisma
-PRISMA_SCHEMA = --schema shared/prisma/schema.prisma
+PRISMA_SCHEMA = --schema services/prisma/schema.prisma
 SUB_ENV = PYTHONPATH=services/submission-server/src:$$PYTHONPATH
-MCP_RUN = uv run python services/mcp-server/src/server.py
+MCP_NPM = cd services/mcp-server &&
+SUB_NPM = cd services/submission-server &&
 
 # --- Unified Execution Targets ---
 mcp: $(PRISMA_GEN_TARGET)
 	@echo "Starting MCP Server | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) $(MCP_RUN)
+	@$(MCP_NPM) DATABASE_URL=$(CURRENT_DB_URL) npm run mcp-server
 
 # Target specifically for stdio-based MCP servers (e.g. for VS Code config)
 # Redirects all build/setup output to stderr to keep stdout clean for JSON-RPC
 mcp-stdio: 
 	@$(MAKE) $(PRISMA_GEN_TARGET) >&2
 	@echo "Starting MCP Server (stdio) | Environment: $(ENV)" >&2
-	@DATABASE_URL=$(CURRENT_DB_URL) uv run mcp-server-stdio
+	@$(MCP_NPM) DATABASE_URL=$(CURRENT_DB_URL) npm run --silent mcp-server-stdio
 
 submission: $(PRISMA_GEN_TARGET)
 	@echo "Starting Submission Server | Environment: $(ENV)" >&2
-	@$(SUB_ENV) DATABASE_URL=$(CURRENT_DB_URL) uv run submission-server
+	@$(SUB_NPM) DATABASE_URL=$(CURRENT_DB_URL) npm run submission-server
 
 analytics: $(PRISMA_GEN_TARGET)
 	@echo "Starting Analytics API | Environment: $(ENV)" >&2
