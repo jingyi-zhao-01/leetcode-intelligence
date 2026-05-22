@@ -1,6 +1,6 @@
 import express from "express";
 
-import { createIntelligenceService } from "./intelligence.js";
+import { createIntelligenceService } from "./intelligence.ts";
 
 async function main(): Promise<void> {
   const service = await createIntelligenceService();

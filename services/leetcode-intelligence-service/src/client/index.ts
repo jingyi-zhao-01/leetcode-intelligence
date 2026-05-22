@@ -1,3 +1,3 @@
-export { runCliIntelligenceClient } from "./cli.js";
-export { DiscordIntelligenceClient } from "./discord.js";
-export type { DiscordIntelligenceClientConfig } from "./discord.js";
+export { runCliIntelligenceClient } from "./cli.ts";
+export { DiscordIntelligenceClient } from "./discord.ts";
+export type { DiscordIntelligenceClientConfig } from "./discord.ts";

@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { Client, ChannelType, GatewayIntentBits, Message } from "discord.js";
 
-import type { IntelligenceService } from "../intelligence.js";
+import type { IntelligenceService } from "../intelligence.ts";
 
 type DiscordScoreResult = {
   ok: boolean;

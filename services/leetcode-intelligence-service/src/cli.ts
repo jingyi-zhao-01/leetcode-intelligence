@@ -1,5 +1,5 @@
-import { createIntelligenceService } from "./intelligence.js";
-import { runCliIntelligenceClient } from "./client/index.js";
+import { createIntelligenceService } from "./intelligence.ts";
+import { runCliIntelligenceClient } from "./client/index.ts";
 
 async function main(): Promise<void> {
   const service = await createIntelligenceService();

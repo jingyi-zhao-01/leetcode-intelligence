@@ -1,7 +1,7 @@
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
-import type { IntelligenceService } from "../intelligence.js";
+import type { IntelligenceService } from "../intelligence.ts";
 
 type CliPromptResult = {
   ok: true;
