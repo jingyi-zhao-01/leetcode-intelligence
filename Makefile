@@ -1,4 +1,4 @@
-.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop compose-build compose-up compose-down compose-logs compose-ps clean
+.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop clean
 
 help:
 	@echo "Available commands:"
@@ -22,11 +22,6 @@ help:
 	@echo "Image Run"
 	@echo "  make submission-image-start   - Start submission server from Docker image"
 	@echo "  make submission-image-stop    - Stop submission server Docker container"
-	@echo "  make compose-build            - Build Docker Compose images"
-	@echo "  make compose-up               - Start Compose stack (submission + mcp)"
-	@echo "  make compose-down             - Stop and remove Compose stack"
-	@echo "  make compose-logs             - Tail logs for Compose services"
-	@echo "  make compose-ps               - Show Compose service status"
 	@echo ""
 	@echo "Other"
 	@echo "  make install                - Install all dependencies (uv sync + npm)"
@@ -49,9 +44,6 @@ export
 PRISMA_RUN_JS = npm exec prisma --
 PRISMA_SCHEMA = --schema services/shared/prisma/schema.prisma
 SUB_ENV = PYTHONPATH=services/leetcode-submission-service/src:$$PYTHONPATH
-SUBMISSION_IMAGE ?= leetcode-submission-service:latest
-SUBMISSION_CONTAINER_NAME ?= leetcode-submission-service
-SUBMISSION_HOST_PORT ?= 3000
 
 # --- Prisma Targets ---
 prisma-generate:
@@ -93,38 +85,10 @@ submission-stats:
 
 # --- Image Run Targets ---
 submission-image-start:
-	@echo "Starting submission server from image $(SUBMISSION_IMAGE) on port $(SUBMISSION_HOST_PORT)" >&2
-	@docker rm -f $(SUBMISSION_CONTAINER_NAME) >/dev/null 2>&1 || true
-	@docker run --rm --name $(SUBMISSION_CONTAINER_NAME) -p $(SUBMISSION_HOST_PORT):3000 \
-		-e DATABASE_URL=$(DATABASE_URL) \
-		$(SUBMISSION_IMAGE)
+	@$(MAKE) -C docker submission-image-start
 
 submission-image-stop:
-	@echo "Stopping submission server container $(SUBMISSION_CONTAINER_NAME)" >&2
-	@docker rm -f $(SUBMISSION_CONTAINER_NAME) >/dev/null 2>&1 || true
-
-# --- Compose Targets ---
-# Docker target: build all service images defined in docker-compose.yml
-compose-build:
-	@echo "Building Compose images" >&2
-	@DATABASE_URL=$(DATABASE_URL) docker compose build
-
-# Docker target: start submission_server and mcp_server in detached mode
-compose-up:
-	@echo "Starting Compose stack" >&2
-	@DATABASE_URL=$(DATABASE_URL) docker compose up -d
-
-# Docker target: stop and remove services, network, and compose resources
-compose-down:
-	@DATABASE_URL=$(DATABASE_URL) docker compose down
-
-# Docker target: stream recent logs from submission_server and mcp_server
-compose-logs:
-	@DATABASE_URL=$(DATABASE_URL) docker compose logs -f submission_server mcp_server
-
-# Docker target: show runtime status for compose services
-compose-ps:
-	@DATABASE_URL=$(DATABASE_URL) docker compose ps
+	@$(MAKE) -C docker submission-image-stop
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache

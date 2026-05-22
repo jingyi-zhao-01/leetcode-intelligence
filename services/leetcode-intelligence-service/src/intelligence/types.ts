@@ -1,7 +1,6 @@
 export type IntelligenceConfig = {
   DATABASE_URL: string;
-  OPEN_ROUTER_API_KEY?: string;
-  API_KEY?: string;
+  OPEN_ROUTER_API_KEY: string;
   DISCORD_BOT_TOKEN?: string;
   PROMPT_DISCORD_CHANNEL_ID?: string;
   RECOMMEND_DISCORD_CHANNEL_ID?: string;

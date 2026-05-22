@@ -65,7 +65,7 @@ Suggested secret source:
 ## Required Environment
 
 - `DATABASE_URL`
-- `OPEN_ROUTER_API_KEY` or `API_KEY`
+- `OPEN_ROUTER_API_KEY`
 - `MODEL`
 - `DISCORD_BOT_TOKEN`
 - `PROMPT_DISCORD_CHANNEL_ID` for prompt dispatch and prompt responses

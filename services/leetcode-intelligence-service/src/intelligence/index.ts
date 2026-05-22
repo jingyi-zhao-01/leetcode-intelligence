@@ -20,7 +20,7 @@ export class IntelligenceService {
   private readonly recommendationService: FocusRecommendationService;
 
   constructor(private readonly config: IntelligenceConfig) {
-    const apiKey = this.config.OPEN_ROUTER_API_KEY ?? this.config.API_KEY;
+    const apiKey = this.config.OPEN_ROUTER_API_KEY;
     this.openRouter = apiKey
       ? new OpenRouter({
           apiKey,

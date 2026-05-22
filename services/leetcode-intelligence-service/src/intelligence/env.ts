@@ -9,8 +9,7 @@ loadDotenv({ path: path.resolve(process.cwd(), ".env") });
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  OPEN_ROUTER_API_KEY: z.string().min(1).optional(),
-  API_KEY: z.string().min(1).optional(),
+  OPEN_ROUTER_API_KEY: z.string().min(1),
   DISCORD_BOT_TOKEN: z.string().min(1).optional(),
   PROMPT_DISCORD_CHANNEL_ID: z.string().min(1).optional(),
   RECOMMEND_DISCORD_CHANNEL_ID: z.string().min(1).optional(),
