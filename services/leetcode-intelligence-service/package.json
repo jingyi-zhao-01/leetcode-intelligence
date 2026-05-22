@@ -1,0 +1,28 @@
+{
+  "name": "leetcode-intelligence-service-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "intelligence-cli": "tsx src/cli.ts",
+    "intelligence-server": "tsx src/server.ts",
+    "intelligence-server-dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@openrouter/sdk": "^0.12.35",
+    "@prisma/client": "^5.22.0",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.1",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

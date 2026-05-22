@@ -17,6 +17,9 @@ model Question {
   relatedProblems String[]
   content         String?
   updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+  IntelligenceWeight IntelligenceWeight[]
+  IntelligencePromptEvent IntelligencePromptEvent[]
+  IntelligenceWeightAudit IntelligenceWeightAudit[]
 
   @@index([topicTags], type: Gin)
 }
@@ -33,6 +36,7 @@ model Submission {
   thought           String?
   mistake           String?
   FollowUp          FollowUp[]
+  IntelligencePromptEvent IntelligencePromptEvent[]
 }
 
 model FollowUp {
@@ -42,4 +46,74 @@ model FollowUp {
   isResolved   Boolean    @default(false)
   createdAt    DateTime   @default(now()) @db.Timestamptz(6)
   Submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
+
+model IntelligenceWeight {
+  id             String     @id @default(cuid())
+  questionSlug   String     @unique
+  weight         Float      @default(1.0)
+  sampleCount    Int        @default(0)
+  lastScore      Int?
+  lastPromptAt   DateTime?  @db.Timestamptz(6)
+  lastResponseAt DateTime?  @db.Timestamptz(6)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
+  Question       Question   @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
+}
+
+model IntelligencePromptEvent {
+  id                 String                  @id @default(cuid())
+  questionSlug       String
+  submissionId       String
+  promptText         String                  @db.Text
+  triggerSource      String
+  discordChannelId   String
+  discordMessageId   String?                 @unique
+  selectedAt         DateTime                @default(now()) @db.Timestamptz(6)
+  respondedAt        DateTime?               @db.Timestamptz(6)
+  scoredAt           DateTime?               @db.Timestamptz(6)
+  weightBefore       Float?
+  weightAfter        Float?
+  responseScore      Int?
+  status             String                  @default("pending")
+  metadata           Json?
+  Question           Question                @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
+  Submission         Submission              @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  IntelligenceResponse IntelligenceResponse?
+  IntelligenceWeightAudit IntelligenceWeightAudit[]
+
+  @@index([questionSlug])
+  @@index([submissionId])
+  @@index([discordChannelId])
+}
+
+model IntelligenceResponse {
+  id                String                  @id @default(cuid())
+  promptEventId     String                  @unique
+  rawContent        String                  @db.Text
+  structuredTags    Json?
+  approachSummary   String?                 @db.Text
+  complexityNotes   String?                 @db.Text
+  blindSpots        String?                 @db.Text
+  llmScore          Int?
+  llmReason         String?                 @db.Text
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                @updatedAt @db.Timestamptz(6)
+  PromptEvent       IntelligencePromptEvent @relation(fields: [promptEventId], references: [id], onDelete: Cascade)
+}
+
+model IntelligenceWeightAudit {
+  id                String                  @id @default(cuid())
+  questionSlug      String
+  promptEventId     String?
+  previousWeight    Float
+  nextWeight        Float
+  score             Int
+  reason            String?                 @db.Text
+  createdAt         DateTime                @default(now()) @db.Timestamptz(6)
+  Question          Question                @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
+  PromptEvent       IntelligencePromptEvent? @relation(fields: [promptEventId], references: [id], onDelete: SetNull)
+
+  @@index([questionSlug])
+  @@index([promptEventId])
 }

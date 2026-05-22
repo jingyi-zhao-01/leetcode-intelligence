@@ -2,6 +2,7 @@
   "name": "leetcode-qa",
   "private": true,
   "workspaces": [
+    "services/leetcode-intelligence-service",
     "services/leetcode-mcp-service",
     "services/leetcode-submission-service"
   ],
