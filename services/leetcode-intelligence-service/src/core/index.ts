@@ -7,22 +7,46 @@ import {
   type PromptTransport,
 } from "./types.ts";
 import { loadIntelligenceConfig } from "./env.ts";
+import { LogOperation } from "./decorators/logging.ts";
 import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, PromptGenerator, PromptResponseService, ReplyScorer } from "./scoring/index.ts";
 import { FocusRecommendationService } from "./recommendation/index.ts";
 import { LinearWeightCalculator } from "./shared/weight.ts";
 import { createLogger } from "../logger.ts";
 
 const logger = createLogger("intelligence");
+const databaseLogger = createLogger("core/database-decorator");
 
-export class IntelligenceService {
-  private readonly prisma: any = new PrismaClient();
+type DatabaseOperationMeta = {
+  operation: string;
+  promptEventId?: string;
+  messageId?: string;
+  triggerSource?: string;
+  channelId?: string;
+  limit?: number;
+  rawReplyChars?: number;
+};
+
+export interface IntelligenceService {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  health(): Promise<Record<string, unknown>>;
+  triggerPrompt(triggerSource?: string, transport?: PromptTransport): Promise<Record<string, unknown>>;
+  attachPromptMessage(promptEventId: string, messageId: string): Promise<void>;
+  scorePromptReply(promptEventId: string, rawReply: string): Promise<Record<string, unknown>>;
+  scorePromptReplyByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null>;
+  recommendFocus(limit?: number): Promise<FocusRecommendationResult>;
+}
+
+class IntelligenceCoreService implements IntelligenceService {
   private readonly openRouter: OpenRouter | null;
   private readonly promptGenerator: PromptGenerator;
   private readonly responseService: PromptResponseService;
   private readonly recommendationService: FocusRecommendationService;
-  private dbQueue: Promise<void> = Promise.resolve();
 
-  constructor(private readonly config: IntelligenceConfig) {
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly config: IntelligenceConfig,
+  ) {
     const apiKey = this.config.OPEN_ROUTER_API_KEY;
     logger.info(
       {
@@ -68,48 +92,172 @@ export class IntelligenceService {
   }
 
   async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
-    return this.withDatabase(() => this.promptGenerator.generate(triggerSource, transport));
+    return this.promptGenerator.generate(triggerSource, transport);
   }
 
   async attachPromptMessage(promptEventId: string, messageId: string): Promise<void> {
-    await this.withDatabase(async () => {
-      await this.prisma.intelligencePromptEvent.update({
-        where: { id: promptEventId },
-        data: {
-          discordMessageId: messageId,
-        },
-      });
+    await this.prisma.intelligencePromptEvent.update({
+      where: { id: promptEventId },
+      data: {
+        discordMessageId: messageId,
+      },
     });
   }
 
   async scorePromptReply(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
-    return this.withDatabase(() => this.responseService.accept(promptEventId, rawReply));
+    return this.responseService.accept(promptEventId, rawReply);
   }
 
   async scorePromptReplyByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null> {
-    return this.withDatabase(() => this.responseService.acceptByMessageId(messageId, rawReply));
+    return this.responseService.acceptByMessageId(messageId, rawReply);
   }
 
   async recommendFocus(limit?: number): Promise<FocusRecommendationResult> {
-    return this.withDatabase(async () => {
-      const resolvedLimit = limit ?? this.config.INTELLIGENCE_RECOMMEND_TOP_K;
-      return this.recommendationService.recommend(resolvedLimit);
-    });
+    const resolvedLimit = limit ?? this.config.INTELLIGENCE_RECOMMEND_TOP_K;
+    return this.recommendationService.recommend(resolvedLimit);
+  }
+}
+
+class DatabaseBoundIntelligenceService implements IntelligenceService {
+  private dbQueue: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly inner: IntelligenceService,
+    private readonly prisma: PrismaClient,
+  ) {}
+
+  async start(): Promise<void> {
+    await this.inner.start();
   }
 
-  private async withDatabase<T>(operation: () => Promise<T>): Promise<T> {
+  async stop(): Promise<void> {
+    await this.inner.stop();
+    await this.prisma.$disconnect().catch(() => undefined);
+  }
+
+  async health(): Promise<Record<string, unknown>> {
+    return this.inner.health();
+  }
+
+  @LogOperation("core/database-decorator", "triggerPrompt", (triggerSource = "manual", transport?: PromptTransport) => ({
+    triggerSource,
+    channelId: transport?.channelId,
+  }))
+  async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
+    return this.withDatabase(
+      () => this.inner.triggerPrompt(triggerSource, transport),
+      {
+        operation: "triggerPrompt",
+        triggerSource,
+        channelId: transport?.channelId,
+      },
+    );
+  }
+
+  @LogOperation("core/database-decorator", "attachPromptMessage", (promptEventId: string, messageId: string) => ({
+    promptEventId,
+    messageId,
+  }))
+  async attachPromptMessage(promptEventId: string, messageId: string): Promise<void> {
+    await this.withDatabase(
+      () => this.inner.attachPromptMessage(promptEventId, messageId),
+      {
+        operation: "attachPromptMessage",
+        promptEventId,
+        messageId,
+      },
+    );
+  }
+
+  @LogOperation("core/database-decorator", "scorePromptReply", (promptEventId: string, rawReply: string) => ({
+    promptEventId,
+    rawReplyChars: rawReply.length,
+  }))
+  async scorePromptReply(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
+    return this.withDatabase(
+      () => this.inner.scorePromptReply(promptEventId, rawReply),
+      {
+        operation: "scorePromptReply",
+        promptEventId,
+        rawReplyChars: rawReply.length,
+      },
+    );
+  }
+
+  @LogOperation("core/database-decorator", "scorePromptReplyByMessageId", (messageId: string, rawReply: string) => ({
+    messageId,
+    rawReplyChars: rawReply.length,
+  }))
+  async scorePromptReplyByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null> {
+    return this.withDatabase(
+      () => this.inner.scorePromptReplyByMessageId(messageId, rawReply),
+      {
+        operation: "scorePromptReplyByMessageId",
+        messageId,
+        rawReplyChars: rawReply.length,
+      },
+    );
+  }
+
+  @LogOperation("core/database-decorator", "recommendFocus", (limit?: number) => ({
+    limit,
+  }))
+  async recommendFocus(limit?: number): Promise<FocusRecommendationResult> {
+    return this.withDatabase(
+      () => this.inner.recommendFocus(limit),
+      {
+        operation: "recommendFocus",
+        limit,
+      },
+    );
+  }
+
+  private async withDatabase<T>(operation: () => Promise<T>, meta: DatabaseOperationMeta): Promise<T> {
     const previous = this.dbQueue;
     let release: () => void = () => undefined;
+    const queuedAt = Date.now();
 
     this.dbQueue = new Promise<void>((resolve) => {
       release = resolve;
     });
 
+    databaseLogger.info(meta, "database interaction queued");
+
     await previous;
+    const waitMs = Date.now() - queuedAt;
+    const connectStartedAt = Date.now();
+    databaseLogger.info({ ...meta, queueWaitMs: waitMs }, "connecting prisma client");
     await this.prisma.$connect();
+    const connectMs = Date.now() - connectStartedAt;
+    const operationStartedAt = Date.now();
+    databaseLogger.info({ ...meta, queueWaitMs: waitMs, connectMs }, "prisma client connected");
 
     try {
-      return await operation();
+      const result = await operation();
+      databaseLogger.info(
+        {
+          ...meta,
+          queueWaitMs: waitMs,
+          connectMs,
+          operationMs: Date.now() - operationStartedAt,
+          totalDbMs: Date.now() - queuedAt,
+        },
+        "database interaction completed",
+      );
+      return result;
+    } catch (error) {
+      databaseLogger.warn(
+        {
+          ...meta,
+          queueWaitMs: waitMs,
+          connectMs,
+          operationMs: Date.now() - operationStartedAt,
+          totalDbMs: Date.now() - queuedAt,
+          err: error,
+        },
+        "database interaction failed",
+      );
+      throw error;
     } finally {
       await this.prisma.$disconnect().catch(() => undefined);
       release();
@@ -118,5 +266,8 @@ export class IntelligenceService {
 }
 
 export const createIntelligenceService = async (): Promise<IntelligenceService> => {
-  return new IntelligenceService(loadIntelligenceConfig());
+  const config = loadIntelligenceConfig();
+  const prisma = new PrismaClient();
+  const core = new IntelligenceCoreService(prisma, config);
+  return new DatabaseBoundIntelligenceService(core, prisma);
 };
