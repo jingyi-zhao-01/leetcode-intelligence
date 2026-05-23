@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { GatewayIntentBits } from "discord.js";
 
-import type { IntelligenceService } from "../intelligence.ts";
+import type { IntelligenceService } from "../core.ts";
 import { createLogger } from "../logger.ts";
 import { DiscordClient } from "./discord-client.ts";
 import { dispatchPrompt } from "./prompt-flow.ts";

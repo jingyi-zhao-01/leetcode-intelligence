@@ -4,47 +4,11 @@ import {
   type ScoringAlgorithm,
   type LlmScore,
   type ScoreRequest,
-} from "./types.ts";
-import { createLogger } from "../logger.ts";
+} from "../types.ts";
+import { createLogger } from "../../logger.ts";
+import { clamp } from "../shared/weight.ts";
 
 const logger = createLogger("intelligence/scoring");
-
-const summarizeError = (error: unknown): string => {
-  if (!(error instanceof Error)) {
-    return String(error);
-  }
-
-  const details = error as Error & {
-    status?: number;
-    statusCode?: number;
-    code?: string;
-    cause?: unknown;
-    body?: unknown;
-    response?: {
-      status?: number;
-      statusText?: string;
-      data?: unknown;
-      body?: unknown;
-    };
-  };
-
-  const status = details.statusCode ?? details.status ?? details.response?.status;
-  const code = details.code;
-  const responseBody = details.body ?? details.response?.data ?? details.response?.body;
-
-  const parts = [
-    `${details.name}: ${details.message}`,
-    status ? `status=${status}` : "",
-    code ? `code=${code}` : "",
-    responseBody ? `response=${JSON.stringify(responseBody)}` : "",
-  ].filter(Boolean);
-
-  return parts.join(" | ");
-};
-
-const clamp = (value: number, min: number, max: number): number => {
-  return Math.max(min, Math.min(max, value));
-};
 
 const truncate = (value: string, maxLength: number): string => {
   if (value.length <= maxLength) {

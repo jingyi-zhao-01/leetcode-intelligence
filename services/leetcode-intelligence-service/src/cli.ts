@@ -1,4 +1,4 @@
-import { createIntelligenceService } from "./intelligence.ts";
+import { createIntelligenceService } from "./core.ts";
 import { createLogger } from "./logger.ts";
 import { runCliIntelligenceClient } from "./client/index.ts";
 

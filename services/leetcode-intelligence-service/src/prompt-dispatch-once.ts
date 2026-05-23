@@ -1,6 +1,6 @@
 import { runPromptDispatchOnce } from "./client/prompt-dispatch.ts";
-import { createIntelligenceService } from "./intelligence.ts";
-import { loadIntelligenceConfig } from "./intelligence/env.ts";
+import { createIntelligenceService } from "./core.ts";
+import { loadIntelligenceConfig } from "./core/env.ts";
 import { createLogger } from "./logger.ts";
 
 const logger = createLogger("prompt-dispatch-once");

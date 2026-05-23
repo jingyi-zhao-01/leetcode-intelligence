@@ -7,10 +7,8 @@ import {
   type PromptTransport,
 } from "./types.ts";
 import { loadIntelligenceConfig } from "./env.ts";
-import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, ReplyScorer } from "./scoring.ts";
-import { PromptGenerator } from "./prompt.ts";
-import { PromptResponseService } from "./response.ts";
-import { FocusRecommendationService } from "./recommendation.ts";
+import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, PromptGenerator, PromptResponseService, ReplyScorer } from "./evaluation/index.ts";
+import { FocusRecommendationService } from "./recommendation/index.ts";
 import { createLogger } from "../logger.ts";
 
 const logger = createLogger("intelligence");

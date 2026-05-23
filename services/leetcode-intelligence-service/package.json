@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test:unit": "node --import tsx --test __test__/core.unit.test.ts __test__/client.unit.test.ts",
     "test:integration": "node --import tsx --test __test__/intelligence.integration.test.ts",
+    "test": "npm run test:unit && npm run test:integration",
     "test:openrouter-model": "tsx __test__/openrouter-model.test.ts",
     "intelligence-cli": "tsx src/cli.ts",
     "intelligence-prompt-dispatch": "tsx src/prompt-dispatch.ts",

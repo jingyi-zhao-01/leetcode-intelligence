@@ -7,7 +7,8 @@ import type {
   CandidateSubmission,
   IntelligenceConfig,
   PromptTransport,
-} from "./types.ts";
+} from "../types.ts";
+import { DEFAULT_QUESTION_WEIGHT, selectionWeight } from "../shared/weight.ts";
 
 const DISCORD_DESCRIPTION_MAX_CHARS = 1200;
 
@@ -217,7 +218,7 @@ export class PromptGenerator {
             topicTags: question.topicTags,
             freqBar: question.freqBar,
           },
-          weight: weightBySlug.get(titleSlug) ?? 1,
+          weight: weightBySlug.get(titleSlug) ?? DEFAULT_QUESTION_WEIGHT,
         };
       })
       .filter((candidate): candidate is PromptCandidate => candidate !== null)
@@ -227,11 +228,11 @@ export class PromptGenerator {
       return null;
     }
 
-    const totalWeight = candidates.reduce((sum: number, candidate: { weight: number }) => sum + Math.max(candidate.weight, 0.01), 0);
+    const totalWeight = candidates.reduce((sum: number, candidate: { weight: number }) => sum + selectionWeight(candidate.weight), 0);
     let cursor = (randomInt(0, 1_000_000) / 1_000_000) * totalWeight;
 
     for (const candidate of candidates) {
-      cursor -= Math.max(candidate.weight, 0.01);
+      cursor -= selectionWeight(candidate.weight);
       if (cursor <= 0) {
         return candidate;
       }

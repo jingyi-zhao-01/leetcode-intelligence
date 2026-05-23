@@ -1,4 +1,4 @@
-import type { IntelligenceService } from "../intelligence.ts";
+import type { IntelligenceService } from "../core.ts";
 import { createLogger } from "../logger.ts";
 import { CliClient } from "./cli-client.ts";
 import { dispatchPrompt, scorePromptReply } from "./prompt-flow.ts";

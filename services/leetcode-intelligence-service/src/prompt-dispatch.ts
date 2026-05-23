@@ -1,6 +1,6 @@
-import { createIntelligenceService } from "./intelligence.ts";
+import { createIntelligenceService } from "./core.ts";
 import { createLogger } from "./logger.ts";
-import { loadIntelligenceConfig } from "./intelligence/env.ts";
+import { loadIntelligenceConfig } from "./core/env.ts";
 import { PromptDispatchClient } from "./client/index.ts";
 
 const logger = createLogger("prompt-dispatch");

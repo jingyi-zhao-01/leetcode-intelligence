@@ -4,16 +4,9 @@ import type {
   IntelligenceConfig,
   PromptEventWithRelations,
   ScoreRequest,
-} from "./types.ts";
+} from "../types.ts";
 import type { ReplyScorer } from "./scoring.ts";
-
-const clamp = (value: number, min: number, max: number): number => {
-  return Math.max(min, Math.min(max, value));
-};
-
-const scoreToWeightDelta = (score: number): number => {
-  return (3 - score) * 0.25;
-};
+import { DEFAULT_QUESTION_WEIGHT, nextWeightFromScore } from "../shared/weight.ts";
 
 export class PromptResponseService {
   constructor(
@@ -43,8 +36,8 @@ export class PromptResponseService {
       rawReply,
     } satisfies ScoreRequest);
 
-    const previousWeight = promptEvent.weightBefore ?? 1;
-    const nextWeight = clamp(previousWeight + scoreToWeightDelta(structured.score), this.config.INTELLIGENCE_MIN_WEIGHT, this.config.INTELLIGENCE_MAX_WEIGHT);
+    const previousWeight = promptEvent.weightBefore ?? DEFAULT_QUESTION_WEIGHT;
+    const nextWeight = nextWeightFromScore(previousWeight, structured.score, this.config);
 
     await this.prisma.$transaction(async (tx: any) => {
       await tx.intelligenceResponse.create({

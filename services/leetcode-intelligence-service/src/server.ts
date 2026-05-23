@@ -1,6 +1,6 @@
 import express from "express";
 
-import { createIntelligenceService } from "./intelligence.ts";
+import { createIntelligenceService } from "./core.ts";
 import { createLogger } from "./logger.ts";
 
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);
