@@ -1,3 +1,5 @@
+import { once } from "node:events";
+
 import cron from "node-cron";
 import { Client, ChannelType, GatewayIntentBits } from "discord.js";
 
@@ -30,6 +32,73 @@ const formatRecommendations = (recommendations: Array<{ questionSlug: string; ti
   return recommendations
     .map((item, index) => `${index + 1}. ${item.title} [${item.questionSlug}] (${item.difficulty})\n   priority=${item.priority.toFixed(3)}\n   ${item.reason}`)
     .join("\n");
+};
+
+const dispatchRecommendationMessage = async (
+  service: IntelligenceService,
+  discord: Client,
+  channelId: string,
+  topK: number,
+): Promise<void> => {
+  const result = await service.recommendFocus(topK);
+  const channel = await resolveTextChannel(discord, channelId);
+  const body = [
+    "Focus recommendation",
+    "",
+    result.narrative,
+    "",
+    formatRecommendations(result.recommendations),
+  ].join("\n");
+
+  const sentMessage = await channel.send({ content: body.slice(0, 1800) });
+  logger.info(
+    {
+      messageId: sentMessage.id,
+      channelId,
+      count: result.recommendations.length,
+    },
+    "sent recommendations message",
+  );
+};
+
+export const runRecommendationDispatchOnce = async (
+  service: IntelligenceService,
+  config: Omit<RecommendationDispatchClientConfig, "cronSchedule">,
+): Promise<void> => {
+  const discord = new Client({
+    intents: [GatewayIntentBits.Guilds],
+  });
+
+  logger.info({ channelId: config.channelId, topK: config.topK }, "starting one-shot client");
+  await service.start();
+
+  try {
+    discord.on("error", (error) => {
+      logger.error({ err: error }, "discord client error");
+    });
+    discord.once("clientReady", () => {
+      logger.info(
+        {
+          userTag: discord.user?.tag ?? "unknown",
+          channelId: config.channelId,
+        },
+        "ready",
+      );
+    });
+
+    logger.info("logging in bot");
+    await discord.login(config.botToken);
+    if (!discord.isReady()) {
+      await once(discord, "clientReady");
+    }
+
+    await dispatchRecommendationMessage(service, discord, config.channelId, config.topK);
+  } finally {
+    discord.removeAllListeners();
+    await discord.destroy().catch(() => undefined);
+    await service.stop();
+    logger.info("one-shot client stopped");
+  }
 };
 
 export class RecommendationDispatchClient {
@@ -88,25 +157,7 @@ export class RecommendationDispatchClient {
   private async dispatchRecommendation(): Promise<void> {
     logger.info({ channelId: this.config.channelId, topK: this.config.topK }, "cron tick: dispatching recommendations");
     try {
-      const result = await this.service.recommendFocus(this.config.topK);
-      const channel = await resolveTextChannel(this.discord, this.config.channelId);
-      const body = [
-        "Focus recommendation",
-        "",
-        result.narrative,
-        "",
-        formatRecommendations(result.recommendations),
-      ].join("\n");
-
-      const sentMessage = await channel.send({ content: body.slice(0, 1800) });
-      logger.info(
-        {
-          messageId: sentMessage.id,
-          channelId: this.config.channelId,
-          count: result.recommendations.length,
-        },
-        "sent recommendations message",
-      );
+      await dispatchRecommendationMessage(this.service, this.discord, this.config.channelId, this.config.topK);
     } catch (error) {
       logger.error({ err: error }, "dispatch failed");
     }
