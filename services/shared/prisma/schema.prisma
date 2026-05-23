@@ -48,34 +48,58 @@ model FollowUp {
   Submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 }
 
+/// Per-question adaptive weight used by recommendation and prompt selection.
+/// Higher weight means the question should be prioritized more often.
 model IntelligenceWeight {
   id             String     @id @default(cuid())
+  /// Stable join key to Question.titleSlug.
   questionSlug   String     @unique
+  /// Current effective weight for this question.
   weight         Float      @default(1.0)
+  /// Number of scored samples that contributed to this weight.
   sampleCount    Int        @default(0)
+  /// Last observed score used during update.
   lastScore      Int?
+  /// Timestamp when this question was last selected as a prompt.
   lastPromptAt   DateTime?  @db.Timestamptz(6)
+  /// Timestamp when this question last received a scored response.
   lastResponseAt DateTime?  @db.Timestamptz(6)
   createdAt      DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime   @updatedAt @db.Timestamptz(6)
   Question       Question   @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
 }
 
+/// A single prompt lifecycle event: selected question + source submission + prompt text.
+/// This is the anchor record for dispatching, replying, and scoring.
 model IntelligencePromptEvent {
   id                 String                  @id @default(cuid())
+  /// Selected question slug at dispatch time.
   questionSlug       String
+  /// Source submission used as prompt context.
   submissionId       String
+  /// Rendered prompt shown to users.
   promptText         String                  @db.Text
+  /// Trigger source, for example: manual/scheduled/http.
   triggerSource      String
+  /// Discord channel where prompt is sent.
   discordChannelId   String
+  /// Discord message id of the posted prompt (if available).
   discordMessageId   String?                 @unique
+  /// Prompt selection time.
   selectedAt         DateTime                @default(now()) @db.Timestamptz(6)
+  /// When a user reply was observed.
   respondedAt        DateTime?               @db.Timestamptz(6)
+  /// When scoring completed.
   scoredAt           DateTime?               @db.Timestamptz(6)
+  /// Weight snapshot before scoring update.
   weightBefore       Float?
+  /// Weight snapshot after scoring update.
   weightAfter        Float?
+  /// Final scored value for this event.
   responseScore      Int?
+  /// Lifecycle status, for example pending/scored.
   status             String                  @default("pending")
+  /// Extra transport or diagnostic metadata.
   metadata           Json?
   Question           Question                @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
   Submission         Submission              @relation(fields: [submissionId], references: [id], onDelete: Cascade)
@@ -86,29 +110,46 @@ model IntelligencePromptEvent {
   @@index([submissionId])
   @@index([discordChannelId])
 }
-
+/// Structured scoring result for one prompt event.
+/// One-to-one with IntelligencePromptEvent via unique promptEventId.
 model IntelligenceResponse {
   id                String                  @id @default(cuid())
+  /// Parent prompt event id (unique means at most one scored response per event).
   promptEventId     String                  @unique
+  /// Raw user reply text.
   rawContent        String                  @db.Text
+  /// Optional structured tags extracted by the scorer.
   structuredTags    Json?
+  /// LLM-generated approach summary.
   approachSummary   String?                 @db.Text
+  /// Complexity analysis notes.
   complexityNotes   String?                 @db.Text
+  /// Gaps or blind spots found in the reply.
   blindSpots        String?                 @db.Text
+  /// Numeric score from scorer.
   llmScore          Int?
+  /// Free-text reason for the score.
   llmReason         String?                 @db.Text
   createdAt         DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt         DateTime                @updatedAt @db.Timestamptz(6)
   PromptEvent       IntelligencePromptEvent @relation(fields: [promptEventId], references: [id], onDelete: Cascade)
 }
 
+/// Immutable audit trail of weight changes caused by scoring.
+/// Keeps before/after values for explainability and debugging.
 model IntelligenceWeightAudit {
   id                String                  @id @default(cuid())
+  /// Question affected by this weight change.
   questionSlug      String
+  /// Prompt event that produced this update (nullable for manual/admin writes).
   promptEventId     String?
+  /// Previous weight before applying score delta.
   previousWeight    Float
+  /// New weight after applying score delta.
   nextWeight        Float
+  /// Score used to derive this transition.
   score             Int
+  /// Optional explanation, usually from scorer output.
   reason            String?                 @db.Text
   createdAt         DateTime                @default(now()) @db.Timestamptz(6)
   Question          Question                @relation(fields: [questionSlug], references: [titleSlug], onDelete: Cascade)
