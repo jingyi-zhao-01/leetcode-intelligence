@@ -75,7 +75,7 @@ class SubmissionServer {
           isCheat,
           timeSpentMinutes,
           thought,
-          submissionDetails: item as Prisma.InputJsonObject,
+          submissionDetails: item as Prisma.InputJsonValue,
         },
       });
 
