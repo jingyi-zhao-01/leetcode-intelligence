@@ -59,11 +59,7 @@ async function main(): Promise<void> {
       return;
     }
 
-    try {
-      res.json(await service.health());
-    } catch (error) {
-      res.json({ status: "degraded", service: "leetcode-intelligence-service", error: formatError(error) });
-    }
+    res.json(await service.health());
   });
 
   app.post("/trigger", async (_req, res) => {

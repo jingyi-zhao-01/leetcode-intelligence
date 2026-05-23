@@ -59,14 +59,10 @@ export class IntelligenceService {
   }
 
   async health(): Promise<Record<string, unknown>> {
-    return this.withDatabase(async () => {
-      const count = await this.prisma.intelligencePromptEvent.count();
-      return {
-        status: "ok",
-        service: "leetcode-intelligence-service",
-        prompts: count,
-      };
-    });
+    return {
+      status: "ok",
+      service: "leetcode-intelligence-service",
+    };
   }
 
   async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
