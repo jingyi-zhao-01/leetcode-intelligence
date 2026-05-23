@@ -65,8 +65,72 @@ jobs:
       - name: Run intelligence integration tests
         run: npm run --workspace services/leetcode-intelligence-service test:integration
 
-  build-and-push:
+  smoke:
     needs: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local smoke image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/leetcode-intelligence-service.Dockerfile
+          load: true
+          tags: leetcode-intelligence-service:smoke
+
+      - name: Start intelligence smoke container
+        run: |
+          docker run -d --rm \
+            --name intelligence-service-smoke \
+            --network host \
+            -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/postgres \
+            -e INTELLIGENCE_STARTUP_RETRY_MS=1000 \
+            leetcode-intelligence-service:smoke
+
+      - name: Wait for intelligence health endpoint
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8030/health >/dev/null; then
+              exit 0
+            fi
+
+            if ! docker ps --format '{{.Names}}' | grep -qx intelligence-service-smoke; then
+              docker logs intelligence-service-smoke || true
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          docker logs intelligence-service-smoke || true
+          exit 1
+
+      - name: Stop intelligence smoke container
+        if: always()
+        run: docker rm -f intelligence-service-smoke || true
+
+  build-and-push:
+    needs: smoke
     runs-on: ubuntu-latest
 
     steps:

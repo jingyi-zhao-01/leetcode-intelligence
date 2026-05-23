@@ -62,8 +62,71 @@ jobs:
       - name: Run submission service tests
         run: npm run --workspace services/leetcode-submission-service test
 
-  build-and-push:
+  smoke:
     needs: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local smoke image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/leetcode-submission-service.Dockerfile
+          load: true
+          tags: leetcode-submission-service:smoke
+
+      - name: Start submission smoke container
+        run: |
+          docker run -d --rm \
+            --name submission-service-smoke \
+            --network host \
+            -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/postgres \
+            leetcode-submission-service:smoke
+
+      - name: Wait for submission port
+        run: |
+          for attempt in {1..30}; do
+            if timeout 1 bash -c '</dev/tcp/127.0.0.1/3000' 2>/dev/null; then
+              exit 0
+            fi
+
+            if ! docker ps --format '{{.Names}}' | grep -qx submission-service-smoke; then
+              docker logs submission-service-smoke || true
+              exit 1
+            fi
+
+            sleep 1
+          done
+
+          docker logs submission-service-smoke || true
+          exit 1
+
+      - name: Stop submission smoke container
+        if: always()
+        run: docker rm -f submission-service-smoke || true
+
+  build-and-push:
+    needs: smoke
     runs-on: ubuntu-latest
 
     steps:

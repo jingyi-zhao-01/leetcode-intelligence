@@ -144,7 +144,7 @@ async function main(): Promise<void> {
       const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined;
       res.json(await service.recommendFocus(limit));
     } catch (error) {
-      res.status(500).tson({ ok: false, error: formatError(error) });
+      res.status(500).json({ ok: false, error: formatError(error) });
     }
   });
 
