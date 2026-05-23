@@ -1,6 +1,6 @@
 # LeetCode Intelligence Service
 
-Intelligence service for prompting, scoring, and focus recommendations.
+Service runtime for prompting, scoring, and focus recommendations on top of shared LeetCode submission data.
 
 ## What it does
 
@@ -8,6 +8,24 @@ Intelligence service for prompting, scoring, and focus recommendations.
 - Prompt response listener: stays online in the prompt channel and scores replies.
 - HTTP API: exposes health, prompt triggering, reply scoring, and recommendations.
 - Recommender: periodically ranks problems and posts them to the recommendation channel.
+
+## Architecture
+
+This directory is the service wrapper around the domain core in [`src/core`](./src/core).
+
+- Service runtime concerns live here:
+  - process entrypoints
+  - Discord and HTTP startup
+  - Docker and Kubernetes integration
+  - environment wiring
+- Domain logic lives in [`src/core/README.md`](./src/core/README.md):
+  - prompt generation
+  - reply scoring
+  - weight calculation
+  - recommendation ranking
+  - recommendation narrative generation
+
+If you want to understand how scoring, weight, and recommendation interact, start with [`src/core/README.md`](./src/core/README.md).
 
 ## Entry Points
 
@@ -103,6 +121,8 @@ kubectl -n leetcode get configmap leetcode-intelligence-config -o yaml
 - `GET /recommendations`
 - `POST /recommendations/trigger`
 
+`GET /health` is process-level only and does not query Neon.
+
 ## Required Environment
 
 - `DATABASE_URL`
@@ -118,4 +138,9 @@ kubectl -n leetcode get configmap leetcode-intelligence-config -o yaml
 
 - Prisma schema is shared from `services/shared/prisma/schema.prisma`.
 - Use the service-local Makefile in this directory for intelligence commands.
-- Default scoring and recommendation paths use OpenRouter when available and fall back locally when needed.
+- The default domain implementation uses:
+  - OpenRouter-first scoring with local fallback
+  - a shared pluggable `WeightCalculator`
+  - heuristic recommendation ranking
+  - OpenRouter narrative generation with local fallback
+- Detailed core design and extension points are documented in [`src/core/README.md`](./src/core/README.md).
