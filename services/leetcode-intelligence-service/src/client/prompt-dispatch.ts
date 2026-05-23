@@ -1,10 +1,10 @@
-import { once } from "node:events";
-
 import cron from "node-cron";
-import { Client, ChannelType, GatewayIntentBits } from "discord.js";
+import { GatewayIntentBits } from "discord.js";
 
 import type { IntelligenceService } from "../intelligence.ts";
 import { createLogger } from "../logger.ts";
+import { DiscordClient } from "./discord-client.ts";
+import { dispatchPrompt } from "./prompt-flow.ts";
 
 const logger = createLogger("client/prompt-dispatch");
 
@@ -15,45 +15,14 @@ export type PromptDispatchClientConfig = {
   timezone?: string;
 };
 
-const resolveTextChannel = async (client: Client, channelId: string): Promise<any> => {
-  const channel = await client.channels.fetch(channelId);
-  if (!(channel?.isTextBased()) || channel.type !== ChannelType.GuildText) {
-    throw new Error(`Discord channel ${channelId} is not a guild text channel.`);
-  }
-  return channel;
-};
-
-const dispatchPromptMessage = async (
-  service: IntelligenceService,
-  discord: Client,
-  channelId: string,
-  triggerSource: string,
-): Promise<void> => {
-  const prompt = await service.triggerPrompt(triggerSource, { channelId });
-  if (prompt.ok !== true || typeof prompt.promptText !== "string" || typeof prompt.promptEventId !== "string") {
-    logger.warn("no prompt dispatched (service returned non-ready payload)");
-    return;
-  }
-
-  const channel = await resolveTextChannel(discord, channelId);
-  const sentMessage = await channel.send({ content: prompt.promptText });
-  logger.info(
-    {
-      channelId,
-      messageId: sentMessage.id,
-      promptEventId: prompt.promptEventId,
-    },
-    "sent prompt message",
-  );
-  await service.attachPromptMessage(prompt.promptEventId, sentMessage.id);
-  logger.info({ messageId: sentMessage.id, promptEventId: prompt.promptEventId }, "linked prompt message");
-};
-
 export const runPromptDispatchOnce = async (
   service: IntelligenceService,
   config: Omit<PromptDispatchClientConfig, "cronSchedule">,
 ): Promise<void> => {
-  const discord = new Client({
+  const discord = new DiscordClient({
+    scope: "client/prompt-dispatch-once",
+    botToken: config.botToken,
+    channelId: config.channelId,
     intents: [GatewayIntentBits.Guilds],
   });
 
@@ -61,60 +30,44 @@ export const runPromptDispatchOnce = async (
   await service.start();
 
   try {
-    discord.on("error", (error) => {
-      logger.error({ err: error }, "discord client error");
-    });
-    discord.once("clientReady", () => {
+    await discord.start({ waitUntilReady: true });
+    const prompt = await dispatchPrompt(service, discord, "scheduled-once");
+    if (prompt.ok === true) {
       logger.info(
         {
-          userTag: discord.user?.tag ?? "unknown",
           channelId: config.channelId,
+          messageId: prompt.messageId ?? null,
+          promptEventId: prompt.promptEventId,
         },
-        "ready",
+        "sent prompt message",
       );
-    });
-
-    logger.info("logging in bot");
-    await discord.login(config.botToken);
-    if (!discord.isReady()) {
-      await once(discord, "clientReady");
     }
-
-    await dispatchPromptMessage(service, discord, config.channelId, "scheduled-once");
   } finally {
-    discord.removeAllListeners();
-    await discord.destroy().catch(() => undefined);
+    await discord.stop();
     await service.stop();
     logger.info("one-shot client stopped");
   }
 };
 
 export class PromptDispatchClient {
-  private readonly discord = new Client({
-    intents: [GatewayIntentBits.Guilds],
-  });
+  private readonly discord: DiscordClient;
   private cronTask: ReturnType<typeof cron.schedule> | null = null;
 
   constructor(
     private readonly service: IntelligenceService,
     private readonly config: PromptDispatchClientConfig,
-  ) {}
+  ) {
+    this.discord = new DiscordClient({
+      scope: "client/prompt-dispatch",
+      botToken: config.botToken,
+      channelId: config.channelId,
+      intents: [GatewayIntentBits.Guilds],
+    });
+  }
 
   async start(): Promise<void> {
     logger.info("starting client");
     await this.service.start();
-    this.discord.on("error", (error) => {
-      logger.error({ err: error }, "discord client error");
-    });
-    this.discord.once("clientReady", () => {
-      logger.info(
-        {
-          userTag: this.discord.user?.tag ?? "unknown",
-          channelId: this.config.channelId,
-        },
-        "ready",
-      );
-    });
 
     this.cronTask = cron.schedule(this.config.cronSchedule, () => void this.dispatchPrompt(), {
       timezone: this.config.timezone ?? process.env.TZ ?? "UTC",
@@ -128,16 +81,14 @@ export class PromptDispatchClient {
       "cron scheduled",
     );
 
-    logger.info("logging in bot");
-    await this.discord.login(this.config.botToken);
+    await this.discord.start();
   }
 
   async stop(): Promise<void> {
     logger.info("stopping client");
     this.cronTask?.stop();
     this.cronTask = null;
-    this.discord.removeAllListeners();
-    await this.discord.destroy().catch(() => undefined);
+    await this.discord.stop();
     await this.service.stop();
     logger.info("client stopped");
   }
@@ -145,7 +96,17 @@ export class PromptDispatchClient {
   private async dispatchPrompt(): Promise<void> {
     logger.info({ channelId: this.config.channelId }, "cron tick: dispatching prompt");
     try {
-      await dispatchPromptMessage(this.service, this.discord, this.config.channelId, "scheduled");
+      const prompt = await dispatchPrompt(this.service, this.discord, "scheduled");
+      if (prompt.ok === true) {
+        logger.info(
+          {
+            channelId: this.config.channelId,
+            messageId: prompt.messageId ?? null,
+            promptEventId: prompt.promptEventId,
+          },
+          "sent prompt message",
+        );
+      }
     } catch (error) {
       logger.error({ err: error }, "dispatch failed");
     }

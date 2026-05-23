@@ -6,7 +6,12 @@
     "services/leetcode-mcp-service",
     "services/leetcode-submission-service"
   ],
+  "scripts": {
+    "format": "prettier --write \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\""
+  },
   "devDependencies": {
+    "prettier": "^3.6.2",
     "prisma": "^5.22.0"
   },
   "dependencies": {

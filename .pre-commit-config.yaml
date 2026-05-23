@@ -38,3 +38,11 @@ repos:
             types: [python]
             pass_filenames: true
             always_run: false
+          - id: prettier-services
+            name: Prettier (services)
+            entry: npm
+            args: [exec, --, prettier, --write]
+            language: system
+            files: ^services/.*\.(js|cjs|mjs|ts|tsx|json|md|yml|yaml)$
+            pass_filenames: true
+            always_run: false

@@ -1,7 +1,9 @@
-import { Client, ChannelType, GatewayIntentBits, type Message } from "discord.js";
+import { GatewayIntentBits, type Message } from "discord.js";
 
 import type { IntelligenceService } from "../intelligence.ts";
 import { createLogger } from "../logger.ts";
+import { DiscordClient } from "./discord-client.ts";
+import { scorePromptReply } from "./prompt-flow.ts";
 
 const logger = createLogger("client/prompt-response");
 
@@ -17,39 +19,28 @@ type DiscordScoreResult = {
 };
 
 export class PromptResponseClient {
-  private readonly discord = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-  });
+  private readonly discord: DiscordClient;
 
   constructor(
     private readonly service: IntelligenceService,
     private readonly config: PromptResponseClientConfig,
-  ) {}
+  ) {
+    this.discord = new DiscordClient({
+      scope: "client/prompt-response",
+      botToken: config.botToken,
+      channelId: config.channelId,
+      intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
+    });
+  }
 
   async start(): Promise<void> {
-    logger.info({ channelId: this.config.channelId }, "starting client");
-    this.discord.on("error", (error) => {
-      logger.error({ err: error }, "discord client error");
+    await this.discord.start({
+      onMessage: (message: Message) => this.handleMessage(message),
     });
-    this.discord.on("messageCreate", (message: Message) => void this.handleMessage(message));
-    this.discord.once("clientReady", () => {
-      logger.info(
-        {
-          userTag: this.discord.user?.tag ?? "unknown",
-          channelId: this.config.channelId,
-        },
-        "ready",
-      );
-    });
-    logger.info("logging in bot");
-    await this.discord.login(this.config.botToken);
   }
 
   async stop(): Promise<void> {
-    logger.info("stopping client");
-    this.discord.removeAllListeners();
-    await this.discord.destroy().catch(() => undefined);
-    logger.info("client stopped");
+    await this.discord.stop();
   }
 
   private async handleMessage(message: Message): Promise<void> {
@@ -79,12 +70,11 @@ export class PromptResponseClient {
         return;
       }
 
-      const channel = await this.discord.channels.fetch(this.config.channelId);
-      if (!(channel?.isTextBased()) || channel.type !== ChannelType.GuildText) {
-        throw new Error(`Discord channel ${this.config.channelId} is not a guild text channel.`);
-      }
-
-      const scored = (await this.service.scorePromptReplyByMessageId(referenceMessageId, message.content)) as DiscordScoreResult | null;
+      await this.discord.ensureTargetChannel();
+      const scored = (await scorePromptReply(this.service, {
+        referenceMessageId,
+        rawReply: message.content,
+      })) as DiscordScoreResult | null;
       if (!scored) {
         logger.warn({ messageId: message.id, referenceMessageId }, "no score generated");
         return;

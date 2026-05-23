@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/
+services/**/generated/
+services/**/coverage/
+services/**/.next/
+services/**/package-lock.json
+services/**/pnpm-lock.yaml
+services/**/yarn.lock

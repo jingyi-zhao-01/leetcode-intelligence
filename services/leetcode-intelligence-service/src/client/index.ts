@@ -1,7 +1,11 @@
+export { CliClient } from "./cli-client.ts";
+export { DiscordClient } from "./discord-client.ts";
+export { dispatchPrompt, scorePromptReply } from "./prompt-flow.ts";
 export { runCliIntelligenceClient } from "./cli.ts";
 export { PromptDispatchClient } from "./prompt-dispatch.ts";
 export { PromptResponseClient } from "./prompt-response.ts";
 export { RecommendationDispatchClient } from "./recommendation-dispatch.ts";
+export type { PromptDispatchOutcome, PromptDispatchSuccess, PromptReplyOutcome } from "./prompt-flow.ts";
 export type { PromptDispatchClientConfig } from "./prompt-dispatch.ts";
 export type { PromptResponseClientConfig } from "./prompt-response.ts";
 export type { RecommendationDispatchClientConfig } from "./recommendation-dispatch.ts";
