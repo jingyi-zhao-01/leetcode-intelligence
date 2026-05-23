@@ -19,13 +19,13 @@
     "intelligence-server-dev": "tsx watch src/server.ts"
   },
   "dependencies": {
+    "@leetcode-qa/shared": "*",
     "@openrouter/sdk": "^0.12.35",
     "@prisma/client": "^5.22.0",
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "node-cron": "^3.0.3",
-    "pino": "^9.14.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

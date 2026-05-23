@@ -1,6 +1,7 @@
 import net from "node:net";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
+import { createLogger } from "./logger.js";
 import { TimerManager } from "./timer.js";
 
 enum ServerAction {
@@ -13,6 +14,8 @@ enum ServerAction {
 }
 
 type SubmissionItem = Record<string, unknown>;
+
+const logger = createLogger("server");
 
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -34,12 +37,12 @@ class SubmissionServer {
       const timers = this.timerManager.getActiveTimers();
       const entries = Object.entries(timers);
       if (entries.length === 0) {
-        console.error("💤 No active sessions");
+        logger.info("No active sessions");
         return;
       }
-      console.error(`\n⏱️  Active sessions (${entries.length}):`);
+      logger.info({ count: entries.length }, "Active sessions");
       for (const [slug, elapsed] of entries) {
-        console.error(`   • ${slug}: ${elapsed} min`);
+        logger.info({ titleSlug: slug, elapsedMinutes: elapsed }, "Active session");
       }
     }, 5000);
   }
@@ -48,7 +51,7 @@ class SubmissionServer {
     const status = readString(item.status_msg, "Unknown");
 
     if (content.includes("#TEST#")) {
-      console.error(`⊘ Skipping test submission: ${titleSlug}`);
+      logger.info({ titleSlug }, "Skipping test submission");
       return false;
     }
 
@@ -57,7 +60,7 @@ class SubmissionServer {
     let timeSpentMinutes: number | null = null;
     if (this.timerManager.hasActiveTimer(titleSlug)) {
       timeSpentMinutes = this.timerManager.getElapsedTime(titleSlug);
-      console.error(`⏱️  Current elapsed time: ${timeSpentMinutes} minutes`);
+      logger.info({ titleSlug, timeSpentMinutes }, "Current elapsed time");
     }
 
     try {
@@ -72,7 +75,7 @@ class SubmissionServer {
           isCheat,
           timeSpentMinutes,
           thought,
-          submissionDetails: item,
+          submissionDetails: item as Prisma.InputJsonObject,
         },
       });
 
@@ -81,25 +84,30 @@ class SubmissionServer {
           this.timerManager.stop(titleSlug);
         }
         this.timerManager.start(titleSlug);
-        console.error("🔄 Timer restarted for accepted solution");
+        logger.info({ titleSlug }, "Timer restarted for accepted solution");
       }
 
-      const cheatFlag = isCheat ? " [CHEAT - needs revisit]" : "";
-      const timeInfo = timeSpentMinutes ? ` (${timeSpentMinutes}min)` : "";
-      console.error(
-        `✓ Submission saved successfully: ${submission.id} ${titleSlug} ${status}${cheatFlag}${timeInfo}`,
+      logger.info(
+        {
+          submissionId: submission.id,
+          titleSlug,
+          status,
+          isCheat,
+          timeSpentMinutes,
+        },
+        "Submission saved successfully",
       );
 
       return true;
     } catch (error) {
-      console.error(`✗ Error saving submission: ${String(error)}`);
+      logger.error({ err: error, titleSlug }, "Error saving submission");
       return false;
     }
   }
 
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
     const action = readString(request.action);
-    console.error(`📨 Received request: ${action}`);
+    logger.info({ action }, "Received request");
 
     switch (action) {
       case ServerAction.START_TIMER: {
@@ -172,7 +180,7 @@ class SubmissionServer {
 
     const server = net.createServer((socket) => {
       const peer = `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`;
-      console.error(`🔌 Client connected from ${peer}`);
+      logger.info({ peer }, "Client connected");
 
       let buffer = "";
 
@@ -199,16 +207,16 @@ class SubmissionServer {
       });
 
       socket.on("close", () => {
-        console.error(`❌ Client disconnected: ${peer}`);
+        logger.info({ peer }, "Client disconnected");
       });
 
       socket.on("error", (error) => {
-        console.error(`⚠️  Client socket error from ${peer}: ${String(error)}`);
+        logger.error({ err: error, peer }, "Client socket error");
       });
     });
 
     server.listen(this.port, this.host, () => {
-      console.error(`🚀 Submission server started on ${this.host}:${this.port}`);
+      logger.info({ host: this.host, port: this.port }, "Submission server started");
     });
 
     process.on("SIGINT", async () => {
@@ -227,6 +235,6 @@ const app = new SubmissionServer();
 try {
   await app.start();
 } catch (error) {
-  console.error(error);
+  logger.fatal({ err: error }, "Unhandled startup error");
   process.exit(1);
 }

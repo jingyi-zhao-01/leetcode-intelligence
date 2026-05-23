@@ -1,27 +1,31 @@
+import { createLogger } from "./logger.js";
+
+const logger = createLogger("timer");
+
 export class TimerManager {
-  private timers = new Map<string, Date>();
+  private readonly timers = new Map<string, Date>();
 
   start(titleSlug: string, allowMultiple = false): void {
     const existing = this.timers.get(titleSlug);
 
     if (existing && allowMultiple) {
       const elapsed = Math.floor((Date.now() - existing.getTime()) / 60000);
-      console.error(`⏱️  Timer already running for ${titleSlug} (${elapsed}min elapsed)`);
+      logger.info({ titleSlug, elapsedMinutes: elapsed }, "Timer already running");
       return;
     }
 
     if (!allowMultiple && this.timers.size > 0) {
       if (existing) {
         const elapsed = Math.floor((Date.now() - existing.getTime()) / 60000);
-        console.error(`⏱️  Clearing all timers, restarting ${titleSlug} (was ${elapsed}min)`);
+        logger.info({ titleSlug, elapsedMinutes: elapsed }, "Clearing all timers and restarting");
       } else {
-        console.error(`⏱️  Clearing ${this.timers.size} existing timer(s)`);
+        logger.info({ existingTimerCount: this.timers.size }, "Clearing existing timers");
       }
       this.timers.clear();
     }
 
     this.timers.set(titleSlug, new Date());
-    console.error(`⏱️  Timer started for ${titleSlug}`);
+    logger.info({ titleSlug }, "Timer started");
   }
 
   stop(titleSlug: string): number {
@@ -32,7 +36,7 @@ export class TimerManager {
 
     this.timers.delete(titleSlug);
     const minutes = Math.max(1, Math.floor((Date.now() - start.getTime()) / 60000));
-    console.error(`⏱️  Timer stopped for ${titleSlug}: ${minutes} minutes`);
+    logger.info({ titleSlug, minutes }, "Timer stopped");
     return minutes;
   }
 
