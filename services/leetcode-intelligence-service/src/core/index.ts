@@ -7,8 +7,9 @@ import {
   type PromptTransport,
 } from "./types.ts";
 import { loadIntelligenceConfig } from "./env.ts";
-import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, PromptGenerator, PromptResponseService, ReplyScorer } from "./evaluation/index.ts";
+import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, PromptGenerator, PromptResponseService, ReplyScorer } from "./scoring/index.ts";
 import { FocusRecommendationService } from "./recommendation/index.ts";
+import { LinearWeightCalculator } from "./shared/weight.ts";
 import { createLogger } from "../logger.ts";
 
 const logger = createLogger("intelligence");
@@ -43,9 +44,12 @@ export class IntelligenceService {
 
     const primaryAlgorithm = this.openRouter ? new OpenRouterScoringAlgorithm(this.openRouter, this.config.MODEL) : null;
     const scorer = new ReplyScorer(primaryAlgorithm, new FallbackScoringAlgorithm());
-    this.promptGenerator = new PromptGenerator(this.prisma, this.config);
-    this.responseService = new PromptResponseService(this.prisma, scorer, this.config);
-    this.recommendationService = new FocusRecommendationService(this.prisma, this.openRouter, this.config);
+    const weightCalculator = new LinearWeightCalculator();
+    this.promptGenerator = new PromptGenerator(this.prisma, this.config, weightCalculator);
+    this.responseService = new PromptResponseService(this.prisma, scorer, this.config, weightCalculator);
+    this.recommendationService = new FocusRecommendationService(this.prisma, this.openRouter, this.config, {
+      weightCalculator,
+    });
   }
 
   async start(): Promise<void> {

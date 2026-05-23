@@ -6,14 +6,19 @@ import type {
   ScoreRequest,
 } from "../types.ts";
 import type { ReplyScorer } from "./scoring.ts";
-import { DEFAULT_QUESTION_WEIGHT, nextWeightFromScore } from "../shared/weight.ts";
+import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
 
 export class PromptResponseService {
+  private readonly weightCalculator: WeightCalculator;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly scorer: ReplyScorer,
     private readonly config: IntelligenceConfig,
-  ) {}
+    weightCalculator?: WeightCalculator,
+  ) {
+    this.weightCalculator = weightCalculator ?? new LinearWeightCalculator();
+  }
 
   async accept(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
     const promptEvent = (await this.prisma.intelligencePromptEvent.findUnique({
@@ -36,8 +41,8 @@ export class PromptResponseService {
       rawReply,
     } satisfies ScoreRequest);
 
-    const previousWeight = promptEvent.weightBefore ?? DEFAULT_QUESTION_WEIGHT;
-    const nextWeight = nextWeightFromScore(previousWeight, structured.score, this.config);
+    const previousWeight = promptEvent.weightBefore ?? this.weightCalculator.defaultWeight;
+    const nextWeight = this.weightCalculator.nextWeightFromScore(previousWeight, structured.score, this.config);
 
     await this.prisma.$transaction(async (tx: any) => {
       await tx.intelligenceResponse.create({

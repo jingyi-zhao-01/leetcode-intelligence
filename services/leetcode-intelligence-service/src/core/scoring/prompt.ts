@@ -8,7 +8,7 @@ import type {
   IntelligenceConfig,
   PromptTransport,
 } from "../types.ts";
-import { DEFAULT_QUESTION_WEIGHT, selectionWeight } from "../shared/weight.ts";
+import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
 
 const DISCORD_DESCRIPTION_MAX_CHARS = 1200;
 
@@ -112,10 +112,15 @@ export type PromptGenerationFailure = {
 export type PromptGenerationOutcome = PromptGenerationResult | PromptGenerationFailure;
 
 export class PromptGenerator {
+  private readonly weightCalculator: WeightCalculator;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly config: IntelligenceConfig,
-  ) {}
+    weightCalculator?: WeightCalculator,
+  ) {
+    this.weightCalculator = weightCalculator ?? new LinearWeightCalculator();
+  }
 
   async generate(triggerSource: string, transport?: PromptTransport): Promise<PromptGenerationOutcome> {
     const resolvedTransport = transport ?? { channelId: "cli" };
@@ -167,7 +172,6 @@ export class PromptGenerator {
       promptText,
     };
   }
-
   private async pickCandidate(): Promise<PromptCandidate | null> {
     const submissions = (await this.prisma.submission.findMany({
       where: { titleSlug: { not: null } },
@@ -218,7 +222,7 @@ export class PromptGenerator {
             topicTags: question.topicTags,
             freqBar: question.freqBar,
           },
-          weight: weightBySlug.get(titleSlug) ?? DEFAULT_QUESTION_WEIGHT,
+          weight: weightBySlug.get(titleSlug) ?? this.weightCalculator.defaultWeight,
         };
       })
       .filter((candidate): candidate is PromptCandidate => candidate !== null)
@@ -228,11 +232,13 @@ export class PromptGenerator {
       return null;
     }
 
-    const totalWeight = candidates.reduce((sum: number, candidate: { weight: number }) => sum + selectionWeight(candidate.weight), 0);
+    const totalWeight = candidates.reduce((sum: number, candidate: { weight: number }) => {
+      return sum + this.weightCalculator.selectionWeight(candidate.weight);
+    }, 0);
     let cursor = (randomInt(0, 1_000_000) / 1_000_000) * totalWeight;
 
     for (const candidate of candidates) {
-      cursor -= selectionWeight(candidate.weight);
+      cursor -= this.weightCalculator.selectionWeight(candidate.weight);
       if (cursor <= 0) {
         return candidate;
       }

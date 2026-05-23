@@ -14,29 +14,31 @@ This folder contains the domain logic for the intelligence service. It is the la
 - `env.ts`: environment parsing and defaults
 - `types.ts`: shared domain types
 - `shared/weight.ts`: shared weight semantics used by both cores
-- `evaluation/`: prompt generation, scoring, and reply evaluation
+- `scoring/`: prompt generation, scoring, and reply evaluation
 - `recommendation/`: focus recommendation ranking and narrative generation
 
 ## Core Layout
 
 The intelligence domain is split into two cores that share one abstract weight model.
 
-- `evaluation core`
-  - `evaluation/prompt.ts`
-  - `evaluation/scoring.ts`
-  - `evaluation/response.ts`
+- `scoring core`
+  - `scoring/prompt.ts`
+  - `scoring/scoring.ts`
+  - `scoring/response.ts`
 - `recommendation core`
   - `recommendation/index.ts`
 - `shared weight model`
   - `shared/weight.ts`
 
-The shared weight layer defines the common meaning of a question weight:
+The shared weight layer defines the common meaning of a question weight and exposes a pluggable calculator strategy:
 
 - default weight for unseen questions
 - minimum selection weight for weighted sampling
 - score-to-weight update delta
 - bounded next weight computation
 - normalized weight signal for recommendations
+
+The default implementation is `LinearWeightCalculator`. Future policies can plug in through the same interface without changing the scoring or recommendation cores.
 
 ## End-to-End Flow
 
@@ -51,7 +53,7 @@ The shared weight layer defines the common meaning of a question weight:
 
 ## Prompt Selection
 
-Prompt selection happens in `evaluation/prompt.ts`.
+Prompt selection happens in `scoring/prompt.ts`.
 
 - The service reads recent submissions, capped by `INTELLIGENCE_MAX_CANDIDATES`.
 - It keeps only the first `INTELLIGENCE_SELECTION_WINDOW` viable candidates.
@@ -63,7 +65,7 @@ This means weaker questions are more likely to resurface, but the system still k
 
 ## Reply Scoring
 
-Reply scoring happens in `evaluation/scoring.ts`.
+Reply scoring happens in `scoring/scoring.ts`.
 
 Primary path:
 
@@ -88,7 +90,7 @@ The fallback exists for resiliency, not for nuanced evaluation.
 
 ## Weight Updates
 
-Weight updates happen in `evaluation/response.ts`.
+Weight updates happen in `scoring/response.ts`.
 
 After a reply is scored, the service computes the next weight through the shared weight abstraction in `shared/weight.ts`:
 

@@ -2,10 +2,21 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { loadIntelligenceConfig } from "../src/core/env.ts";
-import { FallbackScoringAlgorithm, ReplyScorer } from "../src/core/evaluation/scoring.ts";
+import { FallbackScoringAlgorithm, ReplyScorer } from "../src/core/scoring/scoring.ts";
+import {
+  HeuristicFocusRecommendationAlgorithm,
+  PlaceholderFocusRecommendationAlgorithm,
+} from "../src/core/recommendation/algorithm.ts";
+import { RecommendationAggregationBuilder } from "../src/core/recommendation/data.ts";
+import {
+  FallbackRecommendationNarrativeGenerator,
+  PlaceholderRecommendationNarrativeGenerator,
+} from "../src/core/recommendation/narrative.ts";
 import {
   DEFAULT_QUESTION_WEIGHT,
+  LinearWeightCalculator,
   MIN_SELECTION_WEIGHT,
+  PlaceholderWeightCalculator,
   clamp,
   nextWeightFromScore,
   normalizedWeightSignal,
@@ -56,6 +67,190 @@ describe("core/shared/weight", () => {
     assert.equal(normalizedWeightSignal(2.5, 5), 0.5);
     assert.equal(normalizedWeightSignal(6, 5), 1.2);
   });
+
+  it("LinearWeightCalculator exposes the default shared weight policy", () => {
+    const calculator = new LinearWeightCalculator();
+
+    assert.equal(calculator.defaultWeight, DEFAULT_QUESTION_WEIGHT);
+    assert.equal(calculator.minSelectionWeight, MIN_SELECTION_WEIGHT);
+    assert.equal(calculator.scoreToWeightDelta(2), 0.25);
+    assert.equal(calculator.selectionWeight(0), MIN_SELECTION_WEIGHT);
+    assert.equal(
+      calculator.nextWeightFromScore(1, 1, {
+        INTELLIGENCE_MIN_WEIGHT: 0.25,
+        INTELLIGENCE_MAX_WEIGHT: 5,
+      }),
+      1.5,
+    );
+    assert.equal(calculator.normalizedSignal(2.5, 5), 0.5);
+  });
+
+  it("PlaceholderWeightCalculator delegates to its fallback policy", () => {
+    const calculator = new PlaceholderWeightCalculator({
+      defaultWeight: 4,
+      minSelectionWeight: 0.2,
+      clamp: (value, min, max) => Math.max(min + 1, Math.min(max - 1, value)),
+      scoreToWeightDelta: () => 0.75,
+      selectionWeight: () => 8,
+      nextWeightFromScore: () => 9,
+      normalizedSignal: () => 0.33,
+    });
+
+    assert.equal(calculator.defaultWeight, 4);
+    assert.equal(calculator.minSelectionWeight, 0.2);
+    assert.equal(calculator.clamp(10, 0, 5), 4);
+    assert.equal(calculator.scoreToWeightDelta(5), 0.75);
+    assert.equal(calculator.selectionWeight(null), 8);
+    assert.equal(
+      calculator.nextWeightFromScore(1, 5, {
+        INTELLIGENCE_MIN_WEIGHT: 0.25,
+        INTELLIGENCE_MAX_WEIGHT: 5,
+      }),
+      9,
+    );
+    assert.equal(calculator.normalizedSignal(1, 5), 0.33);
+  });
+});
+
+describe("core/recommendation", () => {
+  it("RecommendationAggregationBuilder groups submission and prompt signals", () => {
+    const builder = new RecommendationAggregationBuilder();
+
+    const submissionAgg = builder.buildSubmissionAggregate([
+      { titleSlug: "two-sum", status: "Wrong Answer" },
+      { titleSlug: "two-sum", status: "Accepted" },
+      { titleSlug: "three-sum", status: "Runtime Error" },
+      { titleSlug: null, status: "Accepted" },
+    ]);
+    const promptAgg = builder.buildPromptAggregate([
+      { questionSlug: "two-sum", responseScore: 2 },
+      { questionSlug: "two-sum", responseScore: 4 },
+      { questionSlug: "three-sum", responseScore: null },
+    ]);
+
+    assert.deepEqual(submissionAgg.get("two-sum"), { total: 2, failed: 1 });
+    assert.deepEqual(submissionAgg.get("three-sum"), { total: 1, failed: 1 });
+    assert.deepEqual(promptAgg.get("two-sum"), { count: 2, scoreSum: 6, scoreCount: 2 });
+    assert.deepEqual(promptAgg.get("three-sum"), { count: 1, scoreSum: 0, scoreCount: 0 });
+  });
+
+  it("HeuristicFocusRecommendationAlgorithm ranks weaker and staler questions higher", () => {
+    const algorithm = new HeuristicFocusRecommendationAlgorithm();
+
+    const recommendations = algorithm.rank({
+      lookbackDays: 30,
+      topK: 2,
+      maxWeight: 5,
+      weights: [
+        {
+          questionSlug: "hard-old",
+          weight: 4,
+          lastPromptAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+          lastResponseAt: null,
+          Question: { title: "Hard Old", difficulty: "Hard" },
+        },
+        {
+          questionSlug: "easy-fresh",
+          weight: 1,
+          lastPromptAt: new Date(),
+          lastResponseAt: new Date(),
+          Question: { title: "Easy Fresh", difficulty: "Easy" },
+        },
+      ],
+      submissionAgg: new Map([
+        ["hard-old", { total: 4, failed: 3 }],
+        ["easy-fresh", { total: 3, failed: 0 }],
+      ]),
+      promptAgg: new Map([
+        ["hard-old", { count: 2, scoreSum: 4, scoreCount: 2 }],
+        ["easy-fresh", { count: 2, scoreSum: 8, scoreCount: 2 }],
+      ]),
+    });
+
+    assert.equal(recommendations.length, 2);
+    assert.equal(recommendations[0]?.questionSlug, "hard-old");
+    assert.equal(recommendations[1]?.questionSlug, "easy-fresh");
+    assert.match(recommendations[0]?.reason ?? "", /failureRate=75%/);
+  });
+
+  it("PlaceholderFocusRecommendationAlgorithm delegates to its fallback algorithm", () => {
+    const placeholder = new PlaceholderFocusRecommendationAlgorithm({
+      rank: () => [
+        {
+          questionSlug: "delegated",
+          title: "Delegated",
+          difficulty: "Medium",
+          priority: 9.9,
+          signals: {
+            weight: 1,
+            failureRate: 0.5,
+            stalenessDays: 7,
+            promptCount: 3,
+            avgScore: 2.5,
+          },
+          reason: "delegated",
+        },
+      ],
+    });
+
+    const recommendations = placeholder.rank({
+      lookbackDays: 30,
+      topK: 1,
+      maxWeight: 5,
+      weights: [],
+      submissionAgg: new Map(),
+      promptAgg: new Map(),
+    });
+
+    assert.deepEqual(recommendations.map((item) => item.questionSlug), ["delegated"]);
+  });
+
+  it("FallbackRecommendationNarrativeGenerator summarizes recommendations without OpenRouter", async () => {
+    const generator = new FallbackRecommendationNarrativeGenerator();
+
+    const narrative = await generator.generate([
+      {
+        questionSlug: "two-sum",
+        title: "Two Sum",
+        difficulty: "Easy",
+        priority: 1.2,
+        signals: {
+          weight: 1,
+          failureRate: 0.2,
+          stalenessDays: 5,
+          promptCount: 2,
+          avgScore: 3,
+        },
+        reason: "weight=1.00",
+      },
+      {
+        questionSlug: "three-sum",
+        title: "Three Sum",
+        difficulty: "Medium",
+        priority: 1.8,
+        signals: {
+          weight: 2,
+          failureRate: 0.5,
+          stalenessDays: 9,
+          promptCount: 3,
+          avgScore: 2.5,
+        },
+        reason: "weight=2.00",
+      },
+    ]);
+
+    assert.equal(narrative, "Focus next: two-sum, three-sum.");
+  });
+
+  it("PlaceholderRecommendationNarrativeGenerator delegates to its fallback generator", async () => {
+    const generator = new PlaceholderRecommendationNarrativeGenerator({
+      generate: async () => "delegated narrative",
+    });
+
+    const narrative = await generator.generate([]);
+
+    assert.equal(narrative, "delegated narrative");
+  });
 });
 
 describe("core/env", () => {
@@ -99,7 +294,7 @@ describe("core/env", () => {
   });
 });
 
-describe("core/evaluation/scoring", () => {
+describe("core/scoring/scoring", () => {
   it("FallbackScoringAlgorithm scores empty replies conservatively", async () => {
     const scorer = new FallbackScoringAlgorithm();
 
