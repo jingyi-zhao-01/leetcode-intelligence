@@ -1,6 +1,7 @@
 import net from "node:net";
 import { PrismaClient } from "@prisma/client";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
+import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
 import { createLogger } from "./logger.js";
 import { TimerManager } from "./timer.js";
 
@@ -21,39 +22,24 @@ function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-function getDatabaseDiagnostics(): Record<string, unknown> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    return { configured: false };
-  }
-
-  try {
-    const parsed = new URL(databaseUrl);
-    return {
-      configured: true,
-      protocol: parsed.protocol.replace(/:$/, ""),
-      host: parsed.host,
-      database: parsed.pathname.replace(/^\//, "") || undefined,
-      usesPooler: parsed.hostname.includes("-pooler."),
-      sslmode: parsed.searchParams.get("sslmode") ?? undefined,
-      channelBinding: parsed.searchParams.get("channel_binding") ?? undefined,
-      connectionLimit: parsed.searchParams.get("connection_limit") ?? undefined,
-      poolTimeout: parsed.searchParams.get("pool_timeout") ?? undefined,
-      pgbouncer: parsed.searchParams.get("pgbouncer") ?? undefined,
-    };
-  } catch {
-    return {
-      configured: true,
-      parseable: false,
-    };
-  }
-}
-
 class SubmissionServer {
   private readonly host: string;
   private readonly port: number;
   private readonly timerManager = new TimerManager();
-  private readonly db = new PrismaClient();
+  private readonly db = (() => {
+    const databaseUrl = resolveDatabaseUrl();
+    if (!databaseUrl) {
+      return new PrismaClient();
+    }
+
+    return new PrismaClient({
+      datasources: {
+        db: {
+          url: databaseUrl,
+        },
+      },
+    });
+  })();
 
   constructor(host = process.env.SUBMISSION_HOST ?? "127.0.0.1", port = Number(process.env.SUBMISSION_PORT ?? 3000)) {
     this.host = host;
