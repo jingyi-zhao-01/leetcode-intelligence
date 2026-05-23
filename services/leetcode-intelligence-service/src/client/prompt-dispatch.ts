@@ -1,3 +1,5 @@
+import { once } from "node:events";
+
 import cron from "node-cron";
 import { Client, ChannelType, GatewayIntentBits } from "discord.js";
 
@@ -19,6 +21,72 @@ const resolveTextChannel = async (client: Client, channelId: string): Promise<an
     throw new Error(`Discord channel ${channelId} is not a guild text channel.`);
   }
   return channel;
+};
+
+const dispatchPromptMessage = async (
+  service: IntelligenceService,
+  discord: Client,
+  channelId: string,
+  triggerSource: string,
+): Promise<void> => {
+  const prompt = await service.triggerPrompt(triggerSource, { channelId });
+  if (prompt.ok !== true || typeof prompt.promptText !== "string" || typeof prompt.promptEventId !== "string") {
+    logger.warn("no prompt dispatched (service returned non-ready payload)");
+    return;
+  }
+
+  const channel = await resolveTextChannel(discord, channelId);
+  const sentMessage = await channel.send({ content: prompt.promptText });
+  logger.info(
+    {
+      channelId,
+      messageId: sentMessage.id,
+      promptEventId: prompt.promptEventId,
+    },
+    "sent prompt message",
+  );
+  await service.attachPromptMessage(prompt.promptEventId, sentMessage.id);
+  logger.info({ messageId: sentMessage.id, promptEventId: prompt.promptEventId }, "linked prompt message");
+};
+
+export const runPromptDispatchOnce = async (
+  service: IntelligenceService,
+  config: Omit<PromptDispatchClientConfig, "cronSchedule">,
+): Promise<void> => {
+  const discord = new Client({
+    intents: [GatewayIntentBits.Guilds],
+  });
+
+  logger.info({ channelId: config.channelId }, "starting one-shot client");
+  await service.start();
+
+  try {
+    discord.on("error", (error) => {
+      logger.error({ err: error }, "discord client error");
+    });
+    discord.once("clientReady", () => {
+      logger.info(
+        {
+          userTag: discord.user?.tag ?? "unknown",
+          channelId: config.channelId,
+        },
+        "ready",
+      );
+    });
+
+    logger.info("logging in bot");
+    await discord.login(config.botToken);
+    if (!discord.isReady()) {
+      await once(discord, "clientReady");
+    }
+
+    await dispatchPromptMessage(service, discord, config.channelId, "scheduled-once");
+  } finally {
+    discord.removeAllListeners();
+    await discord.destroy().catch(() => undefined);
+    await service.stop();
+    logger.info("one-shot client stopped");
+  }
 };
 
 export class PromptDispatchClient {
@@ -77,24 +145,7 @@ export class PromptDispatchClient {
   private async dispatchPrompt(): Promise<void> {
     logger.info({ channelId: this.config.channelId }, "cron tick: dispatching prompt");
     try {
-      const prompt = await this.service.triggerPrompt("scheduled", { channelId: this.config.channelId });
-      if (prompt.ok !== true || typeof prompt.promptText !== "string" || typeof prompt.promptEventId !== "string") {
-        logger.warn("no prompt dispatched (service returned non-ready payload)");
-        return;
-      }
-
-      const channel = await resolveTextChannel(this.discord, this.config.channelId);
-      const sentMessage = await channel.send({ content: prompt.promptText });
-      logger.info(
-        {
-          channelId: this.config.channelId,
-          messageId: sentMessage.id,
-          promptEventId: prompt.promptEventId,
-        },
-        "sent prompt message",
-      );
-      await this.service.attachPromptMessage(prompt.promptEventId, sentMessage.id);
-      logger.info({ messageId: sentMessage.id, promptEventId: prompt.promptEventId }, "linked prompt message");
+      await dispatchPromptMessage(this.service, this.discord, this.config.channelId, "scheduled");
     } catch (error) {
       logger.error({ err: error }, "dispatch failed");
     }
