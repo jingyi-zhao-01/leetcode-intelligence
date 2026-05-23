@@ -21,6 +21,34 @@ function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function getDatabaseDiagnostics(): Record<string, unknown> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    return { configured: false };
+  }
+
+  try {
+    const parsed = new URL(databaseUrl);
+    return {
+      configured: true,
+      protocol: parsed.protocol.replace(/:$/, ""),
+      host: parsed.host,
+      database: parsed.pathname.replace(/^\//, "") || undefined,
+      usesPooler: parsed.hostname.includes("-pooler."),
+      sslmode: parsed.searchParams.get("sslmode") ?? undefined,
+      channelBinding: parsed.searchParams.get("channel_binding") ?? undefined,
+      connectionLimit: parsed.searchParams.get("connection_limit") ?? undefined,
+      poolTimeout: parsed.searchParams.get("pool_timeout") ?? undefined,
+      pgbouncer: parsed.searchParams.get("pgbouncer") ?? undefined,
+    };
+  } catch {
+    return {
+      configured: true,
+      parseable: false,
+    };
+  }
+}
+
 class SubmissionServer {
   private readonly host: string;
   private readonly port: number;
@@ -176,7 +204,19 @@ class SubmissionServer {
   }
 
   async start(): Promise<void> {
-    await this.db.$connect();
+    const database = getDatabaseDiagnostics();
+    const connectStartedAt = Date.now();
+
+    logger.info({ database }, "Connecting to database");
+
+    try {
+      await this.db.$connect();
+      logger.info({ database, connectMs: Date.now() - connectStartedAt }, "Database connection established");
+    } catch (error) {
+      logger.error({ err: error, database, connectMs: Date.now() - connectStartedAt }, "Database connection failed during startup");
+      throw error;
+    }
+
     this.startActiveSessionLogger();
 
     const server = net.createServer((socket) => {
