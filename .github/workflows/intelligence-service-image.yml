@@ -2,6 +2,8 @@ name: intelligence-service-image
 
 on:
   push:
+    branches:
+      - "main"
     tags:
       - "v*"
     paths:
