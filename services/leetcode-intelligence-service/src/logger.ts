@@ -6,12 +6,14 @@ const serviceLogger = pino({
     service: "leetcode-intelligence-service",
   },
   formatters: {
-    // Many log backends map textual severity more reliably than numeric pino levels.
+    // Preserve pino's numeric `level` field for log collectors, while also
+    // emitting explicit text fields that are easy to query in dashboards.
     level(label, number) {
       return {
-        level: label,
+        level: number,
         level_num: number,
         severity: label.toUpperCase(),
+        severity_text: label.toUpperCase(),
       };
     },
   },
