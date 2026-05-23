@@ -1,5 +1,5 @@
 import net from "node:net";
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { createLogger } from "./logger.js";
 import { TimerManager } from "./timer.js";
@@ -66,6 +66,7 @@ class SubmissionServer {
     try {
       const cleanedContent = normalizeForEmbedding(content);
       const thought = extractThought(content);
+      const submissionDetails = JSON.parse(JSON.stringify(item));
 
       const submission = await this.db.submission.create({
         data: {
@@ -75,7 +76,7 @@ class SubmissionServer {
           isCheat,
           timeSpentMinutes,
           thought,
-          submissionDetails: item as Prisma.InputJsonValue,
+          submissionDetails,
         },
       });
 
