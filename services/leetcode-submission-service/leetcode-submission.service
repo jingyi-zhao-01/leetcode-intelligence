@@ -1,0 +1,17 @@
+[Unit]
+Description=LeetCode Submission TCP Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/jingyi/PycharmProjects/leetcode-qa/services/leetcode-submission-service
+EnvironmentFile=-/home/jingyi/PycharmProjects/leetcode-qa/.env
+Environment=SUBMISSION_HOST=127.0.0.1
+Environment=SUBMISSION_PORT=3000
+ExecStart=/usr/bin/env node dist/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
