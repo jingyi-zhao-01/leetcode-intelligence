@@ -7,7 +7,7 @@ import {
   HeuristicFocusRecommendationAlgorithm,
   PlaceholderFocusRecommendationAlgorithm,
 } from "../src/core/recommendation/algorithm.ts";
-import { RecommendationAggregationBuilder } from "../src/core/recommendation/data.ts";
+import { RecommendationAggregationBuilder } from "../src/core/recommendation/aggregation.ts";
 import {
   FallbackRecommendationNarrativeGenerator,
   PlaceholderRecommendationNarrativeGenerator,
