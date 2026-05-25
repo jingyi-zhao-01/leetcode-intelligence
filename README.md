@@ -5,70 +5,11 @@ A microservices platform for tracking LeetCode submissions, analyzing problem-so
 
 ## Overview
 
-This platform consists of **4 independent microservices** that work together to provide a comprehensive LeetCode practice workflow:
+This platform consists of **5 independent services** that work together to provide a comprehensive LeetCode practice workflow:
 
-```d2
-direction: down
+![System architecture](./architecture.svg)
 
-# Input Layer
-nvim: {
-  shape: cylinder
-  style.fill: "#ff9999"
-}
-cli: {
-  shape: cylinder
-  style.fill: "#ff9999"
-}
-leetcode_api: {
-  shape: cylinder
-  style.fill: "#ff9999"
-}
-
-# Core Services
-submission_svc: {
-  shape: rectangle
-  style.fill: "#ffcc99"
-}
-mcp_svc: {
-  shape: rectangle
-  style.fill: "#ffff99"
-}
-intelligence_svc: {
-  shape: rectangle
-  style.fill: "#99ff99"
-}
-ingestor: {
-  shape: rectangle
-  style.fill: "#cc99ff"
-}
-
-# Database Layer
-db: {
-  shape: cylinder
-  style.fill: "#99ccff"
-}
-
-# External Clients
-llm_clients: {
-  shape: circle
-  style.fill: "#ff99ff"
-}
-discord: {
-  shape: circle
-  style.fill: "#99ccff"
-}
-
-# Connections
-nvim -> submission_svc: "TCP :3000"
-cli -> submission_svc: "TCP :3000"
-leetcode_api -> ingestor: "GraphQL"
-submission_svc -> db: "Prisma ORM"
-mcp_svc -> db: "Prisma ORM"
-intelligence_svc -> db: "Prisma ORM"
-ingestor -> db: "Prisma ORM"
-mcp_svc -> llm_clients: "MCP Protocol"
-intelligence_svc -> discord: "Discord API"
-```
+Source diagram: `architecture.d2`
 ## Services
 
 | Service | Ports | Protocol | Description |
@@ -76,6 +17,7 @@ intelligence_svc -> discord: "Discord API"
 | **Submission Service** | 3000, 8000 | TCP, HTTP | Submission tracking & analytics API |
 | **MCP Service** | stdio | MCP | LLM integration for submission analysis |
 | **Intelligence Service** | HTTP, Discord | HTTP | Prompt scoring & recommendations |
+| **Animation Service** | 8040 | HTTP | Execution trace and visualization generation |
 | **Ingestor** | CLI | Python | ETL for LeetCode problem ingestion |
 
 ### 1. Submission Service
@@ -104,7 +46,11 @@ TypeScript service for prompting, scoring, and recommendations:
 - Prompt response listener and scorer
 - Focus recommender
 
-### 4. Ingestor
+### 4. Animation Service
+
+HTTP service for generating algorithm execution traces and visualizations.
+
+### 5. Ingestor
 
 Python ETL service for ingesting LeetCode problems from the LeetCode API.
 

@@ -1,0 +1,88 @@
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+direction: right
+
+IntelligenceResponse: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  promptEventId: string { constraint: [foreign_key; unique] }
+  rawContent: text
+  llmScore: "int?"
+  llmReason: "text?"
+  createdAt: timestamptz
+  updatedAt: timestamptz
+}
+
+IntelligenceWeightAudit: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  questionSlug: string { constraint: foreign_key }
+  promptEventId: "string?" { constraint: foreign_key }
+  previousWeight: float
+  nextWeight: float
+  score: int
+  createdAt: timestamptz
+}
+
+IntelligenceWeight: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  questionSlug: string { constraint: [foreign_key; unique] }
+  weight: float
+  sampleCount: int
+  lastScore: "int?"
+  lastPromptAt: "timestamptz?"
+  lastResponseAt: "timestamptz?"
+}
+
+IntelligencePromptEvent: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  questionSlug: string { constraint: foreign_key }
+  submissionId: string { constraint: foreign_key }
+  discordMessageId: "string?" { constraint: unique }
+  triggerSource: string
+  status: string
+  selectedAt: timestamptz
+}
+
+FollowUp: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  submissionId: string { constraint: foreign_key }
+  content: text
+  isResolved: boolean
+  createdAt: timestamptz
+}
+
+Question: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  titleSlug: string { constraint: unique }
+  difficulty: string
+  title: string
+  topicTags: "string[]"
+  relatedProblems: "string[]"
+}
+
+Submission: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  titleSlug: "string?"
+  status: string
+  createdAt: timestamptz
+  isCheat: boolean
+  timeSpentMinutes: "int?"
+}
+
+IntelligenceResponse.promptEventId -> IntelligencePromptEvent.id: "1:1"
+IntelligenceWeightAudit.promptEventId -> IntelligencePromptEvent.id: "N:1 optional"
+IntelligenceWeightAudit.questionSlug -> Question.titleSlug: "N:1"
+IntelligenceWeight.questionSlug -> Question.titleSlug: "1:1"
+IntelligencePromptEvent.questionSlug -> Question.titleSlug: "N:1"
+IntelligencePromptEvent.submissionId -> Submission.id: "N:1"
+FollowUp.submissionId -> Submission.id: "N:1"

@@ -1,0 +1,94 @@
+direction: right
+
+nvim: {
+  label: "nvim\nentry point"
+  shape: cylinder
+  style.fill: "#fecaca"
+}
+
+cli: {
+  label: "cli\nentry point"
+  shape: cylinder
+  style.fill: "#fecaca"
+}
+
+llm_clients: {
+  label: "LLM clients\nexternal clients"
+  shape: circle
+  style.fill: "#f5b4fc"
+}
+
+local_runtime: {
+  label: "Strict local"
+  style.fill: "#fff7ed"
+  style.stroke: "#fdba74"
+
+  submission_svc: {
+    label: "submission_service"
+    shape: rectangle
+    style.fill: "#fdba74"
+  }
+}
+
+cloud_runtime: {
+  label: "Can be cloud hosted"
+  direction: down
+  style.fill: "#f8fafc"
+  style.stroke: "#94a3b8"
+
+  mcp_svc: {
+    label: "mcp_service"
+    shape: rectangle
+    style.fill: "#fef08a"
+  }
+
+  ingestor: {
+    label: "ingestor"
+    shape: rectangle
+    style.fill: "#d8b4fe"
+  }
+
+  intelligence_svc: {
+    label: "intelligence_service"
+    shape: rectangle
+    style.fill: "#86efac"
+  }
+}
+
+prisma_schema: {
+  label: "shared prisma schema\ndata plane"
+  shape: rectangle
+  style.fill: "#dbeafe"
+}
+
+db: {
+  label: "PostgreSQL\ndata plane"
+  shape: cylinder
+  style.fill: "#93c5fd"
+}
+
+leetcode_api: {
+  label: "LeetCode API\nexternal"
+  shape: cylinder
+  style.fill: "#fca5a5"
+}
+
+discord: {
+  label: "Discord\nexternal"
+  shape: person
+  style.fill: "#93c5fd"
+}
+
+nvim -> local_runtime.submission_svc: "JSON over TCP"
+cli -> local_runtime.submission_svc: "CLI / HTTP"
+llm_clients -> cloud_runtime.mcp_svc: "MCP"
+
+leetcode_api -> cloud_runtime.ingestor: "GraphQL"
+cloud_runtime.intelligence_svc -> discord: "Discord API"
+
+local_runtime.submission_svc -> prisma_schema: "Prisma ORM"
+cloud_runtime.mcp_svc -> prisma_schema: "Prisma ORM"
+cloud_runtime.ingestor -> prisma_schema: "Prisma ORM"
+cloud_runtime.intelligence_svc -> prisma_schema: "Prisma ORM"
+
+prisma_schema -> db: "SQL"
