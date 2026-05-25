@@ -1,7 +1,7 @@
 import net from "node:net";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { Prisma, PrismaClient } from "@prisma/client";
+import { type Submission, PrismaClient } from "@prisma/client";
 import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.js";
 import { Cache, type SubmissionSummary } from "./cache.js";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
@@ -19,7 +19,9 @@ enum ServerAction {
   SAVE_SUBMISSION = "save_submission",
 }
 
-type SubmissionItem = Record<string, unknown>;
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
+type SubmissionItem = { [key: string]: JsonValue | undefined };
 type PendingSubmission = {
   titleSlug: string;
   status: string;
@@ -254,7 +256,7 @@ export class SubmissionServer {
         isCheat: args.isCheat,
         timeSpentMinutes: args.timeSpentMinutes,
         thought: args.thought,
-        submissionDetails: args.submissionDetails as Prisma.InputJsonValue,
+        submissionDetails: args.submissionDetails,
       },
     });
 
@@ -294,7 +296,7 @@ export class SubmissionServer {
       take: safeLimit,
     });
 
-    return persisted.map((submission) => {
+    return persisted.map((submission: Submission) => {
       const details =
         submission.submissionDetails && typeof submission.submissionDetails === "object" && !Array.isArray(submission.submissionDetails)
           ? (submission.submissionDetails as SubmissionItem)
