@@ -14,8 +14,40 @@ export type PromptResponseClientConfig = {
 
 type DiscordScoreResult = {
   ok: boolean;
+  message?: string;
+  promptEventId?: string;
   questionSlug?: string;
   score?: number;
+  previousWeight?: number;
+  nextWeight?: number;
+  tags?: string[];
+  reason?: string;
+};
+
+const isTargetConversation = (message: Message, channelId: string): boolean =>
+  message.channel.id === channelId || message.channel.isThread?.() === true && message.channel.parentId === channelId;
+
+const formatScoreReply = (scored: DiscordScoreResult): string => {
+  if (!scored.ok) {
+    return `Evaluation finished but was not accepted: ${scored.message ?? "unknown reason"}`;
+  }
+
+  const parts = [
+    `Evaluation result for \`${scored.questionSlug ?? "unknown"}\``,
+    `Score: ${scored.score ?? "n/a"}`,
+  ];
+
+  if (typeof scored.previousWeight === "number" && typeof scored.nextWeight === "number") {
+    parts.push(`Weight: ${scored.previousWeight.toFixed(2)} -> ${scored.nextWeight.toFixed(2)}`);
+  }
+  if (Array.isArray(scored.tags) && scored.tags.length > 0) {
+    parts.push(`Tags: ${scored.tags.join(", ")}`);
+  }
+  if (scored.reason) {
+    parts.push(`Reason: ${scored.reason}`);
+  }
+
+  return parts.join("\n");
 };
 
 export class PromptResponseClient {
@@ -59,7 +91,7 @@ export class PromptResponseClient {
         logger.info({ messageId: message.id }, "ignored bot message");
         return;
       }
-      if (message.channel.id !== this.config.channelId) {
+      if (!isTargetConversation(message, this.config.channelId)) {
         logger.info({ messageId: message.id, channelId: message.channel.id }, "ignored non-target channel message");
         return;
       }
@@ -78,6 +110,16 @@ export class PromptResponseClient {
       if (!scored) {
         logger.warn({ messageId: message.id, referenceMessageId }, "no score generated");
         return;
+      }
+
+      const feedback = formatScoreReply(scored);
+      if (message.channel.isThread?.() === true) {
+        if (!("send" in message.channel) || typeof message.channel.send !== "function") {
+          throw new Error(`Thread channel ${message.channel.id} is not sendable.`);
+        }
+        await message.channel.send({ content: feedback });
+      } else {
+        await this.discord.replyToMessage(message, feedback);
       }
 
       logger.info(

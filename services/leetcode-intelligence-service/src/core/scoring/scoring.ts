@@ -10,6 +10,29 @@ import { clamp } from "../shared/weight.ts";
 
 const logger = createLogger("intelligence/scoring");
 
+const INTERVIEW_SCORING_PROMPT = `
+You are scoring a candidate's LeetCode interview discussion reply, not grading a final coded solution.
+
+Score the reply from 1-5 based on the quality of the candidate's thinking:
+- correctness of the proposed approach
+- completeness of the reasoning
+- soundness of assumptions and edge-case handling
+- clarity around complexity tradeoffs
+- awareness of blind spots, risks, or missing cases
+
+Do not require code. Do not penalize the candidate for not providing code, syntax, or a fully implemented solution.
+If the reasoning is strong, accurate, and interview-sound, it can earn a high score without code.
+If the reply is vague, incorrect, logically unsound, or misses important constraints, lower the score accordingly.
+
+Return JSON with:
+- score: integer 1-5
+- approachSummary: short summary of the candidate's proposed approach
+- complexityNotes: brief note on complexity discussion quality
+- blindSpots: important missing cases, incorrect assumptions, or weaknesses
+- tags: short labels describing the reasoning quality
+- reason: concise explanation for the score
+`.trim();
+
 const truncate = (value: string, maxLength: number): string => {
   if (value.length <= maxLength) {
     return value;
@@ -73,7 +96,7 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
         messages: [
           {
             role: "system",
-            content: "You score a LeetCode discussion reply. Return JSON with score (1-5), approachSummary, complexityNotes, blindSpots, tags, and reason.",
+            content: INTERVIEW_SCORING_PROMPT,
           },
           {
             role: "user",

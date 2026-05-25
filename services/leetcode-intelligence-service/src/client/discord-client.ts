@@ -77,6 +77,11 @@ export class DiscordClient {
     return { messageId: sentMessage.id };
   }
 
+  async replyToMessage(message: Message, content: string): Promise<{ messageId?: string }> {
+    const sentMessage = await message.reply({ content });
+    return { messageId: sentMessage.id };
+  }
+
   async ensureTargetChannel(): Promise<void> {
     await this.resolveTextChannel();
   }
