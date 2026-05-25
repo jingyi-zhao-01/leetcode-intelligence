@@ -1,5 +1,6 @@
 import net from "node:net";
-import { PrismaClient } from "@prisma/client";
+import { fileURLToPath } from "node:url";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
 import { createLogger } from "./logger.js";
@@ -11,6 +12,7 @@ enum ServerAction {
   DROP_TIMER = "drop_timer",
   GET_ACTIVE_TIMERS = "get_active_timers",
   GET_ACTIVE_SESSIONS = "get_active_sessions",
+  GET_PAST_SUBMISSIONS = "get_past_submissions",
   SAVE_SUBMISSION = "save_submission",
 }
 
@@ -22,7 +24,52 @@ function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
-class SubmissionServer {
+function readNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+export function formatPacificTimestamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+  }).formatToParts(date);
+
+  const part = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((entry) => entry.type === type)?.value ?? "";
+
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")} ${part("timeZoneName")}`;
+}
+
+function readSubmissionFlag(item: SubmissionItem, key: string): boolean | undefined {
+  const value = item[key];
+  return typeof value === "boolean" ? value : undefined;
+}
+
+export function inferIsTestSubmission(content: string, item: SubmissionItem): boolean {
+  const topLevelFlag = readSubmissionFlag(item, "lcnvim_is_test");
+  if (typeof topLevelFlag === "boolean") {
+    return topLevelFlag;
+  }
+
+  const metadata = item._;
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const submissionFlag = readSubmissionFlag(metadata as SubmissionItem, "submission");
+    if (typeof submissionFlag === "boolean") {
+      return !submissionFlag;
+    }
+  }
+
+  return content.includes("#TEST#");
+}
+
+export class SubmissionServer {
   private readonly host: string;
   private readonly port: number;
   private readonly timerManager = new TimerManager();
@@ -63,12 +110,7 @@ class SubmissionServer {
 
   private async saveSubmission(titleSlug: string, content: string, item: SubmissionItem): Promise<boolean> {
     const status = readString(item.status_msg, "Unknown");
-
-    if (content.includes("#TEST#")) {
-      logger.info({ titleSlug }, "Skipping test submission");
-      return false;
-    }
-
+    const isTest = inferIsTestSubmission(content, item);
     const isCheat = content.includes("#CHEAT#");
 
     let timeSpentMinutes: number | null = null;
@@ -80,7 +122,8 @@ class SubmissionServer {
     try {
       const cleanedContent = normalizeForEmbedding(content);
       const thought = extractThought(content);
-      const submissionDetails = JSON.parse(JSON.stringify(item));
+      const submissionDetails = JSON.parse(JSON.stringify(item)) as SubmissionItem;
+      submissionDetails.lcnvim_is_test = isTest;
 
       const submission = await this.db.submission.create({
         data: {
@@ -90,11 +133,11 @@ class SubmissionServer {
           isCheat,
           timeSpentMinutes,
           thought,
-          submissionDetails,
+          submissionDetails: submissionDetails as Prisma.InputJsonValue,
         },
       });
 
-      if (status === "Accepted") {
+      if (status === "Accepted" && !isTest) {
         if (this.timerManager.hasActiveTimer(titleSlug)) {
           this.timerManager.stop(titleSlug);
         }
@@ -107,6 +150,7 @@ class SubmissionServer {
           submissionId: submission.id,
           titleSlug,
           status,
+          isTest,
           isCheat,
           timeSpentMinutes,
         },
@@ -118,6 +162,33 @@ class SubmissionServer {
       logger.error({ err: error, titleSlug }, "Error saving submission");
       return false;
     }
+  }
+
+  private async getPastSubmissions(titleSlug: string, limit = 10): Promise<Record<string, unknown>[]> {
+    const safeLimit = Math.max(1, Math.min(limit, 50));
+    const submissions = await this.db.submission.findMany({
+      where: { titleSlug },
+      orderBy: { createdAt: "desc" },
+      take: safeLimit,
+    });
+
+    return submissions.map((submission) => {
+      const details =
+        submission.submissionDetails && typeof submission.submissionDetails === "object" && !Array.isArray(submission.submissionDetails)
+          ? (submission.submissionDetails as SubmissionItem)
+          : {};
+      const isTest = inferIsTestSubmission(submission.content, details);
+
+      return {
+        id: submission.id,
+        title_slug: submission.titleSlug,
+        submitted_at: submission.createdAt.toISOString(),
+        submitted_at_pst: formatPacificTimestamp(submission.createdAt),
+        time_spent_minutes: submission.timeSpentMinutes,
+        submit_result: submission.status,
+        is_test: isTest,
+      };
+    });
   }
 
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -175,6 +246,20 @@ class SubmissionServer {
           action: ServerAction.GET_ACTIVE_SESSIONS,
           sessions,
           count: sessions.length,
+        };
+      }
+
+      case ServerAction.GET_PAST_SUBMISSIONS: {
+        const titleSlug = readString(request.title_slug);
+        const limit = readNumber(request.limit, 10);
+        const submissions = await this.getPastSubmissions(titleSlug, limit);
+
+        return {
+          success: true,
+          action: ServerAction.GET_PAST_SUBMISSIONS,
+          title_slug: titleSlug,
+          submissions,
+          count: submissions.length,
         };
       }
 
@@ -264,10 +349,17 @@ class SubmissionServer {
   }
 }
 
-const app = new SubmissionServer();
-try {
-  await app.start();
-} catch (error) {
-  logger.fatal({ err: error }, "Unhandled startup error");
-  process.exit(1);
+export async function main(): Promise<void> {
+  const app = new SubmissionServer();
+  try {
+    await app.start();
+  } catch (error) {
+    logger.fatal({ err: error }, "Unhandled startup error");
+    process.exit(1);
+  }
+}
+
+const entrypoint = process.argv[1];
+if (entrypoint && fileURLToPath(import.meta.url) == entrypoint) {
+  await main();
 }

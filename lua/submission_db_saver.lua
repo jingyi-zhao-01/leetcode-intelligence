@@ -5,6 +5,137 @@
 
 local M = {}
 
+local function debug_log(msg)
+  vim.schedule(function()
+    vim.fn.histadd("message", "[submission_db_saver] " .. msg)
+  end)
+end
+
+local function send_request(request, handlers)
+  local uv = vim.loop
+  local client = uv.new_tcp()
+  local timer = uv.new_timer()
+  local closed = false
+  local stdout_chunks = {}
+  local response_complete = false
+
+  local function close_client()
+    if closed then
+      return
+    end
+    closed = true
+
+    if timer and not timer:is_closing() then
+      timer:stop()
+      timer:close()
+    end
+
+    if client and not client:is_closing() then
+      client:close()
+    end
+  end
+
+  local function emit_stdout()
+    if handlers.on_stdout and #stdout_chunks > 0 then
+      local payload = table.concat(stdout_chunks)
+      debug_log("stdout payload: " .. payload:gsub("%s+$", ""))
+      handlers.on_stdout(nil, vim.split(payload, "\n", { plain = true }), nil)
+    end
+  end
+
+  local function finish(exit_code, stderr_msg)
+    if stderr_msg and handlers.on_stderr then
+      handlers.on_stderr(nil, { stderr_msg }, nil)
+    end
+
+    emit_stdout()
+    close_client()
+
+    if handlers.on_exit then
+      debug_log("finish exit_code=" .. tostring(exit_code))
+      handlers.on_exit(nil, exit_code, nil)
+    end
+  end
+
+  local function maybe_finish_from_chunk(chunk)
+    if response_complete then
+      return
+    end
+
+    local payload = table.concat(stdout_chunks)
+    if payload:find("\n", 1, true) then
+      response_complete = true
+      debug_log("complete response line received")
+      vim.schedule(function()
+        finish(0)
+      end)
+    end
+  end
+
+  debug_log("connecting to 127.0.0.1:3000 with request " .. request:gsub("%s+$", ""))
+  client:connect("127.0.0.1", 3000, function(connect_err)
+    if connect_err then
+      return vim.schedule(function()
+        finish(1, "TCP connect error: " .. tostring(connect_err))
+      end)
+    end
+
+    debug_log("tcp connected")
+    timer:start(5000, 0, function()
+      vim.schedule(function()
+        finish(1, "TCP request timed out waiting for response")
+      end)
+    end)
+
+    client:read_start(function(read_err, chunk)
+      if read_err then
+        return vim.schedule(function()
+          finish(1, "TCP read error: " .. tostring(read_err))
+        end)
+      end
+
+      if chunk then
+        debug_log("received chunk bytes=" .. tostring(#chunk))
+        table.insert(stdout_chunks, chunk)
+        maybe_finish_from_chunk(chunk)
+        return
+      end
+
+      vim.schedule(function()
+        debug_log("tcp eof received")
+        finish(0)
+      end)
+    end)
+
+    client:write(request, function(write_err)
+      if write_err then
+        return vim.schedule(function()
+          finish(1, "TCP write error: " .. tostring(write_err))
+        end)
+      end
+
+      debug_log("request written, waiting for response line")
+    end)
+  end)
+end
+
+local function json_request(payload)
+  return vim.fn.json_encode(payload) .. "\n"
+end
+
+local function extract_response_line(data)
+  if not data or #data == 0 then
+    return nil
+  end
+
+  for i = #data, 1, -1 do
+    local line = data[i]
+    if line and line ~= "" then
+      return line
+    end
+  end
+end
+
 function M.save_submission(question, buffer, item)
   -- Save submission to database via TCP server.
   -- 
@@ -24,20 +155,14 @@ function M.save_submission(question, buffer, item)
   end
 
   -- Build JSON request
-  local request = vim.fn.json_encode({
+  local request = json_request({
     action = "save_submission",
     title_slug = title_slug,
     content = content,
     item = item or {}
-  }) .. "\n"
+  })
   
-  -- Send JSON request to server via TCP
-  local cmd = string.format(
-    "printf '%%s' '%s' | nc -N localhost 3000 2>&1",
-    request:gsub("'", "'\\''")
-  )
-  
-  vim.fn.jobstart(cmd, {
+  send_request(request, {
     on_exit = function(_, exit_code, _)
       if exit_code == 0 then
         vim.notify("💾 Submission saved to database", vim.log.levels.INFO)
@@ -75,19 +200,14 @@ function M.timer_start(question)
 
   local title_slug = question.q.title_slug
 
-  local request = vim.fn.json_encode({
+  local request = json_request({
     action = "start_timer",
     title_slug = title_slug
     -- allow_multiple defaults to False on the server side,
     -- so all existing timers are cleared and a fresh one is started.
-  }) .. "\n"
+  })
 
-  local cmd = string.format(
-    "printf '%%s' '%s' | nc -N localhost 3000 2>&1",
-    request:gsub("'", "'\\''")
-  )
-
-  vim.fn.jobstart(cmd, {
+  send_request(request, {
     on_exit = function(_, exit_code, _)
       if exit_code == 0 then
         vim.notify("⏱️  Session started: " .. title_slug, vim.log.levels.INFO)
@@ -122,17 +242,12 @@ function M.drop_session(question)
 
   local title_slug = question.q.title_slug
 
-  local request = vim.fn.json_encode({
+  local request = json_request({
     action = "drop_timer",
     title_slug = title_slug,
-  }) .. "\n"
+  })
 
-  local cmd = string.format(
-    "printf '%%s' '%s' | nc -N localhost 3000 2>&1",
-    request:gsub("'", "'\\''")
-  )
-
-  vim.fn.jobstart(cmd, {
+  send_request(request, {
     on_exit = function(_, exit_code, _)
       if exit_code ~= 0 then
         vim.notify("⚠️  Session drop failed (code: " .. exit_code .. ")", vim.log.levels.WARN)
@@ -148,6 +263,120 @@ function M.drop_session(question)
       end
     end,
   })
+end
+
+function M.list_past_submissions(title_slug, submissions)
+  if not submissions or vim.tbl_isempty(submissions) then
+    vim.notify("No past submissions found for " .. title_slug, vim.log.levels.INFO)
+    return
+  end
+
+  local lines = {}
+  for index, submission in ipairs(submissions) do
+    local submitted_at = submission.submitted_at_pst or "unknown time"
+    local time_spent = submission.time_spent_minutes
+    local time_label = "n/a"
+    if time_spent ~= vim.NIL and time_spent ~= nil then
+      time_label = tostring(time_spent) .. " min"
+    end
+    local result = submission.submit_result or "Unknown"
+    local is_test = submission.is_test and "yes" or "no"
+
+    table.insert(lines, string.format(
+      "%d. submit=%s | time=%s | result=%s | test=%s",
+      index,
+      submitted_at,
+      time_label,
+      result,
+      is_test
+    ))
+  end
+
+  vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
+    title = "Past submissions: " .. title_slug,
+  })
+end
+
+function M.get_past_submissions(question, callback, limit)
+  local title_slug = question.q.title_slug
+  local response_line
+  local function finish(response)
+    debug_log("get_past_submissions finish response=" .. vim.inspect(response))
+    if callback then
+      callback(response)
+      return
+    end
+
+    if response and response.error then
+      vim.notify("⚠️  " .. response.error, vim.log.levels.ERROR)
+      return
+    end
+
+    M.list_past_submissions(title_slug, (response and response.submissions) or {})
+  end
+
+  local request = json_request({
+    action = "get_past_submissions",
+    title_slug = title_slug,
+    limit = limit or 10,
+  })
+
+  debug_log("get_past_submissions title_slug=" .. title_slug .. " limit=" .. tostring(limit or 10))
+
+  send_request(request, {
+    on_exit = function(_, exit_code, _)
+      debug_log("on_exit exit_code=" .. tostring(exit_code) .. " response_line=" .. tostring(response_line))
+      if exit_code ~= 0 then
+        local msg = "Past submission lookup failed (code: " .. exit_code .. ")"
+        vim.notify("⚠️  " .. msg, vim.log.levels.WARN)
+        finish({ error = msg, submissions = {} })
+        return
+      end
+
+      if not response_line then
+        local msg = "Past submission lookup returned no data"
+        vim.notify("⚠️  " .. msg, vim.log.levels.WARN)
+        finish({ error = msg, submissions = {} })
+        return
+      end
+
+      local ok, response = pcall(vim.fn.json_decode, response_line)
+      if not ok then
+        local msg = "Failed to parse past submissions response"
+        vim.notify("⚠️  " .. msg, vim.log.levels.ERROR)
+        debug_log("json_decode failed for line=" .. tostring(response_line))
+        finish({ error = msg, submissions = {} })
+        return
+      end
+
+      if response.error then
+        vim.notify("⚠️  " .. response.error, vim.log.levels.ERROR)
+        finish(response)
+        return
+      end
+
+      finish(response)
+    end,
+    on_stdout = function(_, data, _)
+      debug_log("on_stdout lines=" .. vim.inspect(data))
+      response_line = extract_response_line(data) or response_line
+      debug_log("response_line updated to " .. tostring(response_line))
+    end,
+    on_stderr = function(_, data, _)
+      debug_log("on_stderr lines=" .. vim.inspect(data))
+      if data and #data > 0 then
+        for _, line in ipairs(data) do
+          if line ~= "" and not line:match("^$") then
+            vim.notify("Past submission error: " .. line, vim.log.levels.ERROR)
+          end
+        end
+      end
+    end,
+  })
+end
+
+function M.show_past_submissions(question, limit)
+  M.get_past_submissions(question, nil, limit)
 end
 
 return M

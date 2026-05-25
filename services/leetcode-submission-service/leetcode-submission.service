@@ -9,6 +9,7 @@ WorkingDirectory=/home/jingyi/PycharmProjects/leetcode-qa/services/leetcode-subm
 EnvironmentFile=-/home/jingyi/PycharmProjects/leetcode-qa/.env
 Environment=SUBMISSION_HOST=127.0.0.1
 Environment=SUBMISSION_PORT=3000
+ExecStartPre=/usr/bin/env npm run build
 ExecStart=/usr/bin/env node dist/server.js
 Restart=always
 RestartSec=3

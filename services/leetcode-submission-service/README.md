@@ -81,6 +81,7 @@ TCP protocol with JSON messages:
 - `stop_timer` - Stop timer and save session
 - `get_active_timers` - Get active timers
 - `get_active_sessions` - Get active sessions
+- `get_past_submissions` - List past submissions for a problem
 - `save_submission` - Save new submission from nvim
 
 ### Analytics Server (Port 8000 - HTTP)
