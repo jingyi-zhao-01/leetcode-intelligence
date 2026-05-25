@@ -1,10 +1,17 @@
+import { createLogger } from "../../logger.ts";
 import { isFailedStatus } from "./util.ts";
 import type {
   PromptAggregate,
   SubmissionAggregate,
 } from "./algorithm.ts";
 
+const logger = createLogger("intelligence/recommendation");
+
 export class RecommendationAggregationBuilder {
+  /**
+   * Collapse recent submission rows into per-question stats used by ranking,
+   * including failure counts, failure streak, and last submission time.
+   */
   buildSubmissionAggregate(
     submissions: Array<{ titleSlug: string | null; status: string; createdAt: Date }>,
   ): Map<string, SubmissionAggregate> {
@@ -32,9 +39,25 @@ export class RecommendationAggregationBuilder {
       }
       submissionAgg.set(submission.titleSlug, current);
     }
+
+    logger.info(
+      {
+        aggregateCount: submissionAgg.size,
+        submissionAggregate: Array.from(submissionAgg.entries()).map(([titleSlug, aggregate]) => ({
+          titleSlug,
+          ...aggregate,
+        })),
+      },
+      "built submission aggregate",
+    );
+
     return submissionAgg;
   }
 
+  /**
+   * Collapse prompt events into per-question prompt frequency and scored
+   * response totals so ranking can derive prompt activity and average score.
+   */
   buildPromptAggregate(
     promptEvents: Array<{ questionSlug: string; responseScore: number | null }>,
   ): Map<string, PromptAggregate> {
@@ -48,6 +71,18 @@ export class RecommendationAggregationBuilder {
       }
       promptAgg.set(event.questionSlug, current);
     }
+
+    logger.info(
+      {
+        aggregateCount: promptAgg.size,
+        promptAggregate: Array.from(promptAgg.entries()).map(([questionSlug, aggregate]) => ({
+          questionSlug,
+          ...aggregate,
+        })),
+      },
+      "built prompt aggregate",
+    );
+
     return promptAgg;
   }
 }

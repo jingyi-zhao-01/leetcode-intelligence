@@ -1,7 +1,6 @@
 import { OpenRouter } from "@openrouter/sdk";
 
 import type {
-  FocusRecommendation,
   FocusRecommendationResult,
   IntelligenceConfig,
 } from "../types.ts";
@@ -14,7 +13,7 @@ import {
   type FocusRecommendationAlgorithm,
   type RecommendationWeightRecord,
 } from "./algorithm.ts";
-import { RecommendationAggregationBuilder } from "./data.ts";
+import { RecommendationAggregationBuilder } from "./aggregation.ts";
 import {
   FallbackRecommendationNarrativeGenerator,
   OpenRouterRecommendationNarrativeGenerator,
@@ -47,6 +46,11 @@ export class FocusRecommendationService {
         : new FallbackRecommendationNarrativeGenerator());
   }
 
+  /**
+   * Build a recommendation snapshot from recent prompt/submission signals.
+   * `limit` is clamped to 1..50 before ranking, and the final narrative is
+   * generated from the ranked results.
+   */
   async recommend(limit: number): Promise<FocusRecommendationResult> {
     const lookbackDays = this.config.INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS;
     const since = new Date(Date.now() - lookbackDays * DAY_MS);
@@ -82,6 +86,15 @@ export class FocusRecommendationService {
       },
     })) as Array<{ titleSlug: string | null; status: string; createdAt: Date }>;
 
+    logger.info(
+      {
+        since: since.toISOString(),
+        submissionCount: submissions.length,
+        submissions,
+      },
+      "fetched recommendation submissions",
+    );
+
     const promptEvents = (await this.prisma.intelligencePromptEvent.findMany({
       where: {
         questionSlug: { in: slugs },
@@ -93,6 +106,7 @@ export class FocusRecommendationService {
       },
     })) as Array<{ questionSlug: string; responseScore: number | null }>;
 
+    // Merge raw recent activity into per-question aggregates before ranking.
     const submissionAgg = this.aggregationBuilder.buildSubmissionAggregate(submissions);
     const promptAgg = this.aggregationBuilder.buildPromptAggregate(promptEvents);
 
@@ -104,6 +118,15 @@ export class FocusRecommendationService {
       submissionAgg,
       promptAgg,
     });
+
+    logger.info(
+      {
+        topK,
+        recommendationCount: recommendations.length,
+        recommendations,
+      },
+      "ranked recommendations",
+    );
 
     const narrative = await this.narrativeGenerator.generate(recommendations);
 
