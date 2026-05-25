@@ -1,11 +1,23 @@
 import { once } from "node:events";
 
-import { ChannelType, Client, GatewayIntentBits, type Message } from "discord.js";
+import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message } from "discord.js";
 import type { Logger } from "pino";
 
 import { createLogger } from "../logger.ts";
 
 const baseLogger = createLogger("client/discord");
+const PROMPT_EMBED_COLOR = 0x5865F2;
+
+const buildPromptEmbed = (promptText: string): EmbedBuilder => {
+  const [firstLine, ...rest] = promptText.split("\n");
+  const title = (firstLine?.trim() || "LeetCode Prompt").slice(0, 256);
+  const description = rest.join("\n").trim().slice(0, 4096) || promptText.slice(0, 4096);
+
+  return new EmbedBuilder()
+    .setColor(PROMPT_EMBED_COLOR)
+    .setTitle(title)
+    .setDescription(description);
+};
 
 export type DiscordClientConfig = {
   scope: string;
@@ -67,7 +79,7 @@ export class DiscordClient {
 
   async sendPrompt(promptText: string): Promise<{ messageId?: string }> {
     const channel = await this.resolveTextChannel();
-    const sentMessage = await channel.send({ content: promptText });
+    const sentMessage = await channel.send({ embeds: [buildPromptEmbed(promptText)] });
     return { messageId: sentMessage.id };
   }
 

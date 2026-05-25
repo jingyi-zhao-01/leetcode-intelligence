@@ -21,7 +21,11 @@ const originalLogin = Client.prototype.login;
 const originalIsReady = Client.prototype.isReady;
 const originalDestroy = Client.prototype.destroy;
 
-let sentMessages: Array<{ channelId: string; content: string }> = [];
+let sentMessages: Array<{
+  channelId: string;
+  content: string;
+  embeds?: unknown[];
+}> = [];
 let stubChannelType = ChannelType.GuildText;
 let stubIsTextBased = true;
 
@@ -40,8 +44,14 @@ const installDiscordStub = (): void => {
       fetch: async (channelId: string) => ({
         type: stubChannelType,
         isTextBased: () => stubIsTextBased,
-        send: async ({ content }: { content: string }) => {
-          sentMessages.push({ channelId, content });
+        send: async ({ content, embeds }: { content?: string; embeds?: Array<{ toJSON?: () => unknown }> }) => {
+          sentMessages.push({
+            channelId,
+            content: content ?? "",
+            embeds: Array.isArray(embeds)
+              ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
+              : undefined,
+          });
           return { id: `message-${sentMessages.length}` };
         },
       }),
@@ -209,7 +219,14 @@ describe("DiscordClient", () => {
     assert.deepEqual(sentMessages, [
       {
         channelId: "prompt-channel",
-        content: "Solve two-sum",
+        content: "",
+        embeds: [
+          {
+            color: 5793266,
+            title: "Solve two-sum",
+            description: "Solve two-sum",
+          },
+        ],
       },
     ]);
   });
