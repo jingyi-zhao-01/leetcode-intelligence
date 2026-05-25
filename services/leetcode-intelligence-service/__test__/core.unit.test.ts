@@ -117,10 +117,10 @@ describe("core/recommendation", () => {
     const builder = new RecommendationAggregationBuilder();
 
     const submissionAgg = builder.buildSubmissionAggregate([
-      { titleSlug: "two-sum", status: "Wrong Answer" },
-      { titleSlug: "two-sum", status: "Accepted" },
-      { titleSlug: "three-sum", status: "Runtime Error" },
-      { titleSlug: null, status: "Accepted" },
+      { titleSlug: "two-sum", status: "Wrong Answer", createdAt: new Date("2026-05-04T00:00:00.000Z") },
+      { titleSlug: "two-sum", status: "Accepted", createdAt: new Date("2026-05-03T00:00:00.000Z") },
+      { titleSlug: "three-sum", status: "Runtime Error", createdAt: new Date("2026-05-02T00:00:00.000Z") },
+      { titleSlug: null, status: "Accepted", createdAt: new Date("2026-05-01T00:00:00.000Z") },
     ]);
     const promptAgg = builder.buildPromptAggregate([
       { questionSlug: "two-sum", responseScore: 2 },
@@ -128,8 +128,18 @@ describe("core/recommendation", () => {
       { questionSlug: "three-sum", responseScore: null },
     ]);
 
-    assert.deepEqual(submissionAgg.get("two-sum"), { total: 2, failed: 1 });
-    assert.deepEqual(submissionAgg.get("three-sum"), { total: 1, failed: 1 });
+    assert.deepEqual(submissionAgg.get("two-sum"), {
+      total: 2,
+      failed: 1,
+      recentFailureStreak: 1,
+      lastSubmittedAt: new Date("2026-05-04T00:00:00.000Z"),
+    });
+    assert.deepEqual(submissionAgg.get("three-sum"), {
+      total: 1,
+      failed: 1,
+      recentFailureStreak: 1,
+      lastSubmittedAt: new Date("2026-05-02T00:00:00.000Z"),
+    });
     assert.deepEqual(promptAgg.get("two-sum"), { count: 2, scoreSum: 6, scoreCount: 2 });
     assert.deepEqual(promptAgg.get("three-sum"), { count: 1, scoreSum: 0, scoreCount: 0 });
   });
@@ -158,8 +168,24 @@ describe("core/recommendation", () => {
         },
       ],
       submissionAgg: new Map([
-        ["hard-old", { total: 4, failed: 3 }],
-        ["easy-fresh", { total: 3, failed: 0 }],
+        [
+          "hard-old",
+          {
+            total: 4,
+            failed: 3,
+            recentFailureStreak: 2,
+            lastSubmittedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+          },
+        ],
+        [
+          "easy-fresh",
+          {
+            total: 3,
+            failed: 0,
+            recentFailureStreak: 0,
+            lastSubmittedAt: new Date(),
+          },
+        ],
       ]),
       promptAgg: new Map([
         ["hard-old", { count: 2, scoreSum: 4, scoreCount: 2 }],
@@ -171,6 +197,8 @@ describe("core/recommendation", () => {
     assert.equal(recommendations[0]?.questionSlug, "hard-old");
     assert.equal(recommendations[1]?.questionSlug, "easy-fresh");
     assert.match(recommendations[0]?.reason ?? "", /failureRate=75%/);
+    assert.equal(recommendations[0]?.signals.recentFailureStreak, 2);
+    assert.equal(recommendations[0]?.signals.recentAttemptCount, 4);
   });
 
   it("PlaceholderFocusRecommendationAlgorithm delegates to its fallback algorithm", () => {
@@ -187,6 +215,9 @@ describe("core/recommendation", () => {
             stalenessDays: 7,
             promptCount: 3,
             avgScore: 2.5,
+            recentAttemptCount: 2,
+            recentFailureStreak: 1,
+            recentSubmissionDays: 1,
           },
           reason: "delegated",
         },
@@ -220,6 +251,9 @@ describe("core/recommendation", () => {
           stalenessDays: 5,
           promptCount: 2,
           avgScore: 3,
+          recentAttemptCount: 2,
+          recentFailureStreak: 1,
+          recentSubmissionDays: 2,
         },
         reason: "weight=1.00",
       },
@@ -234,6 +268,9 @@ describe("core/recommendation", () => {
           stalenessDays: 9,
           promptCount: 3,
           avgScore: 2.5,
+          recentAttemptCount: 4,
+          recentFailureStreak: 2,
+          recentSubmissionDays: 1,
         },
         reason: "weight=2.00",
       },
@@ -267,7 +304,7 @@ describe("core/env", () => {
       assert.equal(config.INTELLIGENCE_HOST, "0.0.0.0");
       assert.equal(config.INTELLIGENCE_PROMPT_CRON, "0 9 * * *");
       assert.equal(config.INTELLIGENCE_RECOMMEND_CRON, "0 20 * * *");
-      assert.equal(config.INTELLIGENCE_RECOMMEND_TOP_K, 5);
+      assert.equal(config.INTELLIGENCE_RECOMMEND_TOP_K, 10);
       assert.equal(config.INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS, 30);
       assert.equal(config.INTELLIGENCE_MAX_CANDIDATES, 500);
       assert.equal(config.INTELLIGENCE_SELECTION_WINDOW, 200);

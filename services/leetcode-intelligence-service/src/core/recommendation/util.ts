@@ -37,11 +37,17 @@ export const difficultyBoost = (difficulty: string): number => {
 export const buildReason = (recommendation: FocusRecommendation): string => {
   const failurePct = Math.round(recommendation.signals.failureRate * 100);
   const avgScoreText = recommendation.signals.avgScore === null ? "n/a" : recommendation.signals.avgScore.toFixed(2);
+  const recentSubmissionText = recommendation.signals.recentSubmissionDays === null
+    ? "n/a"
+    : `${Math.round(recommendation.signals.recentSubmissionDays)}d ago`;
 
   return [
     `weight=${recommendation.signals.weight.toFixed(2)}`,
     `failureRate=${failurePct}%`,
     `staleness=${Math.round(recommendation.signals.stalenessDays)}d`,
     `avgScore=${avgScoreText}`,
+    `attempts=${recommendation.signals.recentAttemptCount}`,
+    `failureStreak=${recommendation.signals.recentFailureStreak}`,
+    `lastSubmission=${recentSubmissionText}`,
   ].join(", ");
 };

@@ -18,7 +18,7 @@ export const envSchema = z.object({
   INTELLIGENCE_HOST: z.string().min(1).default("0.0.0.0"),
   INTELLIGENCE_PROMPT_CRON: z.string().min(1).optional(),
   INTELLIGENCE_RECOMMEND_CRON: z.string().min(1).default("0 20 * * *"),
-  INTELLIGENCE_RECOMMEND_TOP_K: z.coerce.number().int().positive().default(5),
+  INTELLIGENCE_RECOMMEND_TOP_K: z.coerce.number().int().positive().default(10),
   INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: z.coerce.number().int().positive().default(30),
   INTELLIGENCE_MAX_CANDIDATES: z.coerce.number().int().positive().default(500),
   INTELLIGENCE_SELECTION_WINDOW: z.coerce.number().int().positive().default(200),

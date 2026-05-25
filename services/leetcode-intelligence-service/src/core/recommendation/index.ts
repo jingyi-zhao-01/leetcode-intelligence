@@ -74,11 +74,13 @@ export class FocusRecommendationService {
         titleSlug: { in: slugs },
         createdAt: { gte: since },
       },
+      orderBy: { createdAt: "desc" },
       select: {
         titleSlug: true,
         status: true,
+        createdAt: true,
       },
-    })) as Array<{ titleSlug: string | null; status: string }>;
+    })) as Array<{ titleSlug: string | null; status: string; createdAt: Date }>;
 
     const promptEvents = (await this.prisma.intelligencePromptEvent.findMany({
       where: {

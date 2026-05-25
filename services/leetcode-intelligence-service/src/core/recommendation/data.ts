@@ -6,17 +6,29 @@ import type {
 
 export class RecommendationAggregationBuilder {
   buildSubmissionAggregate(
-    submissions: Array<{ titleSlug: string | null; status: string }>,
+    submissions: Array<{ titleSlug: string | null; status: string; createdAt: Date }>,
   ): Map<string, SubmissionAggregate> {
     const submissionAgg = new Map<string, SubmissionAggregate>();
     for (const submission of submissions) {
       if (!submission.titleSlug) {
         continue;
       }
-      const current = submissionAgg.get(submission.titleSlug) ?? { total: 0, failed: 0 };
+      const current = submissionAgg.get(submission.titleSlug) ?? {
+        total: 0,
+        failed: 0,
+        recentFailureStreak: 0,
+        lastSubmittedAt: null,
+      };
+      const failed = isFailedStatus(submission.status);
       current.total += 1;
-      if (isFailedStatus(submission.status)) {
+      if (failed) {
         current.failed += 1;
+      }
+      if (current.total === 1) {
+        current.lastSubmittedAt = submission.createdAt;
+      }
+      if (current.total - 1 === current.recentFailureStreak && failed) {
+        current.recentFailureStreak += 1;
       }
       submissionAgg.set(submission.titleSlug, current);
     }

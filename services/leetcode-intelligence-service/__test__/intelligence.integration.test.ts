@@ -32,6 +32,9 @@ type RecommendationResult = {
       stalenessDays: number;
       promptCount: number;
       avgScore: number | null;
+      recentAttemptCount: number;
+      recentFailureStreak: number;
+      recentSubmissionDays: number | null;
     };
     reason: string;
   }>;
@@ -138,6 +141,9 @@ const createFakeService = (): FakeService => {
               stalenessDays: 2,
               promptCount: 1,
               avgScore: 4,
+              recentAttemptCount: 3,
+              recentFailureStreak: 1,
+              recentSubmissionDays: 0.5,
             },
             reason: "weight=1.25",
           },
@@ -228,6 +234,7 @@ describe("intelligence integration modes", () => {
     assert.match(sentMessages[0]?.content ?? "", /\*\*Recommended Problems\*\*/);
     assert.match(sentMessages[0]?.content ?? "", /### 1\. \*\*Two Sum\*\*/);
     assert.match(sentMessages[0]?.content ?? "", /`two-sum`/);
+    assert.match(sentMessages[0]?.content ?? "", /Recent submissions/);
   });
 
   it("RecommendationDispatchClient schedules node-cron in long-running mode", async () => {
