@@ -29,6 +29,7 @@ Return JSON with:
 - approachSummary: short summary of the candidate's proposed approach
 - complexityNotes: brief note on complexity discussion quality
 - blindSpots: important missing cases, incorrect assumptions, or weaknesses
+- recommendedAnswer: a concise interview-quality answer the candidate should have given, aligned to the prompt and focused on approach, complexity, edge cases, and tradeoffs rather than code
 - tags: short labels describing the reasoning quality
 - reason: concise explanation for the score
 `.trim();
@@ -48,6 +49,7 @@ const parseStructuredJson = (content: string): LlmScore => {
     approachSummary: String(parsed.approachSummary ?? ""),
     complexityNotes: String(parsed.complexityNotes ?? ""),
     blindSpots: String(parsed.blindSpots ?? ""),
+    recommendedAnswer: String(parsed.recommendedAnswer ?? ""),
     tags: Array.isArray(parsed.tags) ? parsed.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
     reason: String(parsed.reason ?? ""),
   };
@@ -67,6 +69,7 @@ const fallbackStructuredScore = (rawReply: string): LlmScore => {
     approachSummary: truncate(cleanedReply || "No reply provided.", 240),
     complexityNotes: "Fallback scorer used because OpenRouter scoring is unavailable.",
     blindSpots: "",
+    recommendedAnswer: cleanedReply || "No recommended answer available because the fallback scorer was used.",
     tags: ["fallback", "cli-e2e"],
     reason: "Used local fallback scoring because OpenRouter was unavailable or rejected the API key.",
   };

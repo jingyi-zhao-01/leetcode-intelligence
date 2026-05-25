@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { GatewayIntentBits } from "discord.js";
 
 import type { IntelligenceService } from "../core.ts";
+import type { FocusRecommendation } from "../core/types.ts";
 import { createLogger } from "../logger.ts";
 import { DiscordClient } from "./discord-client.ts";
 
@@ -15,13 +16,25 @@ export type RecommendationDispatchClientConfig = {
   timezone?: string;
 };
 
-const formatRecommendations = (recommendations: Array<{ questionSlug: string; title: string; difficulty: string; priority: number; reason: string }>): string => {
+const formatScore = (avgScore: number | null): string => (avgScore === null ? "n/a" : avgScore.toFixed(2));
+
+const formatRecommendations = (recommendations: FocusRecommendation[]): string => {
   if (recommendations.length === 0) {
     return "No recommendations available right now.";
   }
 
   return recommendations
-    .map((item, index) => `${index + 1}. ${item.title} [${item.questionSlug}] (${item.difficulty})\n   priority=${item.priority.toFixed(3)}\n   ${item.reason}`)
+    .map(
+      (item, index) =>
+        [
+          `### ${index + 1}. **${item.title}**`,
+          `- Slug: \`${item.questionSlug}\``,
+          `- Difficulty: **${item.difficulty}**`,
+          `- Priority: \`${item.priority.toFixed(3)}\``,
+          `- Signals: weight \`${item.signals.weight.toFixed(2)}\` | failure \`${Math.round(item.signals.failureRate * 100)}%\` | staleness \`${item.signals.stalenessDays}d\` | avg score \`${formatScore(item.signals.avgScore)}\``,
+          `- Why: ${item.reason}`,
+        ].join("\n"),
+    )
     .join("\n");
 };
 
@@ -32,10 +45,12 @@ const dispatchRecommendationMessage = async (
 ): Promise<void> => {
   const result = await service.recommendFocus(topK);
   const body = [
-    "Focus recommendation",
+    "## Focus Recommendation",
     "",
+    "**Summary**",
     result.narrative,
     "",
+    "**Recommended Problems**",
     formatRecommendations(result.recommendations),
   ].join("\n");
 

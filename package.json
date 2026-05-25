@@ -7,12 +7,14 @@
     "services/leetcode-submission-service"
   ],
   "scripts": {
+    "test": "vitest run",
     "format": "prettier --write \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\""
   },
   "devDependencies": {
     "prettier": "^3.6.2",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "vitest": "^4.0.8"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0"

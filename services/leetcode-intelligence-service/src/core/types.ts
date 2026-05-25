@@ -49,6 +49,7 @@ export type LlmScore = {
   approachSummary: string;
   complexityNotes: string;
   blindSpots: string;
+  recommendedAnswer: string;
   tags: string[];
   reason: string;
 };

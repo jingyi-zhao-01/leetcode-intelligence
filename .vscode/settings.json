@@ -2,11 +2,14 @@
     "python.pythonPath": ".venv/bin/python",
     "python.defaultInterpreterPath": ".venv/bin/python",
     "python.testing.pytestArgs": [
-        "packages",
+        "services/leetcode-mcp-service/tests",
         "--tb=short"
     ],
+    "python.testing.cwd": "${workspaceFolder}",
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true,
+    "python.testing.pytestEnabled": false,
+    "python.testing.autoTestDiscoverOnSaveEnabled": false,
+    "vitest.workspaceConfig": "./vitest.workspace.ts",
     "python.languageServer": "Pylance",
     "python.analysis.typeCheckingMode": "basic",
     "python.analysis.diagnosticMode": "workspace",

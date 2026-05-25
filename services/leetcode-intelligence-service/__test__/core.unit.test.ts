@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 
 import { loadIntelligenceConfig } from "../src/core/env.ts";
 import { FallbackScoringAlgorithm, ReplyScorer } from "../src/core/scoring/scoring.ts";

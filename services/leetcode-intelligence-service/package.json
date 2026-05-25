@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test:unit": "node --import tsx --test __test__/core.unit.test.ts __test__/client.unit.test.ts",
-    "test:integration": "node --import tsx --test __test__/intelligence.integration.test.ts",
+    "test:unit": "vitest run __test__/core.unit.test.ts __test__/client.unit.test.ts",
+    "test:integration": "vitest run __test__/intelligence.integration.test.ts",
     "test": "npm run test:unit && npm run test:integration",
     "test:openrouter-model": "tsx __test__/openrouter-model.test.ts",
     "intelligence-cli": "tsx src/cli.ts",
@@ -33,6 +33,7 @@
     "@types/node": "^22.10.1",
     "prisma": "^5.22.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.8"
   }
 }

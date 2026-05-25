@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
+import { afterEach, describe, it } from "vitest";
 
 import cron from "node-cron";
 import { ChannelType, Client } from "discord.js";
@@ -26,6 +26,13 @@ type RecommendationResult = {
     title: string;
     difficulty: string;
     priority: number;
+    signals: {
+      weight: number;
+      failureRate: number;
+      stalenessDays: number;
+      promptCount: number;
+      avgScore: number | null;
+    };
     reason: string;
   }>;
 };
@@ -125,6 +132,13 @@ const createFakeService = (): FakeService => {
             title: "Two Sum",
             difficulty: "Easy",
             priority: 1.25,
+            signals: {
+              weight: 1.25,
+              failureRate: 0,
+              stalenessDays: 2,
+              promptCount: 1,
+              avgScore: 4,
+            },
             reason: "weight=1.25",
           },
         ],
@@ -209,8 +223,11 @@ describe("intelligence integration modes", () => {
     assert.equal(scheduleCalls, 0);
     assert.equal(sentMessages.length, 1);
     assert.equal(sentMessages[0]?.channelId, "recommend-channel");
-    assert.match(sentMessages[0]?.content ?? "", /Focus recommendation/);
-    assert.match(sentMessages[0]?.content ?? "", /Two Sum/);
+    assert.match(sentMessages[0]?.content ?? "", /## Focus Recommendation/);
+    assert.match(sentMessages[0]?.content ?? "", /\*\*Summary\*\*/);
+    assert.match(sentMessages[0]?.content ?? "", /\*\*Recommended Problems\*\*/);
+    assert.match(sentMessages[0]?.content ?? "", /### 1\. \*\*Two Sum\*\*/);
+    assert.match(sentMessages[0]?.content ?? "", /`two-sum`/);
   });
 
   it("RecommendationDispatchClient schedules node-cron in long-running mode", async () => {

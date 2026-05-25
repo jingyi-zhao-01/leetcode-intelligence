@@ -148,6 +148,7 @@ Primary path:
   - `approachSummary`
   - `complexityNotes`
   - `blindSpots`
+  - `recommendedAnswer`
   - `tags`
   - `reason`
 

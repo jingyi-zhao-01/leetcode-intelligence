@@ -107,6 +107,7 @@ export class PromptResponseService {
       nextWeight,
       tags: structured.tags,
       reason: structured.reason,
+      recommendedAnswer: structured.recommendedAnswer,
     };
   }
 

@@ -22,6 +22,7 @@ type DiscordScoreResult = {
   nextWeight?: number;
   tags?: string[];
   reason?: string;
+  recommendedAnswer?: string;
 };
 
 const isTargetConversation = (message: Message, channelId: string): boolean =>
@@ -45,6 +46,9 @@ const formatScoreReply = (scored: DiscordScoreResult): string => {
   }
   if (scored.reason) {
     parts.push(`Reason: ${scored.reason}`);
+  }
+  if (scored.recommendedAnswer) {
+    parts.push(`Recommended answer:\n${scored.recommendedAnswer}`);
   }
 
   return parts.join("\n");
