@@ -1,0 +1,102 @@
+name: intelligence-preview-destroy
+
+on:
+  delete:
+  workflow_dispatch:
+    inputs:
+      preview_id:
+        description: "Stable preview identifier"
+        required: false
+        default: preview
+        type: string
+      neon_branch_name:
+        description: "Neon branch name to delete"
+        required: false
+        default: preview
+        type: string
+      parameter_prefix:
+        description: "AWS SSM prefix to clean up"
+        required: false
+        default: /leetcode-intelligence/preview/preview
+        type: string
+      namespace:
+        description: "Preview namespace"
+        required: false
+        default: leetcode-intelligence-preview
+        type: string
+      release_name:
+        description: "Preview Helm release"
+        required: false
+        default: leetcode-intelligence-preview
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PREVIEW_ID: ${{ github.event.inputs.preview_id || 'preview' }}
+  NEON_BRANCH_NAME: ${{ github.event.inputs.neon_branch_name || 'preview' }}
+  PREVIEW_PARAMETER_PREFIX: ${{ github.event.inputs.parameter_prefix || '/leetcode-intelligence/preview/preview' }}
+  PREVIEW_NAMESPACE: ${{ github.event.inputs.namespace || 'leetcode-intelligence-preview' }}
+  PREVIEW_RELEASE: ${{ github.event.inputs.release_name || 'leetcode-intelligence-preview' }}
+
+jobs:
+  destroy-preview:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref == 'preview')
+    uses: jingyi-zhao-01/homelab-cloud/.github/workflows/destroy-leetcode-intelligence-preview.yml@main
+    with:
+      preview_id: ${{ env.PREVIEW_ID }}
+      namespace: ${{ env.PREVIEW_NAMESPACE }}
+      release_name: ${{ env.PREVIEW_RELEASE }}
+      delete_namespace: true
+    secrets:
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+
+  cleanup-neon:
+    needs: destroy-preview
+    if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref == 'preview'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve Neon branch id
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_BRANCH_NAME: ${{ env.NEON_BRANCH_NAME }}
+        run: |
+          branch_id=$(curl -fsS \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+            | jq -r --arg name "$NEON_BRANCH_NAME" '
+                [.branches[] | select(.name == $name)]
+                | sort_by(.created_at)
+                | last
+                | .id // empty
+              ')
+
+          echo "BRANCH_ID=$branch_id" >> "$GITHUB_ENV"
+
+      - name: Delete Neon branch
+        if: env.BRANCH_ID != ''
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          BRANCH_ID: ${{ env.BRANCH_ID }}
+        run: |
+          curl -fsS -X DELETE \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches/$BRANCH_ID"
+
+      - name: Delete preview SSM parameters
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          TARGET_PREFIX: ${{ env.PREVIEW_PARAMETER_PREFIX }}
+        run: |
+          aws ssm delete-parameters \
+            --names \
+              "${TARGET_PREFIX}/DATABASE_URL" \
+              "${TARGET_PREFIX}/OPEN_ROUTER_API_KEY" \
+              "${TARGET_PREFIX}/DISCORD_BOT_TOKEN" \
+              "${TARGET_PREFIX}/PROMPT_DISCORD_CHANNEL_ID" \
+              "${TARGET_PREFIX}/RECOMMEND_DISCORD_CHANNEL_ID"
