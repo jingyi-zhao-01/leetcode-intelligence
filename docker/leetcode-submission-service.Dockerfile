@@ -8,7 +8,7 @@ RUN apt-get update \
 
 COPY package.json package-lock.json ./
 COPY services/leetcode-submission-service/package.json services/leetcode-submission-service/package.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY services/shared/prisma/schema.prisma services/shared/prisma/schema.prisma
 COPY services/leetcode-submission-service/tsconfig.json services/leetcode-submission-service/tsconfig.json
@@ -27,7 +27,7 @@ RUN apt-get update \
 
 COPY package.json package-lock.json ./
 COPY services/leetcode-submission-service/package.json services/leetcode-submission-service/package.json
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY services/shared/prisma/schema.prisma services/shared/prisma/schema.prisma
 COPY --from=build /app/services/leetcode-submission-service/dist services/leetcode-submission-service/dist
