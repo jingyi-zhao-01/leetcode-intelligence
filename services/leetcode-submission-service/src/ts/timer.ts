@@ -5,27 +5,34 @@ const logger = createLogger("timer");
 export class TimerManager {
   private readonly timers = new Map<string, Date>();
 
-  start(titleSlug: string, allowMultiple = false): void {
+  start(titleSlug: string): { alreadyActive: boolean; evictedTitleSlugs: string[] } {
     const existing = this.timers.get(titleSlug);
+    const evictedTitleSlugs: string[] = [];
 
-    if (existing && allowMultiple) {
+    if (existing && this.timers.size === 1) {
       const elapsed = Math.floor((Date.now() - existing.getTime()) / 60000);
-      logger.info({ titleSlug, elapsedMinutes: elapsed }, "Timer already running");
-      return;
+      logger.info({ titleSlug, elapsedMinutes: elapsed }, "Timer already active");
+      return { alreadyActive: true, evictedTitleSlugs };
     }
 
-    if (!allowMultiple && this.timers.size > 0) {
-      if (existing) {
-        const elapsed = Math.floor((Date.now() - existing.getTime()) / 60000);
-        logger.info({ titleSlug, elapsedMinutes: elapsed }, "Clearing all timers and restarting");
-      } else {
-        logger.info({ existingTimerCount: this.timers.size }, "Clearing existing timers");
+    if (this.timers.size > 0) {
+      for (const [slug, start] of this.timers.entries()) {
+        evictedTitleSlugs.push(slug);
+        logger.info(
+          {
+            titleSlug: slug,
+            elapsedMinutes: Math.floor((Date.now() - start.getTime()) / 60000),
+            replacedBy: titleSlug,
+          },
+          "Evicting active timer",
+        );
       }
       this.timers.clear();
     }
 
     this.timers.set(titleSlug, new Date());
-    logger.info({ titleSlug }, "Timer started");
+    logger.info({ titleSlug, evictedTitleSlugs }, "Timer started");
+    return { alreadyActive: false, evictedTitleSlugs };
   }
 
   stop(titleSlug: string): number {

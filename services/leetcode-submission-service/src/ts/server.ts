@@ -127,8 +127,14 @@ class SubmissionServer {
     switch (action) {
       case ServerAction.START_TIMER: {
         const titleSlug = readString(request.title_slug);
-        this.timerManager.start(titleSlug, false);
-        return { success: true, action: ServerAction.START_TIMER, title_slug: titleSlug };
+        const result = this.timerManager.start(titleSlug);
+        return {
+          success: true,
+          action: ServerAction.START_TIMER,
+          title_slug: titleSlug,
+          already_active: result.alreadyActive,
+          evicted_title_slugs: result.evictedTitleSlugs,
+        };
       }
 
       case ServerAction.STOP_TIMER: {
