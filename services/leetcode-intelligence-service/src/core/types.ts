@@ -15,6 +15,15 @@ export type IntelligenceConfig = {
   INTELLIGENCE_SELECTION_WINDOW: number;
   INTELLIGENCE_MIN_WEIGHT: number;
   INTELLIGENCE_MAX_WEIGHT: number;
+  INTELLIGENCE_PROMPT_COOLDOWN_RULES: PromptCooldownRule[];
+};
+
+export type PromptCooldownRule = {
+  name: string;
+  cooldownHours: number;
+  statuses?: string[];
+  difficulties?: string[];
+  titleSlugs?: string[];
 };
 
 export type CandidateSubmission = {

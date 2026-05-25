@@ -3,7 +3,14 @@ import path from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 
-import type { IntelligenceConfig } from "./types.ts";
+import type { IntelligenceConfig, PromptCooldownRule } from "./types.ts";
+
+const DEFAULT_PROMPT_COOLDOWN_RULES: PromptCooldownRule[] = [
+  {
+    name: "default",
+    cooldownHours: 24,
+  },
+];
 
 loadDotenv({ path: path.resolve(process.cwd(), ".env") });
 
@@ -24,6 +31,7 @@ export const envSchema = z.object({
   INTELLIGENCE_SELECTION_WINDOW: z.coerce.number().int().positive().default(200),
   INTELLIGENCE_MIN_WEIGHT: z.coerce.number().positive().default(0.25),
   INTELLIGENCE_MAX_WEIGHT: z.coerce.number().positive().default(5),
+  INTELLIGENCE_PROMPT_COOLDOWN_RULES: z.string().default(JSON.stringify(DEFAULT_PROMPT_COOLDOWN_RULES)),
 });
 
 export const loadIntelligenceConfig = (): IntelligenceConfig => {
@@ -36,5 +44,32 @@ export const loadIntelligenceConfig = (): IntelligenceConfig => {
   return {
     ...parsed.data,
     INTELLIGENCE_PROMPT_CRON: parsed.data.INTELLIGENCE_PROMPT_CRON ?? "0 9 * * *",
+    INTELLIGENCE_PROMPT_COOLDOWN_RULES: parsePromptCooldownRules(parsed.data.INTELLIGENCE_PROMPT_COOLDOWN_RULES),
   };
+};
+
+const parsePromptCooldownRules = (rawRules: string): PromptCooldownRule[] => {
+  let parsedRules: unknown;
+
+  try {
+    parsedRules = JSON.parse(rawRules);
+  } catch (error) {
+    throw new Error(`Invalid intelligence service environment: INTELLIGENCE_PROMPT_COOLDOWN_RULES must be valid JSON (${String(error)})`);
+  }
+
+  const rulesSchema = z.array(z.object({
+    name: z.string().min(1),
+    cooldownHours: z.coerce.number().positive(),
+    statuses: z.array(z.string().min(1)).optional(),
+    difficulties: z.array(z.string().min(1)).optional(),
+    titleSlugs: z.array(z.string().min(1)).optional(),
+  })).min(1);
+  const parsed = rulesSchema.safeParse(parsedRules);
+
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ");
+    throw new Error(`Invalid intelligence service environment: INTELLIGENCE_PROMPT_COOLDOWN_RULES ${issues}`);
+  }
+
+  return parsed.data;
 };

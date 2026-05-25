@@ -1,6 +1,9 @@
 import net from "node:net";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.js";
+import { Cache, type SubmissionSummary } from "./cache.js";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
 import { createLogger } from "./logger.js";
@@ -17,6 +20,18 @@ enum ServerAction {
 }
 
 type SubmissionItem = Record<string, unknown>;
+type PendingSubmission = {
+  titleSlug: string;
+  status: string;
+  isTest: boolean;
+  isCheat: boolean;
+  timeSpentMinutes: number | null;
+  createdAt: Date;
+  cleanedContent: string;
+  thought: string | null;
+  submissionDetails: SubmissionItem;
+};
+type SubmissionActionResponse = Record<string, unknown>;
 
 const logger = createLogger("server");
 
@@ -69,10 +84,89 @@ export function inferIsTestSubmission(content: string, item: SubmissionItem): bo
   return content.includes("#TEST#");
 }
 
+function createSubmissionSummary(args: {
+  id: string;
+  titleSlug: string;
+  createdAt: Date;
+  timeSpentMinutes: number | null;
+  status: string;
+  isTest: boolean;
+}): SubmissionSummary {
+  return {
+    id: args.id,
+    title_slug: args.titleSlug,
+    submitted_at: args.createdAt.toISOString(),
+    submitted_at_pst: formatPacificTimestamp(args.createdAt),
+    time_spent_minutes: args.timeSpentMinutes,
+    submit_result: args.status,
+    is_test: args.isTest,
+  };
+}
+
 export class SubmissionServer {
   private readonly host: string;
   private readonly port: number;
   private readonly timerManager = new TimerManager();
+  readonly logger = logger;
+  readonly cache = new Cache();
+  private readonly actionContext: ActionContext = {
+    cache: this.cache,
+    logger: this.logger,
+  };
+  private readonly actionHandlers: Partial<Record<ServerAction, ActionHandler<any[], SubmissionActionResponse>>> = {
+    [ServerAction.GET_PAST_SUBMISSIONS]: withReadSubmissionCache<[string, number?], SubmissionActionResponse>({
+      actionName: ServerAction.GET_PAST_SUBMISSIONS,
+      getTitleSlug: (titleSlug: string) => titleSlug,
+      getLimit: (_titleSlug: string, limit = 10) => Math.max(1, Math.min(limit, 50)),
+      readPersisted: (_context, titleSlug: string, limit = 10) => this.fetchPersistedPastSubmissions(titleSlug, limit),
+      buildResponse: (submissions: SubmissionSummary[], titleSlug: string) => ({
+        success: true,
+        action: ServerAction.GET_PAST_SUBMISSIONS,
+        title_slug: titleSlug,
+        submissions,
+        count: submissions.length,
+      }),
+    }),
+    [ServerAction.SAVE_SUBMISSION]: withWriteThroughSubmissionCache<[string, string, SubmissionItem], PendingSubmission, SubmissionActionResponse>({
+      actionName: ServerAction.SAVE_SUBMISSION,
+      toPending: (titleSlug: string, content: string, item: SubmissionItem) => this.createPendingSubmission(titleSlug, content, item),
+      cachePending: (context, pending: PendingSubmission) => {
+        const cacheKey = context.cache.savePending(
+          createSubmissionSummary({
+            id: `pending:${randomUUID()}`,
+            titleSlug: pending.titleSlug,
+            createdAt: pending.createdAt,
+            timeSpentMinutes: pending.timeSpentMinutes,
+            status: pending.status,
+            isTest: pending.isTest,
+          }),
+        );
+
+        context.logger.info(
+          {
+            cacheKey,
+            titleSlug: pending.titleSlug,
+            status: pending.status,
+            isTest: pending.isTest,
+            isCheat: pending.isCheat,
+            timeSpentMinutes: pending.timeSpentMinutes,
+          },
+          "Submission cached successfully",
+        );
+
+        return {
+          cacheKey,
+          titleSlug: pending.titleSlug,
+          response: {
+            success: true,
+            action: ServerAction.SAVE_SUBMISSION,
+            title_slug: pending.titleSlug,
+          },
+        };
+      },
+      persist: (_context, pending: PendingSubmission, cacheKey: string) => this.persistPendingSubmission(pending, cacheKey),
+    }),
+  };
   private readonly db = (() => {
     const databaseUrl = resolveDatabaseUrl();
     if (!databaseUrl) {
@@ -108,7 +202,7 @@ export class SubmissionServer {
     }, 5000);
   }
 
-  private async saveSubmission(titleSlug: string, content: string, item: SubmissionItem): Promise<boolean> {
+  private createPendingSubmission(titleSlug: string, content: string, item: SubmissionItem): PendingSubmission {
     const status = readString(item.status_msg, "Unknown");
     const isTest = inferIsTestSubmission(content, item);
     const isCheat = content.includes("#CHEAT#");
@@ -116,79 +210,122 @@ export class SubmissionServer {
     let timeSpentMinutes: number | null = null;
     if (this.timerManager.hasActiveTimer(titleSlug)) {
       timeSpentMinutes = this.timerManager.getElapsedTime(titleSlug);
-      logger.info({ titleSlug, timeSpentMinutes }, "Current elapsed time");
+      this.logger.info({ titleSlug, timeSpentMinutes }, "Current elapsed time");
     }
 
-    try {
-      const cleanedContent = normalizeForEmbedding(content);
-      const thought = extractThought(content);
-      const submissionDetails = JSON.parse(JSON.stringify(item)) as SubmissionItem;
-      submissionDetails.lcnvim_is_test = isTest;
+    const submissionDetails = JSON.parse(JSON.stringify(item)) as SubmissionItem;
+    submissionDetails.lcnvim_is_test = isTest;
 
-      const submission = await this.db.submission.create({
-        data: {
-          titleSlug,
-          content: cleanedContent,
-          status,
-          isCheat,
-          timeSpentMinutes,
-          thought,
-          submissionDetails: submissionDetails as Prisma.InputJsonValue,
-        },
-      });
-
-      if (status === "Accepted" && !isTest) {
-        if (this.timerManager.hasActiveTimer(titleSlug)) {
-          this.timerManager.stop(titleSlug);
-        }
-        this.timerManager.start(titleSlug);
-        logger.info({ titleSlug }, "Timer restarted for accepted solution");
+    if (status === "Accepted" && !isTest) {
+      if (this.timerManager.hasActiveTimer(titleSlug)) {
+        this.timerManager.stop(titleSlug);
       }
-
-      logger.info(
-        {
-          submissionId: submission.id,
-          titleSlug,
-          status,
-          isTest,
-          isCheat,
-          timeSpentMinutes,
-        },
-        "Submission saved successfully",
-      );
-
-      return true;
-    } catch (error) {
-      logger.error({ err: error, titleSlug }, "Error saving submission");
-      return false;
+      this.timerManager.start(titleSlug);
+      this.logger.info({ titleSlug }, "Timer restarted for accepted solution");
     }
+
+    return {
+      titleSlug,
+      status,
+      isTest,
+      isCheat,
+      timeSpentMinutes,
+      createdAt: new Date(),
+      cleanedContent: normalizeForEmbedding(content),
+      thought: extractThought(content),
+      submissionDetails,
+    };
   }
 
-  private async getPastSubmissions(titleSlug: string, limit = 10): Promise<Record<string, unknown>[]> {
+  private async persistSubmission(args: {
+    titleSlug: string;
+    content: string;
+    status: string;
+    isCheat: boolean;
+    timeSpentMinutes: number | null;
+    thought: string | null;
+    submissionDetails: SubmissionItem;
+  }): Promise<string> {
+    const submission = await this.db.submission.create({
+      data: {
+        titleSlug: args.titleSlug,
+        content: args.content,
+        status: args.status,
+        isCheat: args.isCheat,
+        timeSpentMinutes: args.timeSpentMinutes,
+        thought: args.thought,
+        submissionDetails: args.submissionDetails as Prisma.InputJsonValue,
+      },
+    });
+
+    return submission.id;
+  }
+
+  private async persistPendingSubmission(pending: PendingSubmission, cacheKey: string): Promise<void> {
+    const submissionId = await this.persistSubmission({
+      titleSlug: pending.titleSlug,
+      content: pending.cleanedContent,
+      status: pending.status,
+      isCheat: pending.isCheat,
+      timeSpentMinutes: pending.timeSpentMinutes,
+      thought: pending.thought,
+      submissionDetails: pending.submissionDetails,
+    });
+
+    this.cache.markPersisted(pending.titleSlug, cacheKey, submissionId);
+    this.logger.info(
+      {
+        submissionId,
+        titleSlug: pending.titleSlug,
+        status: pending.status,
+        isTest: pending.isTest,
+        isCheat: pending.isCheat,
+        timeSpentMinutes: pending.timeSpentMinutes,
+      },
+      "Submission persisted successfully",
+    );
+  }
+
+  private async fetchPersistedPastSubmissions(titleSlug: string, limit = 10): Promise<SubmissionSummary[]> {
     const safeLimit = Math.max(1, Math.min(limit, 50));
-    const submissions = await this.db.submission.findMany({
+    const persisted = await this.db.submission.findMany({
       where: { titleSlug },
       orderBy: { createdAt: "desc" },
       take: safeLimit,
     });
 
-    return submissions.map((submission) => {
+    return persisted.map((submission) => {
       const details =
         submission.submissionDetails && typeof submission.submissionDetails === "object" && !Array.isArray(submission.submissionDetails)
           ? (submission.submissionDetails as SubmissionItem)
           : {};
       const isTest = inferIsTestSubmission(submission.content, details);
 
-      return {
+      return createSubmissionSummary({
         id: submission.id,
-        title_slug: submission.titleSlug,
-        submitted_at: submission.createdAt.toISOString(),
-        submitted_at_pst: formatPacificTimestamp(submission.createdAt),
-        time_spent_minutes: submission.timeSpentMinutes,
-        submit_result: submission.status,
-        is_test: isTest,
-      };
+        titleSlug: submission.titleSlug ?? titleSlug,
+        createdAt: submission.createdAt,
+        timeSpentMinutes: submission.timeSpentMinutes,
+        status: submission.status,
+        isTest,
+      });
     });
+  }
+
+  private async saveSubmission(titleSlug: string, content: string, item: SubmissionItem): Promise<Record<string, unknown>> {
+    const handler = this.actionHandlers[ServerAction.SAVE_SUBMISSION];
+    if (!handler) {
+      throw new Error("save_submission handler not configured");
+    }
+    return handler(this.actionContext, titleSlug, content, item);
+  }
+
+  private async getPastSubmissions(titleSlug: string, limit = 10): Promise<Record<string, unknown>> {
+    const handler = this.actionHandlers[ServerAction.GET_PAST_SUBMISSIONS];
+    if (!handler) {
+      throw new Error("get_past_submissions handler not configured");
+    }
+    return handler(this.actionContext, titleSlug, limit);
   }
 
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -252,27 +389,14 @@ export class SubmissionServer {
       case ServerAction.GET_PAST_SUBMISSIONS: {
         const titleSlug = readString(request.title_slug);
         const limit = readNumber(request.limit, 10);
-        const submissions = await this.getPastSubmissions(titleSlug, limit);
-
-        return {
-          success: true,
-          action: ServerAction.GET_PAST_SUBMISSIONS,
-          title_slug: titleSlug,
-          submissions,
-          count: submissions.length,
-        };
+        return this.getPastSubmissions(titleSlug, limit);
       }
 
       case ServerAction.SAVE_SUBMISSION: {
         const titleSlug = readString(request.title_slug);
         const content = readString(request.content);
         const item = (request.item ?? {}) as SubmissionItem;
-        const success = await this.saveSubmission(titleSlug, content, item);
-        return {
-          success,
-          action: ServerAction.SAVE_SUBMISSION,
-          title_slug: titleSlug,
-        };
+        return this.saveSubmission(titleSlug, content, item);
       }
 
       default:

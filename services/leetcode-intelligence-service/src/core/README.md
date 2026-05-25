@@ -114,7 +114,7 @@ flowchart TD
 ## End-to-End Flow
 
 1. `IntelligenceService.triggerPrompt()` calls `PromptGenerator.generate()`.
-2. `PromptGenerator` loads recent submissions, joins them with question metadata and existing weights, and performs weighted random selection through `WeightCalculator.selectionWeight()`.
+2. `PromptGenerator` loads recent submissions, collapses them into a question-level pipeline, drops recently prompted questions according to cooldown rules, and performs weighted random selection through `WeightCalculator.selectionWeight()`.
 3. A prompt event is persisted to `intelligencePromptEvent`.
 4. The client layer sends the prompt to Discord or CLI.
 5. A reply comes back through `scorePromptReply()` or `scorePromptReplyByMessageId()`.
@@ -129,7 +129,9 @@ flowchart TD
 Prompt selection happens in `scoring/prompt.ts`.
 
 - The service reads recent submissions, capped by `INTELLIGENCE_MAX_CANDIDATES`.
-- It keeps only the first `INTELLIGENCE_SELECTION_WINDOW` viable candidates.
+- It dedupes the pool at the question level, keeping only the latest submission per `titleSlug`.
+- It drops questions whose most recent prompt still falls inside a configured cooldown rule.
+- It keeps only the first `INTELLIGENCE_SELECTION_WINDOW` viable question candidates after dedupe and cooldown filtering.
 - Each candidate gets a selection weight from `intelligenceWeight.weight`.
 - If a question has no recorded weight yet, it falls back to `WeightCalculator.defaultWeight`.
 - Final selection is weighted random through `WeightCalculator.selectionWeight()`, not pure top-1.
@@ -250,6 +252,16 @@ Defined in `env.ts`:
 - `INTELLIGENCE_SELECTION_WINDOW`
 - `INTELLIGENCE_MIN_WEIGHT`
 - `INTELLIGENCE_MAX_WEIGHT`
+- `INTELLIGENCE_PROMPT_COOLDOWN_RULES`
+
+`INTELLIGENCE_PROMPT_COOLDOWN_RULES` is a JSON array. First matching rule wins. Example:
+
+```json
+[
+  { "name": "accepted", "cooldownHours": 72, "statuses": ["Accepted"] },
+  { "name": "default", "cooldownHours": 24 }
+]
+```
 
 ## Notes for Future Changes
 

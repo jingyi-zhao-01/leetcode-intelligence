@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
 import { loadIntelligenceConfig } from "../src/core/env.ts";
+import { PromptCandidatePipeline } from "../src/core/scoring/pipeline.ts";
 import { FallbackScoringAlgorithm, ReplyScorer } from "../src/core/scoring/scoring.ts";
 import {
   HeuristicFocusRecommendationAlgorithm,
@@ -23,6 +24,9 @@ import {
   scoreToWeightDelta,
   selectionWeight,
 } from "../src/core/shared/weight.ts";
+import type { PromptCooldownRule } from "../src/core/types.ts";
+
+const defaultCooldownRules: PromptCooldownRule[] = [{ name: "default", cooldownHours: 24 }];
 
 describe("core/shared/weight", () => {
   it("exports the expected default weight constants", () => {
@@ -162,7 +166,7 @@ describe("core/recommendation", () => {
         {
           questionSlug: "easy-fresh",
           weight: 1,
-          lastPromptAt: new Date(),
+          lastPromptAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
           lastResponseAt: new Date(),
           Question: { title: "Easy Fresh", difficulty: "Easy" },
         },
@@ -290,6 +294,108 @@ describe("core/recommendation", () => {
   });
 });
 
+describe("core/scoring/pipeline", () => {
+  it("dedupes candidates at the question level by keeping the latest submission entry", () => {
+    const now = new Date("2026-05-25T20:00:00.000Z");
+    const pipeline = new PromptCandidatePipeline([
+      {
+        submission: {
+          id: "newer",
+          titleSlug: "insert-interval",
+          content: "newer",
+          status: "Accepted",
+          createdAt: new Date("2026-05-25T10:00:00.000Z"),
+        },
+        question: {
+          title: "Insert Interval",
+          titleSlug: "insert-interval",
+          difficulty: "Medium",
+          content: null,
+          topicTags: [],
+          freqBar: null,
+        },
+        weight: 1,
+        lastPromptAt: null,
+      },
+      {
+        submission: {
+          id: "older",
+          titleSlug: "insert-interval",
+          content: "older",
+          status: "Wrong Answer",
+          createdAt: new Date("2026-05-24T10:00:00.000Z"),
+        },
+        question: {
+          title: "Insert Interval",
+          titleSlug: "insert-interval",
+          difficulty: "Medium",
+          content: null,
+          topicTags: [],
+          freqBar: null,
+        },
+        weight: 2,
+        lastPromptAt: null,
+      },
+    ], now);
+
+    const candidates = pipeline.dedupeByQuestion().toArray();
+
+    assert.equal(candidates.length, 1);
+    assert.equal(candidates[0]?.submission.id, "newer");
+  });
+
+  it("drops recently prompted questions out of the prompt pipeline according to cooldown rules", () => {
+    const now = new Date("2026-05-25T20:00:00.000Z");
+    const pipeline = new PromptCandidatePipeline([
+      {
+        submission: {
+          id: "accepted-recent",
+          titleSlug: "insert-interval",
+          content: "accepted",
+          status: "Accepted",
+          createdAt: new Date("2026-05-25T10:00:00.000Z"),
+        },
+        question: {
+          title: "Insert Interval",
+          titleSlug: "insert-interval",
+          difficulty: "Medium",
+          content: null,
+          topicTags: [],
+          freqBar: null,
+        },
+        weight: 1,
+        lastPromptAt: new Date("2026-05-25T12:00:00.000Z"),
+      },
+      {
+        submission: {
+          id: "eligible",
+          titleSlug: "merge-intervals",
+          content: "eligible",
+          status: "Wrong Answer",
+          createdAt: new Date("2026-05-24T10:00:00.000Z"),
+        },
+        question: {
+          title: "Merge Intervals",
+          titleSlug: "merge-intervals",
+          difficulty: "Medium",
+          content: null,
+          topicTags: [],
+          freqBar: null,
+        },
+        weight: 2,
+        lastPromptAt: new Date("2026-05-24T10:00:00.000Z"),
+      },
+    ], now);
+
+    const candidates = pipeline.dropPromptedQuestions([
+      { name: "accepted-cooldown", cooldownHours: 12, statuses: ["Accepted"] },
+      ...defaultCooldownRules,
+    ]).toArray();
+
+    assert.deepEqual(candidates.map((candidate) => candidate.question.titleSlug), ["merge-intervals"]);
+  });
+});
+
 describe("core/env", () => {
   it("loads defaults for optional intelligence settings", () => {
     const originalEnv = process.env;
@@ -310,6 +416,7 @@ describe("core/env", () => {
       assert.equal(config.INTELLIGENCE_SELECTION_WINDOW, 200);
       assert.equal(config.INTELLIGENCE_MIN_WEIGHT, 0.25);
       assert.equal(config.INTELLIGENCE_MAX_WEIGHT, 5);
+      assert.deepEqual(config.INTELLIGENCE_PROMPT_COOLDOWN_RULES, defaultCooldownRules);
     } finally {
       process.env = originalEnv;
     }
@@ -320,11 +427,19 @@ describe("core/env", () => {
     process.env = {
       DATABASE_URL: "postgres://example",
       INTELLIGENCE_PROMPT_CRON: "*/15 * * * *",
+      INTELLIGENCE_PROMPT_COOLDOWN_RULES: JSON.stringify([
+        { name: "accepted", cooldownHours: 48, statuses: ["Accepted"] },
+        { name: "default", cooldownHours: 12 },
+      ]),
     };
 
     try {
       const config = loadIntelligenceConfig();
       assert.equal(config.INTELLIGENCE_PROMPT_CRON, "*/15 * * * *");
+      assert.deepEqual(config.INTELLIGENCE_PROMPT_COOLDOWN_RULES, [
+        { name: "accepted", cooldownHours: 48, statuses: ["Accepted"] },
+        { name: "default", cooldownHours: 12 },
+      ]);
     } finally {
       process.env = originalEnv;
     }

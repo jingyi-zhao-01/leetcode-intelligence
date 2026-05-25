@@ -15,6 +15,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed server architecture docume
 
 - **TCP Submission Server**: Primary integration with LeetCode nvim plugin via TCP
   - Saves submissions to database
+  - Keeps a small in-memory write/read cache so newly saved submissions are immediately readable before DB persistence completes
   - Manages problem-solving timers
   - Real-time session tracking
 - **Analytics API**: Read-only data access and visualization

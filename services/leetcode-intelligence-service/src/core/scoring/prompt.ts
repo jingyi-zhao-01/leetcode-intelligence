@@ -7,8 +7,10 @@ import type {
   CandidateSubmission,
   IntelligenceConfig,
   PromptTransport,
+  WeightedCandidate,
 } from "../types.ts";
 import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
+import { PromptCandidatePipeline } from "./pipeline.ts";
 
 const DISCORD_DESCRIPTION_MAX_CHARS = 1200;
 
@@ -91,11 +93,7 @@ const buildPromptText = (question: CandidateQuestion, submission: CandidateSubmi
   ].join("\n");
 };
 
-export type PromptCandidate = {
-  submission: CandidateSubmission;
-  question: CandidateQuestion;
-  weight: number;
-};
+export type PromptCandidate = WeightedCandidate;
 
 export type PromptGenerationResult = {
   ok: true;
@@ -112,6 +110,7 @@ export type PromptGenerationFailure = {
 };
 
 export type PromptGenerationOutcome = PromptGenerationResult | PromptGenerationFailure;
+type PromptPipelineCandidate = PromptCandidate & { lastPromptAt: Date | null };
 
 export class PromptGenerator {
   private readonly weightCalculator: WeightCalculator;
@@ -195,11 +194,13 @@ export class PromptGenerator {
 
     const weights = (await this.prisma.intelligenceWeight.findMany({
       where: { questionSlug: { in: titleSlugs } },
-    })) as Array<{ questionSlug: string; weight: number }>;
+    })) as Array<{ questionSlug: string; weight: number; lastPromptAt: Date | null }>;
     const weightBySlug = new Map(weights.map((weight) => [weight.questionSlug, weight.weight]));
+    const lastPromptAtBySlug = new Map(weights.map((weight) => [weight.questionSlug, weight.lastPromptAt]));
 
-    const candidates = submissions
-      .map<PromptCandidate | null>((submission) => {
+    const candidates = new PromptCandidatePipeline(
+      submissions
+      .map<PromptPipelineCandidate | null>((submission) => {
         const titleSlug = submission.titleSlug;
         if (!titleSlug) {
           return null;
@@ -225,10 +226,16 @@ export class PromptGenerator {
             freqBar: question.freqBar,
           },
           weight: weightBySlug.get(titleSlug) ?? this.weightCalculator.defaultWeight,
+          lastPromptAt: lastPromptAtBySlug.get(titleSlug) ?? null,
         };
       })
-      .filter((candidate): candidate is PromptCandidate => candidate !== null)
-      .slice(0, this.config.INTELLIGENCE_SELECTION_WINDOW);
+      .filter((candidate): candidate is PromptPipelineCandidate => candidate !== null),
+    )
+      .dedupeByQuestion()
+      .dropPromptedQuestions(this.config.INTELLIGENCE_PROMPT_COOLDOWN_RULES)
+      .take(this.config.INTELLIGENCE_SELECTION_WINDOW)
+      .toArray()
+      .map(({ lastPromptAt: _lastPromptAt, ...candidate }) => candidate);
 
     if (candidates.length === 0) {
       return null;
