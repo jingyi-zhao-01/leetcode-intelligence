@@ -1,0 +1,258 @@
+name: intelligence-preview-deploy
+
+on:
+  push:
+    branches:
+      - preview
+    paths:
+      - "services/leetcode-intelligence-service/**"
+      - "services/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - "docker/leetcode-intelligence-service.Dockerfile"
+      - ".github/workflows/intelligence-preview-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PREVIEW_ID: preview
+  PREVIEW_NAMESPACE: leetcode-intelligence-preview
+  PREVIEW_RELEASE: leetcode-intelligence-preview
+  PREVIEW_PARAMETER_PREFIX: /leetcode-intelligence/preview/preview
+  PREVIEW_IMAGE_TAG: preview
+  NEON_BRANCH_NAME: preview
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build intelligence service
+        run: npm run --workspace services/leetcode-intelligence-service build
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run intelligence unit tests
+        run: npm run --workspace services/leetcode-intelligence-service test:unit
+
+      - name: Run intelligence integration tests
+        run: npm run --workspace services/leetcode-intelligence-service test:integration
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/leetcode-intelligence-service
+          tags: |
+            type=raw,value=preview
+            type=sha
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/leetcode-intelligence-service.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  prepare-preview-db:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve or create Neon preview branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_PARENT_BRANCH_ID: ${{ secrets.NEON_PARENT_BRANCH_ID }}
+          NEON_BRANCH_NAME: ${{ env.NEON_BRANCH_NAME }}
+        run: |
+          if [ -z "$NEON_API_KEY" ] || [ -z "$NEON_PROJECT_ID" ] || [ -z "$NEON_PARENT_BRANCH_ID" ]; then
+            echo "Missing one of NEON_API_KEY, NEON_PROJECT_ID, or NEON_PARENT_BRANCH_ID"
+            exit 1
+          fi
+
+          branch_id=$(curl -fsS \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+            | jq -r --arg name "$NEON_BRANCH_NAME" '
+                [.branches[] | select(.name == $name)]
+                | sort_by(.created_at)
+                | last
+                | .id // empty
+              ')
+
+          if [ -z "$branch_id" ]; then
+            create_payload=$(jq -n \
+              --arg parent_id "$NEON_PARENT_BRANCH_ID" \
+              --arg branch_name "$NEON_BRANCH_NAME" \
+              '{
+                branch: {
+                  parent_id: $parent_id,
+                  name: $branch_name
+                },
+                endpoints: [
+                  {
+                    type: "read_write"
+                  }
+                ]
+              }')
+
+            branch_id=$(curl -fsS -X POST \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "$create_payload" \
+              "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/branches" \
+              | jq -r '.branch.id // empty')
+          fi
+
+          if [ -z "$branch_id" ]; then
+            echo "Failed to resolve or create Neon branch $NEON_BRANCH_NAME"
+            exit 1
+          fi
+
+          echo "BRANCH_ID=$branch_id" >> "$GITHUB_ENV"
+
+      - name: Fetch Neon preview connection URI
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          NEON_DATABASE_NAME: ${{ secrets.NEON_DATABASE_NAME }}
+          NEON_ROLE_NAME: ${{ secrets.NEON_ROLE_NAME }}
+          BRANCH_ID: ${{ env.BRANCH_ID }}
+        run: |
+          if [ -z "$NEON_DATABASE_NAME" ] || [ -z "$NEON_ROLE_NAME" ]; then
+            echo "Missing one of NEON_DATABASE_NAME or NEON_ROLE_NAME"
+            exit 1
+          fi
+
+          database_url=$(curl -fsS \
+            -H "Authorization: Bearer $NEON_API_KEY" \
+            --get \
+            --data-urlencode "branch_id=$BRANCH_ID" \
+            --data-urlencode "database_name=$NEON_DATABASE_NAME" \
+            --data-urlencode "role_name=$NEON_ROLE_NAME" \
+            "https://console.neon.tech/api/v2/projects/$NEON_PROJECT_ID/connection_uri" \
+            | jq -r '.uri // empty')
+
+          if [ -z "$database_url" ]; then
+            echo "Failed to resolve connection URI for branch $BRANCH_ID"
+            exit 1
+          fi
+
+          echo "DATABASE_URL=$database_url" >> "$GITHUB_ENV"
+
+      - name: Apply Prisma schema to preview branch
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: npx prisma db push --schema services/shared/prisma/schema.prisma --skip-generate
+
+      - name: Sync preview secrets to AWS SSM
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          TARGET_PREFIX: ${{ env.PREVIEW_PARAMETER_PREFIX }}
+          PROD_PREFIX: /leetcode-intelligence/prod
+        run: |
+          aws ssm put-parameter \
+            --name "${TARGET_PREFIX}/DATABASE_URL" \
+            --type SecureString \
+            --value "$DATABASE_URL" \
+            --overwrite
+
+          for key in OPEN_ROUTER_API_KEY DISCORD_BOT_TOKEN PROMPT_DISCORD_CHANNEL_ID RECOMMEND_DISCORD_CHANNEL_ID; do
+            value=$(aws ssm get-parameter \
+              --name "${PROD_PREFIX}/${key}" \
+              --with-decryption \
+              --query 'Parameter.Value' \
+              --output text)
+
+            aws ssm put-parameter \
+              --name "${TARGET_PREFIX}/${key}" \
+              --type SecureString \
+              --value "$value" \
+              --overwrite
+          done
+
+  deploy-preview:
+    needs:
+      - build-and-push
+      - prepare-preview-db
+    uses: jingyi-zhao-01/homelab-cloud/.github/workflows/deploy-leetcode-intelligence-preview.yml@main
+    with:
+      preview_id: ${{ env.PREVIEW_ID }}
+      image_repository: ghcr.io/${{ github.repository_owner }}/leetcode-intelligence-service
+      image_tag: ${{ env.PREVIEW_IMAGE_TAG }}
+      namespace: ${{ env.PREVIEW_NAMESPACE }}
+      release_name: ${{ env.PREVIEW_RELEASE }}
+      parameter_prefix: ${{ env.PREVIEW_PARAMETER_PREFIX }}
+    secrets:
+      KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      GHCR_PULL_USERNAME: ${{ secrets.GHCR_PULL_USERNAME }}
+      GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
