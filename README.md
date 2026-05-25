@@ -1,65 +1,118 @@
 
-# LeetCode QA with Submission Evolution Tracking
+# LeetCode QA Platform
 
-A LeetCode Q&A system using LlamaIndex with submission tracking and MCP integration for analyzing problem-solving evolution.
+A microservices platform for tracking LeetCode submissions, analyzing problem-solving evolution, and receiving AI-powered recommendations.
 
 ## Overview
 
-```mermaid
-graph TB
-    subgraph "Input Sources"
-        A[👨‍💻 Neovim LeetCode Plugin]
-        B[🖥️ Manual CLI]
-        C[🌐 LeetCode GraphQL API]
-    end
-    
-    subgraph "Core Processing"
-        D[📝 Submission Saver]
-        E[🧹 Code Cleaner]
-        F[📊 Problem Ingestion]
-    end
-    
-    subgraph "Storage Layer"
-        G[(🗄️ PostgreSQL Database)]
-        H[Questions Table]
-        I[Submissions Table]
-    end
-    
-    subgraph "Analysis & Query"
-        J[🤖 MCP Server]
-        K[🔍 Submission Evolution Analysis]
-        L[💭 Thought Progression Tracking]
-        M[📈 Metrics & Insights]
-    end
-    
-    subgraph "AI Integration"
-        N[🧠 LLM Clients]
-        O[GitHub Copilot / Claude / GPT]
-    end
-    
-    A -->|Submit Code| D
-    B -->|Direct Call| D
-    C -->|Fetch Problems| F
-    D -->|Clean & Normalize| E
-    E -->|Store| G
-    F -->|Store| G
-    G --> H
-    G --> I
-    I -->|Query| J
-    H -->|Query| J
-    J --> K
-    J --> L
-    J --> M
-    N -->|MCP Protocol| J
-    O -->|Request Analysis| N
-    
-    style G fill:#99ccff
-    style J fill:#ffff99
-    style N fill:#ff99ff
-    style O fill:#ff99cc
-```
+This platform consists of **4 independent microservices** that work together to provide a comprehensive LeetCode practice workflow:
 
-**Current Status**: ✅ Per-Question Submission Tracking | ✅ MCP Integration | 🚧 Cross-Question Analytics
+```d2
+direction: down
+
+# Input Layer
+nvim: {
+  shape: cylinder
+  style.fill: "#ff9999"
+}
+cli: {
+  shape: cylinder
+  style.fill: "#ff9999"
+}
+leetcode_api: {
+  shape: cylinder
+  style.fill: "#ff9999"
+}
+
+# Core Services
+submission_svc: {
+  shape: rectangle
+  style.fill: "#ffcc99"
+}
+mcp_svc: {
+  shape: rectangle
+  style.fill: "#ffff99"
+}
+intelligence_svc: {
+  shape: rectangle
+  style.fill: "#99ff99"
+}
+ingestor: {
+  shape: rectangle
+  style.fill: "#cc99ff"
+}
+
+# Database Layer
+db: {
+  shape: cylinder
+  style.fill: "#99ccff"
+}
+
+# External Clients
+llm_clients: {
+  shape: circle
+  style.fill: "#ff99ff"
+}
+discord: {
+  shape: circle
+  style.fill: "#99ccff"
+}
+
+# Connections
+nvim -> submission_svc: "TCP :3000"
+cli -> submission_svc: "TCP :3000"
+leetcode_api -> ingestor: "GraphQL"
+submission_svc -> db: "Prisma ORM"
+mcp_svc -> db: "Prisma ORM"
+intelligence_svc -> db: "Prisma ORM"
+ingestor -> db: "Prisma ORM"
+mcp_svc -> llm_clients: "MCP Protocol"
+intelligence_svc -> discord: "Discord API"
+```
+## Services
+
+| Service | Ports | Protocol | Description |
+|---------|------|----------|-------------|
+| **Submission Service** | 3000, 8000 | TCP, HTTP | Submission tracking & analytics API |
+| **MCP Service** | stdio | MCP | LLM integration for submission analysis |
+| **Intelligence Service** | HTTP, Discord | HTTP | Prompt scoring & recommendations |
+| **Ingestor** | CLI | Python | ETL for LeetCode problem ingestion |
+
+### 1. Submission Service
+
+Dual-server backend for receiving and analyzing LeetCode submissions.
+
+- **TCP Submission Server (Port 3000)**: Receives code submissions from the Neovim plugin via JSON-over-newline protocol
+- **Analytics API (Port 8000)**: HTTP REST API (FastAPI) for data analytics and visualization
+
+Key features:
+- Saves submissions to PostgreSQL database
+- Tracks problem-solving timers (start/stop/get active)
+- Constructs problem relationship graphs
+
+### 2. MCP Service
+
+Model Context Protocol server for LLM integration. Provides tools for:
+- Analyzing submission evolution
+- Problem discovery and history
+- Solution review
+
+### 3. Intelligence Service
+
+TypeScript service for prompting, scoring, and recommendations:
+- Prompt dispatcher (scheduled Discord prompts)
+- Prompt response listener and scorer
+- Focus recommender
+
+### 4. Ingestor
+
+Python ETL service for ingesting LeetCode problems from the LeetCode API.
+
+### Shared Configuration
+
+All services share:
+- **Prisma Schema**: `services/shared/prisma/schema.prisma`
+- **Database**: Single PostgreSQL instance
 
 ## Docker Compose (submission_server + mcp-server)
 
@@ -114,59 +167,6 @@ Run it with your database URL:
 docker run --rm -p 3000:3000 \
   -e DATABASE_URL="postgresql://..." \
   leetcode-submission-service:latest
-```
-
-## System Architecture
-
-```mermaid
-flowchart TD
-    A[Neovim LeetCode Plugin] -->|Submit Code| B[Lua Wrapper]
-    B -->|Execute Poetry Script| C[submission-saver]
-    C -->|Clean & Normalize| D[Code Cleaner]
-    D -->|Preserve Comments| E[Cleaned Code + Comments]
-    C -->|Save to DB| F[(PostgreSQL Database)]
-    
-    G[Manual CLI] -->|Direct Call| C
-    H[LeetCode GraphQL] -->|Fetch Problems| I[ingest-problems]
-    I -->|Store Questions| F
-    
-    subgraph "MCP Integration"
-        J[LLM Client] -->|Query| K[MCP Server]
-        K -->|Get Submissions| F
-        K -->|Analyze Evolution| L[Submission Evolution Analysis]
-        L -->|Track Progress| M[Timeline Analysis]
-        L -->|Extract Thoughts| N[Comment Evolution]
-        L -->|Performance Metrics| O[Success Rate Tracking]
-    end
-    
-    subgraph "Code Processing"
-        D -->|Extract from Class| P[Function Only]
-        D -->|Keep Comments| Q[Semantic Context]
-        D -->|Clean Whitespace| R[Normalized Format]
-    end
-    
-    subgraph "Database"
-        F --> S[Questions Table]
-        F --> T[Submissions Table]
-        T -->|Optional FK| S
-        S --> U[title, titleSlug, difficulty]
-        T --> V[content, rawContent, status, createdAt]
-    end
-    
-    subgraph "Analysis Features"
-        K --> W[get_submission_history]
-        K --> X[analyze_thought_progression]
-        K --> Y[compare_solutions]
-        K --> Z[track_improvement_metrics]
-    end
-
-    style A fill:#ff9999
-    style F fill:#99ccff
-    style D fill:#99ff99
-    style C fill:#ffcc99
-    style I fill:#cc99ff
-    style K fill:#ffff99
-    style L fill:#ff99ff
 ```
 
 ## MCP Features for Submission Evolution
@@ -297,114 +297,118 @@ Open problem in Neovim
 
 ---
 
-## 🗺️ ROADMAP
+## Roadmap
 
-### ✅ Phase 1: Foundation (Completed)
+### Phase 1: Foundation
+**Status**: Completed  
 **Goal**: Basic submission tracking and per-question analysis
 
-- [x] **Database Schema Design**
+- **Database Schema Design**
   - Questions table with LeetCode metadata
   - Submissions table with timestamps and status tracking
   - Prisma ORM integration
-  
-- [x] **Submission Capture Pipeline**
+
+- **Submission Capture Pipeline**
   - Neovim plugin integration via Lua wrapper
   - Code cleaner that preserves comments
   - Automatic timestamping and status tracking
-  
-- [x] **MCP Server Implementation**
+
+- **MCP Server Implementation**
   - `get_submission_history`: List submissions with id, code, result, mistakes, and time
   - `analyze_thought_progression`: Comment evolution tracking per question
   - FastMCP-based server with stdio transport for GitHub Copilot
-  
-- [x] **Per-Question Analytics**
+
+- **Per-Question Analytics**
   - Submission timeline visualization
   - Success rate progression
   - Code length trends
   - Comment density analysis
   - Complexity awareness tracking
 
-### 🚧 Phase 2: Enhanced Analytics (In Progress)
+### Phase 2: Enhanced Analytics
+**Status**: In progress  
 **Goal**: Cross-question insights and pattern recognition
 
-- [ ] **Cross-Question Pattern Analysis**
+- **Cross-Question Pattern Analysis**
   - Identify recurring mistakes across different problems
   - Track algorithmic patterns (DP, Two Pointers, Sliding Window, etc.)
   - Analyze success rates by problem category
   - Compare solving strategies across similar problems
-  
-- [ ] **Learning Curve Metrics**
+
+- **Learning Curve Metrics**
   - Problem difficulty progression tracking
   - Time-to-solve trends over time
   - Retry rate analysis by topic
   - Skill development heatmaps
-  
-- [ ] **Advanced MCP Tools**
+
+- **Advanced MCP Tools**
   - `compare_problems`: Side-by-side submission evolution comparison
   - `get_topic_mastery`: Analyze proficiency by algorithmic topic
   - `identify_weak_areas`: Suggest problems based on struggle patterns
   - `get_learning_insights`: Overall coding journey analytics
 
-### 🔮 Phase 3: Intelligent Recommendations (Planned)
+### Phase 3: Intelligent Recommendations
+**Status**: Planned  
 **Goal**: AI-powered personalized learning assistance
 
-- [ ] **Smart Problem Recommendations**
+- **Smart Problem Recommendations**
   - Analyze weak areas and recommend targeted problems
   - Progressive difficulty adjustment based on success patterns
   - Topic-based learning path generation
-  
-- [ ] **Code Review & Feedback**
+
+- **Code Review & Feedback**
   - Automatic code quality analysis
   - Best practice suggestions based on historical patterns
   - Anti-pattern detection from past mistakes
-  
-- [ ] **Comparative Analytics**
+
+- **Comparative Analytics**
   - Compare your solutions with optimal approaches
   - Benchmark against submission statistics
   - Identify optimization opportunities
-  
-- [ ] **Study Session Planning**
+
+- **Study Session Planning**
   - Optimal review scheduling (spaced repetition)
   - Problem clustering by similarity
   - Weekly/monthly progress reports
 
-### 🌟 Phase 4: Community & Advanced Features (Future)
+### Phase 4: Community and Advanced Features
+**Status**: Future  
 **Goal**: Collaborative learning and advanced tooling
 
-- [ ] **Multi-User Support**
+- **Multi-User Support**
   - Team/study group analytics
   - Peer comparison (anonymized)
   - Collaborative problem-solving sessions
-  
-- [ ] **Enhanced Visualization**
+
+- **Enhanced Visualization**
   - Interactive dashboards
   - Progress graphs and charts
   - Knowledge graph of problem relationships
-  
-- [ ] **Integration Expansions**
+
+- **Integration Expansions**
   - Support for other coding platforms (HackerRank, CodeForces)
   - IDE plugins (VS Code, IntelliJ)
   - Mobile app for progress tracking
-  
-- [ ] **Advanced AI Features**
+
+- **Advanced AI Features**
   - Natural language problem explanation generation
   - Automated hint system without spoilers
   - Voice-based coding session reviews
 
-### 📊 Current Limitations
+### Current Limitations
 The system currently supports:
-- ✅ **Single question analysis**: Detailed evolution tracking for individual problems
-- ✅ **MCP integration**: Query via LLM clients (Copilot, Claude, GPT)
-- ✅ **Comment tracking**: Thought process evolution within single problems
+- **Single question analysis**: Detailed evolution tracking for individual problems
+- **MCP integration**: Query via LLM clients (Copilot, Claude, GPT)
+- **Comment tracking**: Thought process evolution within single problems
 
-What's **NOT** yet supported:
-- ❌ **Cross-question analytics**: No pattern recognition across multiple problems
-- ❌ **Topic-based insights**: Cannot aggregate by algorithmic categories
-- ❌ **Recommendation engine**: No personalized problem suggestions
-- ❌ **Comparative analysis**: Cannot compare different problems' evolution
-- ❌ **Batch analytics**: No workspace-wide statistics or reports
+What's **not** yet supported:
+- **Cross-question analytics**: No pattern recognition across multiple problems
+- **Topic-based insights**: Cannot aggregate by algorithmic categories
+- **Recommendation engine**: No personalized problem suggestions
+- **Comparative analysis**: Cannot compare different problems' evolution
+- **Batch analytics**: No workspace-wide statistics or reports
 
-### 🎯 Next Milestone: Cross-Question Analytics
+### Next Milestone: Cross-Question Analytics
 **Target**: Enable pattern recognition across entire submission history
 
 **Key Deliverables**:
