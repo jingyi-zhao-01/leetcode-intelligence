@@ -37,6 +37,10 @@ type PendingSubmission = {
   submissionDetails: SubmissionItem;
 };
 type SubmissionActionResponse = Record<string, unknown>;
+type SubmissionActionHandlers = {
+  [ServerAction.GET_PAST_SUBMISSIONS]: ActionHandler<[string, number?], SubmissionActionResponse>;
+  [ServerAction.SAVE_SUBMISSION]: ActionHandler<[string, string, SubmissionItem], SubmissionActionResponse>;
+};
 
 const logger = createLogger("server");
 
@@ -80,7 +84,7 @@ export function inferIsTestSubmission(content: string, item: SubmissionItem): bo
 
   const metadata = item._;
   if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
-    const submissionFlag = readSubmissionFlag(metadata as SubmissionItem, "submission");
+    const submissionFlag = readSubmissionFlag(metadata, "submission");
     if (typeof submissionFlag === "boolean") {
       return !submissionFlag;
     }
@@ -131,7 +135,7 @@ export class SubmissionServer {
     cache: this.cache,
     logger: this.logger,
   };
-  private readonly actionHandlers: Partial<Record<ServerAction, ActionHandler<any[], SubmissionActionResponse>>> = {
+  private readonly actionHandlers: Partial<SubmissionActionHandlers> = {
     [ServerAction.GET_PAST_SUBMISSIONS]: withReadSubmissionCache<[string, number?], SubmissionActionResponse>({
       actionName: ServerAction.GET_PAST_SUBMISSIONS,
       getTitleSlug: (titleSlug: string) => titleSlug,
@@ -231,7 +235,7 @@ export class SubmissionServer {
       this.logger.info({ titleSlug, timeSpentMinutes }, "Current elapsed time");
     }
 
-    const submissionDetails = JSON.parse(JSON.stringify(item)) as SubmissionItem;
+    const submissionDetails = structuredClone(item);
     submissionDetails.lcnvim_is_test = isTest;
 
     if (status === "Accepted" && !isTest) {
