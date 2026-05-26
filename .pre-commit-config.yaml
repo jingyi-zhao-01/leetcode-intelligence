@@ -46,3 +46,11 @@ repos:
             files: ^services/.*\.(js|cjs|mjs|ts|tsx|json|md|yml|yaml)$
             pass_filenames: true
             always_run: false
+          - id: eslint-services
+            name: ESLint (tracked services)
+            entry: npm
+            args: [exec, --, eslint]
+            language: system
+            files: ^services/(ingestor|leetcode-submission-service)/.*\.(js|mjs|cjs|ts|mts|cts)$
+            pass_filenames: true
+            always_run: false
