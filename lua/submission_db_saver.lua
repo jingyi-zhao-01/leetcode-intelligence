@@ -18,6 +18,7 @@ local function send_request(request, handlers)
   local closed = false
   local stdout_chunks = {}
   local response_complete = false
+  local timeout_ms = handlers.timeout_ms or 5000
 
   local function close_client()
     if closed then
@@ -81,9 +82,9 @@ local function send_request(request, handlers)
     end
 
     debug_log("tcp connected")
-    timer:start(5000, 0, function()
+    timer:start(timeout_ms, 0, function()
       vim.schedule(function()
-        finish(1, "TCP request timed out waiting for response")
+        finish(1, "TCP request timed out waiting for response after " .. tostring(timeout_ms) .. "ms")
       end)
     end)
 
@@ -134,6 +135,25 @@ local function extract_response_line(data)
       return line
     end
   end
+end
+
+local function question_description_text(question)
+  if question.description and question.description.bufnr and vim.api.nvim_buf_is_valid(question.description.bufnr) then
+    return table.concat(vim.api.nvim_buf_get_lines(question.description.bufnr, 0, -1, false), "\n")
+  end
+
+  return question.q and (question.q.translated_content or question.q.content) or ""
+end
+
+local function analysis_filetype(question)
+  if question and question.bufnr and vim.api.nvim_buf_is_valid(question.bufnr) then
+    local ft = vim.bo[question.bufnr].filetype
+    if ft and ft ~= "" then
+      return ft
+    end
+  end
+
+  return "text"
 end
 
 function M.save_submission(question, buffer, item)
@@ -377,6 +397,76 @@ end
 
 function M.show_past_submissions(question, limit)
   M.get_past_submissions(question, nil, limit)
+end
+
+function M.analyze_failure(question, buffer, item, callback)
+  local title_slug = question.q.title_slug
+  local content
+  if type(buffer) == "table" then
+    content = table.concat(buffer, "\n")
+  else
+    content = buffer or ""
+  end
+
+  local response_line
+  local request = json_request({
+    action = "analyze_failure",
+    title_slug = title_slug,
+    title = question.q and question.q.title or "",
+    question_content = question_description_text(question),
+    editor_content = content,
+    submission_content = content,
+    testcase = question.console and question.console.testcase and question.console.testcase:content() or "",
+    filetype = analysis_filetype(question),
+    item = item or {},
+  })
+
+  send_request(request, {
+    timeout_ms = 30000,
+    on_exit = function(_, exit_code, _)
+      if exit_code ~= 0 then
+        callback({
+          success = false,
+          error = "Failure analysis request failed (code: " .. exit_code .. ")",
+          annotations = {},
+        })
+        return
+      end
+
+      if not response_line then
+        callback({
+          success = false,
+          error = "Failure analysis returned no data",
+          annotations = {},
+        })
+        return
+      end
+
+      local ok, response = pcall(vim.fn.json_decode, response_line)
+      if not ok then
+        callback({
+          success = false,
+          error = "Failed to parse failure analysis response",
+          annotations = {},
+        })
+        return
+      end
+
+      callback(response)
+    end,
+    on_stdout = function(_, data, _)
+      response_line = extract_response_line(data) or response_line
+    end,
+    on_stderr = function(_, data, _)
+      if data and #data > 0 then
+        for _, line in ipairs(data) do
+          if line ~= "" and not line:match("^$") then
+            debug_log("Failure analysis error: " .. line)
+          end
+        end
+      end
+    end,
+  })
 end
 
 return M

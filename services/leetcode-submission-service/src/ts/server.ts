@@ -1,11 +1,13 @@
 import net from "node:net";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { OpenRouter } from "@openrouter/sdk";
 import { type Submission, PrismaClient } from "@prisma/client";
 import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.js";
 import { Cache, type SubmissionSummary } from "./cache.js";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
+import { type FailureAnalysisRequest, OpenRouterFailureAnalyzer } from "./failureAnalysis.js";
 import { createLogger } from "./logger.js";
 import { TimerManager } from "./timer.js";
 
@@ -17,6 +19,7 @@ enum ServerAction {
   GET_ACTIVE_SESSIONS = "get_active_sessions",
   GET_PAST_SUBMISSIONS = "get_past_submissions",
   SAVE_SUBMISSION = "save_submission",
+  ANALYZE_FAILURE = "analyze_failure",
 }
 
 type JsonPrimitive = string | number | boolean | null;
@@ -111,6 +114,19 @@ export class SubmissionServer {
   private readonly timerManager = new TimerManager();
   readonly logger = logger;
   readonly cache = new Cache();
+  private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
+    ? new OpenRouter({
+        apiKey: process.env.OPEN_ROUTER_API_KEY,
+        httpReferer: "https://github.com/kawre/leetcode.nvim",
+        appTitle: "leetcode-submission-service",
+      })
+    : null;
+  private readonly failureAnalyzer = this.openRouter
+    ? new OpenRouterFailureAnalyzer(
+        this.openRouter,
+        process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next",
+      )
+    : null;
   private readonly actionContext: ActionContext = {
     cache: this.cache,
     logger: this.logger,
@@ -330,6 +346,62 @@ export class SubmissionServer {
     return handler(this.actionContext, titleSlug, limit);
   }
 
+  private async analyzeFailure(request: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!this.failureAnalyzer) {
+      return {
+        success: false,
+        action: ServerAction.ANALYZE_FAILURE,
+        error: "OPEN_ROUTER_API_KEY is not configured for submission failure analysis.",
+      };
+    }
+
+    const payload = {
+      titleSlug: readString(request.title_slug),
+      title: readString(request.title),
+      questionContent: readString(request.question_content),
+      editorContent: readString(request.editor_content),
+      submissionContent: readString(request.submission_content),
+      testcase: readString(request.testcase),
+      judgeResult: (request.item ?? {}) as FailureAnalysisRequest["judgeResult"],
+      filetype: readString(request.filetype, "text"),
+    } satisfies FailureAnalysisRequest;
+
+    if (!payload.titleSlug || !payload.editorContent) {
+      return {
+        success: false,
+        action: ServerAction.ANALYZE_FAILURE,
+        error: "title_slug and editor_content are required.",
+      };
+    }
+
+    logger.info(
+      {
+        action: ServerAction.ANALYZE_FAILURE,
+        titleSlug: payload.titleSlug,
+        editorChars: payload.editorContent.length,
+        testcaseChars: payload.testcase.length,
+      },
+      "starting failure analysis",
+    );
+    const analysis = await this.failureAnalyzer.analyze(payload);
+    logger.info(
+      {
+        action: ServerAction.ANALYZE_FAILURE,
+        titleSlug: payload.titleSlug,
+        annotationCount: analysis.annotations.length,
+      },
+      "completed failure analysis",
+    );
+    return {
+      success: true,
+      action: ServerAction.ANALYZE_FAILURE,
+      title_slug: payload.titleSlug,
+      summary: analysis.summary,
+      annotations: analysis.annotations,
+      count: analysis.annotations.length,
+    };
+  }
+
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
     const action = readString(request.action);
     logger.info({ action }, "Received request");
@@ -400,6 +472,9 @@ export class SubmissionServer {
         const item = (request.item ?? {}) as SubmissionItem;
         return this.saveSubmission(titleSlug, content, item);
       }
+
+      case ServerAction.ANALYZE_FAILURE:
+        return this.analyzeFailure(request);
 
       default:
         return { error: `Unknown action: ${action}` };

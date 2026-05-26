@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
 import { Cache } from "../src/ts/cache.ts";
+import { parseFailureAnalysis } from "../src/ts/failureAnalysis.ts";
 import { formatPacificTimestamp, inferIsTestSubmission } from "../src/ts/server.ts";
 
 describe("submission server helpers", () => {
@@ -88,5 +89,29 @@ describe("submission server helpers", () => {
 
     assert.equal(merged.length, 1);
     assert.equal(merged[0]?.id, "db-1");
+  });
+
+  it("parses structured failure annotations and filters invalid lines", () => {
+    const parsed = parseFailureAnalysis(
+      JSON.stringify({
+        summary: "第 2 行条件分支少考虑了空输入。",
+        annotations: [
+          { line: 2, reason: "这里可能越界", severity: "error" },
+          { line: 9, reason: "超出编辑器范围", severity: "warn" },
+          { line: 2, reason: "需要先判空", severity: "warn" },
+        ],
+      }),
+      4,
+    );
+
+    assert.equal(parsed.summary, "第 2 行条件分支少考虑了空输入。");
+    assert.deepEqual(parsed.annotations, [
+      {
+        line: 2,
+        reason: "这里可能越界 | 需要先判空",
+        severity: "error",
+        column: undefined,
+      },
+    ]);
   });
 });
