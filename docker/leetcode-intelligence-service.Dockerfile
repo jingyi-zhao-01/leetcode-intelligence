@@ -8,9 +8,10 @@ RUN apt-get update \
 
 COPY package.json package-lock.json ./
 COPY services/leetcode-intelligence-service/package.json services/leetcode-intelligence-service/package.json
-RUN npm ci
 
 COPY services/shared/prisma/schema.prisma services/shared/prisma/schema.prisma
+RUN npm ci
+
 COPY services/leetcode-intelligence-service services/leetcode-intelligence-service
 
 RUN npm exec prisma -- generate --generator jsclient --schema services/shared/prisma/schema.prisma
