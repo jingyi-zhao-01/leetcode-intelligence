@@ -7,7 +7,7 @@
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "vitest run tests/codeCleaner.test.ts tests/database.test.ts tests/server.test.ts",
     "submission-server": "node dist/server.js",
-    "submission-server-dev": "tsx watch src/ts/server.ts"
+    "submission-server-dev": "tsx watch src/server.ts"
   },
   "dependencies": {
     "@openrouter/sdk": "^0.12.35",

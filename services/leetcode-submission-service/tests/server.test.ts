@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
-import { Cache } from "../src/ts/cache.ts";
-import { parseFailureAnalysis } from "../src/ts/failureAnalysis.ts";
-import { formatPacificTimestamp, inferIsTestSubmission } from "../src/ts/server.ts";
+import { Cache } from "../src/cache.ts";
+import { parseFailureAnalysis } from "../src/failureAnalysis.ts";
+import { formatPacificTimestamp, inferIsTestSubmission } from "../src/server.ts";
 
 describe("submission server helpers", () => {
   it("formats timestamps in America/Los_Angeles time", () => {

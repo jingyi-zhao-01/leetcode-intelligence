@@ -7,7 +7,7 @@ import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionCo
 import { Cache, type SubmissionSummary } from "./cache.js";
 import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
-import { type FailureAnalysisRequest, OpenRouterFailureAnalyzer } from "./failureAnalysis.js";
+import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./failureAnalysis.js";
 import { createLogger } from "./logger.js";
 import { TimerManager } from "./timer.js";
 
@@ -126,7 +126,7 @@ export class SubmissionServer {
       })
     : null;
   private readonly failureAnalyzer = this.openRouter
-    ? new OpenRouterFailureAnalyzer(
+    ? createDefaultFailureAnalyzer(
         this.openRouter,
         process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next",
       )
@@ -355,7 +355,7 @@ export class SubmissionServer {
       return {
         success: false,
         action: ServerAction.ANALYZE_FAILURE,
-        error: "OPEN_ROUTER_API_KEY is not configured for submission failure analysis.",
+        error: "Failure analyzer is not configured for submission failure analysis.",
       };
     }
 

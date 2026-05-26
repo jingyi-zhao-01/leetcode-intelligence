@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
-import { getDatabaseDiagnostics, resolveDatabaseUrl } from "../src/ts/database.ts";
+import { getDatabaseDiagnostics, resolveDatabaseUrl } from "../src/database.ts";
 
 describe("database url normalization", () => {
   it("adds pooler-safe defaults for Neon pooler URLs", () => {
