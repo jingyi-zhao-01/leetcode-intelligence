@@ -87,7 +87,7 @@ const buildPromptText = (question: CandidateQuestion, submission: CandidateSubmi
     `Status: ${submission.status}`,
     `SubmittedAt: ${submission.createdAt.toISOString()}`,
     "",
-    "Reply in this channel with your interview-style approach.",
+    "Reply in this thread to the prompt message with your interview-style approach.",
     "Explain your reasoning, expected time/space complexity, edge cases, and any blind spot you notice.",
     "You do not need to provide code. We are evaluating the quality and soundness of your thinking.",
   ].join("\n");

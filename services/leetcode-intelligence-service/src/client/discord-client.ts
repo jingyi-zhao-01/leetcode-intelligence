@@ -19,6 +19,11 @@ const buildPromptEmbed = (promptText: string): EmbedBuilder => {
     .setDescription(description);
 };
 
+const buildPromptThreadName = (promptText: string): string => {
+  const firstLine = promptText.split("\n", 1)[0]?.trim() || "LeetCode Prompt";
+  return firstLine.slice(0, 100);
+};
+
 export type DiscordClientConfig = {
   scope: string;
   botToken: string;
@@ -80,6 +85,9 @@ export class DiscordClient {
   async sendPrompt(promptText: string): Promise<{ messageId?: string }> {
     const channel = await this.resolveTextChannel();
     const sentMessage = await channel.send({ embeds: [buildPromptEmbed(promptText)] });
+    await sentMessage.startThread({
+      name: buildPromptThreadName(promptText),
+    });
     return { messageId: sentMessage.id };
   }
 

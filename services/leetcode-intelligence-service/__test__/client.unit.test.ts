@@ -26,6 +26,10 @@ let sentMessages: Array<{
   content: string;
   embeds?: unknown[];
 }> = [];
+let startedThreads: Array<{
+  messageId: string;
+  name: string;
+}> = [];
 let stubChannelType = ChannelType.GuildText;
 let stubIsTextBased = true;
 
@@ -34,6 +38,7 @@ const resetStubs = (): void => {
   Client.prototype.isReady = originalIsReady;
   Client.prototype.destroy = originalDestroy;
   sentMessages = [];
+  startedThreads = [];
   stubChannelType = ChannelType.GuildText;
   stubIsTextBased = true;
 };
@@ -45,6 +50,7 @@ const installDiscordStub = (): void => {
         type: stubChannelType,
         isTextBased: () => stubIsTextBased,
         send: async ({ content, embeds }: { content?: string; embeds?: Array<{ toJSON?: () => unknown }> }) => {
+          const messageId = `message-${sentMessages.length + 1}`;
           sentMessages.push({
             channelId,
             content: content ?? "",
@@ -52,7 +58,13 @@ const installDiscordStub = (): void => {
               ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
               : undefined,
           });
-          return { id: `message-${sentMessages.length}` };
+          return {
+            id: messageId,
+            startThread: async ({ name }: { name: string }) => {
+              startedThreads.push({ messageId, name });
+              return { id: `thread-${startedThreads.length}` };
+            },
+          };
         },
       }),
     };
@@ -202,7 +214,7 @@ describe("prompt-flow", () => {
 });
 
 describe("DiscordClient", () => {
-  it("sendPrompt sends content to the configured text channel", async () => {
+  it("sendPrompt sends content to the configured text channel and starts a thread", async () => {
     installDiscordStub();
     const client = new DiscordClient({
       scope: "client/test",
@@ -227,6 +239,12 @@ describe("DiscordClient", () => {
             description: "Solve two-sum",
           },
         ],
+      },
+    ]);
+    assert.deepEqual(startedThreads, [
+      {
+        messageId: "message-1",
+        name: "Solve two-sum",
       },
     ]);
   });
