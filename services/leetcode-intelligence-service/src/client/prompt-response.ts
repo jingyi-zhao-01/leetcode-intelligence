@@ -28,18 +28,6 @@ type DiscordScoreResult = {
 const isTargetConversation = (message: Message, channelId: string): boolean =>
   message.channel.isThread?.() === true && message.channel.parentId === channelId;
 
-const resolvePromptMessageId = (message: Message): string | null => {
-  if (message.reference?.messageId) {
-    return message.reference.messageId;
-  }
-
-  if (message.channel.isThread?.() === true) {
-    return message.channel.id;
-  }
-
-  return null;
-};
-
 const formatScoreReply = (scored: DiscordScoreResult): string => {
   if (!scored.ok) {
     return `Evaluation finished but was not accepted: ${scored.message ?? "unknown reason"}`;
@@ -112,19 +100,19 @@ export class PromptResponseClient {
         return;
       }
 
-      const promptMessageId = resolvePromptMessageId(message);
-      if (!promptMessageId) {
-        logger.info({ messageId: message.id }, "ignored message without prompt message id");
+      const referenceMessageId = message.reference?.messageId;
+      if (!referenceMessageId) {
+        logger.info({ messageId: message.id }, "ignored message without reference");
         return;
       }
 
       await this.discord.ensureTargetChannel();
       const scored = (await scorePromptReply(this.service, {
-        referenceMessageId: promptMessageId,
+        referenceMessageId,
         rawReply: message.content,
       })) as DiscordScoreResult | null;
       if (!scored) {
-        logger.warn({ messageId: message.id, promptMessageId }, "no score generated");
+        logger.warn({ messageId: message.id, referenceMessageId }, "no score generated");
         return;
       }
 
@@ -143,7 +131,7 @@ export class PromptResponseClient {
           questionSlug: scored.questionSlug ?? "unknown",
           score: scored.score ?? null,
           messageId: message.id,
-          promptMessageId,
+          referenceMessageId,
         },
         "scored reply",
       );

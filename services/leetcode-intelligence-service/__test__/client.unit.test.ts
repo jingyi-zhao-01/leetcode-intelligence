@@ -272,7 +272,7 @@ describe("DiscordClient", () => {
 });
 
 describe("PromptResponseClient", () => {
-  it("treats a plain thread message as a reply to the thread starter prompt", async () => {
+  it("ignores thread messages that are not direct replies", async () => {
     const service = createFakePromptService();
     const client = new PromptResponseClient(service as never, {
       botToken: "bot-token",
@@ -301,12 +301,7 @@ describe("PromptResponseClient", () => {
       },
     });
 
-    assert.deepEqual(service.scorePromptReplyByMessageIdCalls, [
-      {
-        messageId: "prompt-message-1",
-        rawReply: "Use BFS level by level.",
-      },
-    ]);
-    assert.equal(sentReplies.length, 1);
+    assert.deepEqual(service.scorePromptReplyByMessageIdCalls, []);
+    assert.equal(sentReplies.length, 0);
   });
 });
