@@ -1,9 +1,16 @@
 
-# LeetCode QA Platform
+# LeetCode Intelligence
 
-A microservices platform for tracking LeetCode submissions, analyzing problem-solving evolution, and receiving AI-powered recommendations.
+
+
+## WHY
+
+
+
 
 ## Overview
+
+an AIO solution for tracking LeetCode submissions, analyzing problem-solving evolution, and receiving rule based recommendations (GenAI optional).
 
 This platform consists of **5 independent services** that work together to provide a comprehensive LeetCode practice workflow:
 
