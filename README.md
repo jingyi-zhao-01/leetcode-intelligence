@@ -1,10 +1,12 @@
 
 # LeetCode Intelligence
 
-
-
 ## WHY
-
+a systematic way to handle leetcode solving to manage the entire life cycle:
+- How to get immediate feedback to understand which part of the code block is wrong ? is the reason due to not adequately understanding the problem or inproficiency of the syntax ? 
+- How to persistently store my submissions overtime so i can understand the full evlution of a specific problem or a specific type of problem ?
+- How to manage frictionless refresh of my understanding on solved problem ? 
+- How to identify weak spot and plan triage on specific topics ?
 
 
 
