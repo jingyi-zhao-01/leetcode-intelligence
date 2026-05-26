@@ -4,6 +4,7 @@ import { afterEach, describe, it } from "vitest";
 import { ChannelType, Client, GatewayIntentBits } from "discord.js";
 
 import { DiscordClient } from "../src/client/discord-client.ts";
+import { PromptResponseClient } from "../src/client/prompt-response.ts";
 import { dispatchPrompt, scorePromptReply } from "../src/client/prompt-flow.ts";
 
 type FakePromptService = {
@@ -267,5 +268,45 @@ describe("DiscordClient", () => {
       /Discord channel prompt-channel is not a guild text channel\./,
     );
     await client.stop();
+  });
+});
+
+describe("PromptResponseClient", () => {
+  it("treats a plain thread message as a reply to the thread starter prompt", async () => {
+    const service = createFakePromptService();
+    const client = new PromptResponseClient(service as never, {
+      botToken: "bot-token",
+      channelId: "prompt-channel",
+    });
+
+    (client as any).discord = {
+      ensureTargetChannel: async () => undefined,
+      stop: async () => undefined,
+      start: async () => undefined,
+    };
+
+    const sentReplies: string[] = [];
+    await (client as any).handleMessage({
+      id: "user-message-1",
+      content: "Use BFS level by level.",
+      author: { id: "user-1", bot: false },
+      reference: null,
+      channel: {
+        id: "prompt-message-1",
+        parentId: "prompt-channel",
+        isThread: () => true,
+        send: async ({ content }: { content: string }) => {
+          sentReplies.push(content);
+        },
+      },
+    });
+
+    assert.deepEqual(service.scorePromptReplyByMessageIdCalls, [
+      {
+        messageId: "prompt-message-1",
+        rawReply: "Use BFS level by level.",
+      },
+    ]);
+    assert.equal(sentReplies.length, 1);
   });
 });
