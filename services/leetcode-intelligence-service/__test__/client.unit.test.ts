@@ -27,10 +27,6 @@ let sentMessages: Array<{
   content: string;
   embeds?: unknown[];
 }> = [];
-let startedThreads: Array<{
-  messageId: string;
-  name: string;
-}> = [];
 let stubChannelType = ChannelType.GuildText;
 let stubIsTextBased = true;
 
@@ -39,7 +35,6 @@ const resetStubs = (): void => {
   Client.prototype.isReady = originalIsReady;
   Client.prototype.destroy = originalDestroy;
   sentMessages = [];
-  startedThreads = [];
   stubChannelType = ChannelType.GuildText;
   stubIsTextBased = true;
 };
@@ -59,13 +54,7 @@ const installDiscordStub = (): void => {
               ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
               : undefined,
           });
-          return {
-            id: messageId,
-            startThread: async ({ name }: { name: string }) => {
-              startedThreads.push({ messageId, name });
-              return { id: `thread-${startedThreads.length}` };
-            },
-          };
+          return { id: messageId };
         },
       }),
     };
@@ -215,7 +204,7 @@ describe("prompt-flow", () => {
 });
 
 describe("DiscordClient", () => {
-  it("sendPrompt sends content to the configured text channel and starts a thread", async () => {
+  it("sendPrompt sends content to the configured text channel", async () => {
     installDiscordStub();
     const client = new DiscordClient({
       scope: "client/test",
@@ -242,12 +231,6 @@ describe("DiscordClient", () => {
         ],
       },
     ]);
-    assert.deepEqual(startedThreads, [
-      {
-        messageId: "message-1",
-        name: "Solve two-sum",
-      },
-    ]);
   });
 
   it("ensureTargetChannel rejects non-guild-text channels", async () => {
@@ -272,6 +255,45 @@ describe("DiscordClient", () => {
 });
 
 describe("PromptResponseClient", () => {
+  it("scores direct replies in the prompt channel", async () => {
+    const service = createFakePromptService();
+    const client = new PromptResponseClient(service as never, {
+      botToken: "bot-token",
+      channelId: "prompt-channel",
+    });
+
+    const sentReplies: string[] = [];
+    (client as any).discord = {
+      ensureTargetChannel: async () => undefined,
+      replyToMessage: async (_message: unknown, content: string) => {
+        sentReplies.push(content);
+        return { messageId: "feedback-1" };
+      },
+      stop: async () => undefined,
+      start: async () => undefined,
+    };
+
+    await (client as any).handleMessage({
+      id: "user-message-1",
+      content: "Use BFS level by level.",
+      author: { id: "user-1", bot: false },
+      reference: { messageId: "prompt-message-1" },
+      channel: {
+        id: "prompt-channel",
+        isThread: () => false,
+      },
+    });
+
+    assert.deepEqual(service.scorePromptReplyByMessageIdCalls, [
+      {
+        messageId: "prompt-message-1",
+        rawReply: "Use BFS level by level.",
+      },
+    ]);
+    assert.equal(sentReplies.length, 1);
+    assert.match(sentReplies[0] ?? "", /Score: 0.91/);
+  });
+
   it("ignores thread messages that are not direct replies", async () => {
     const service = createFakePromptService();
     const client = new PromptResponseClient(service as never, {

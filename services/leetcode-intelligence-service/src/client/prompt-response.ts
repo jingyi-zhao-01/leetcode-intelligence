@@ -26,7 +26,7 @@ type DiscordScoreResult = {
 };
 
 const isTargetConversation = (message: Message, channelId: string): boolean =>
-  message.channel.isThread?.() === true && message.channel.parentId === channelId;
+  message.channel.id === channelId || message.channel.isThread?.() === true && message.channel.parentId === channelId;
 
 const formatScoreReply = (scored: DiscordScoreResult): string => {
   if (!scored.ok) {

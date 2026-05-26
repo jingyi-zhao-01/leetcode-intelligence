@@ -64,10 +64,6 @@ let sentMessages: Array<{
   content?: string;
   embeds?: unknown[];
 }> = [];
-let startedThreads: Array<{
-  messageId: string;
-  name: string;
-}> = [];
 
 const resetStubs = (): void => {
   cron.schedule = originalSchedule;
@@ -76,7 +72,6 @@ const resetStubs = (): void => {
   Client.prototype.destroy = originalDestroy;
   scheduleCalls = 0;
   sentMessages = [];
-  startedThreads = [];
 };
 
 const installCronStub = (): void => {
@@ -105,13 +100,7 @@ const installDiscordStub = (): void => {
               ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
               : undefined,
           });
-          return {
-            id: messageId,
-            startThread: async ({ name }: { name: string }) => {
-              startedThreads.push({ messageId, name });
-              return { id: `thread-${startedThreads.length}` };
-            },
-          };
+          return { id: messageId };
         },
       }),
     };
@@ -218,12 +207,6 @@ describe("intelligence integration modes", () => {
             description: "Solve two-sum",
           },
         ],
-      },
-    ]);
-    assert.deepEqual(startedThreads, [
-      {
-        messageId: "message-1",
-        name: "Solve two-sum",
       },
     ]);
   });
