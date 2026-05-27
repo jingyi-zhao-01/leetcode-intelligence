@@ -40,7 +40,7 @@ export const parseFailureAnalysis = (content: string, maxLine: number): FailureA
   const parsed = JSON.parse(extractJsonObject(content)) as Partial<FailureAnalysisResult>;
   const rawAnnotations = Array.isArray(parsed.annotations) ? parsed.annotations : [];
   const annotations = rawAnnotations
-    .map((item) => {
+    .map<FailureAnnotation | null>((item) => {
       if (!item || typeof item !== "object") {
         return null;
       }
@@ -51,12 +51,14 @@ export const parseFailureAnalysis = (content: string, maxLine: number): FailureA
       }
 
       const columnValue = Number((item as { column?: unknown }).column);
+      const rawReason = (item as { reason?: unknown }).reason;
+      const reason = typeof rawReason === "string" ? rawReason.trim() : "";
       return {
         line,
-        reason: String((item as { reason?: unknown }).reason ?? "").trim() || "可能与失败结果相关",
+        reason: reason || "Possibly related to the failing result",
         severity: normalizeSeverity((item as { severity?: unknown }).severity),
         column: Number.isInteger(columnValue) && columnValue > 0 ? columnValue : undefined,
-      } as FailureAnnotation;
+      };
     })
     .filter((item): item is FailureAnnotation => item !== null)
     .slice(0, 6);

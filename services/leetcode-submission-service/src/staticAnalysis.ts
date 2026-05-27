@@ -6,26 +6,26 @@ import { createLogger } from "./logger.js";
 const FAILURE_ANALYSIS_PROMPT = `
 You are analyzing a failed LeetCode test run.
 
-Explain the bug briefly in Chinese, then identify the most likely problematic lines in the user's editor buffer.
+Explain the bug briefly in English, then identify the most likely problematic lines in the user's editor buffer.
 Use the absolute line numbers from the numbered editor buffer below.
 Focus on the user's submission and the LeetCode error response. Do not rewrite the whole solution.
 If the raw LeetCode error already suggests a location, preserve that signal in your analysis.
 
 Return JSON only with this shape:
 {
-  "summary": "short Chinese explanation",
+  "summary": "short English explanation",
   "annotations": [
     {
       "line": 12,
-      "reason": "short Chinese reason",
+      "reason": "short English reason",
       "severity": "error"
     }
   ]
 }
 
 Rules:
-- summary must be Chinese.
-- reason must be concise and preferably Chinese.
+- summary must be English.
+- reason must be concise and in English.
 - severity must be "error" or "warn".
 - Keep at most 6 annotations.
 - If you cannot infer a useful line, return an empty annotations array.
