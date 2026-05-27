@@ -1,0 +1,21 @@
+service_runtime: {
+  intelligence_service: {
+    label: "intelligence_service"
+    class: local_core
+  }
+
+  scoring_core: {
+    label: "scoring_core"
+    class: local_analysis
+  }
+
+  recommendation_core: {
+    label: "recommendation_core"
+    class: local_analysis
+  }
+
+  weight_model: {
+    label: "shared_weight_model"
+    class: local_worker
+  }
+}

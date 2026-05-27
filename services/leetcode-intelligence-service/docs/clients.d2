@@ -1,0 +1,31 @@
+clients: {}
+
+discord_side: {
+  direction: down
+  style.stroke-width: 0
+
+  discord_clients: {
+    label: "discord_clients"
+    class: local_analysis
+  }
+
+  discord: {
+    label: "Discord\nexternal"
+    class: external_user
+  }
+}
+
+data_side: {
+  direction: down
+  style.stroke-width: 0
+
+  openrouter: {
+    label: "OpenRouter\nexternal GenAI"
+    class: external_ai
+  }
+
+  postgres: {
+    label: "PostgreSQL\ndata plane"
+    class: data_plane
+  }
+}
