@@ -1,0 +1,13 @@
+runtime: {
+  cache: {
+    label: "cache\nin-memory"
+    class: cache_store
+  }
+}
+
+external: {
+  postgres: {
+    label: "PostgreSQL\ndata plane"
+    class: data_plane
+  }
+}

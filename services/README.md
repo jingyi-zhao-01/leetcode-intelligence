@@ -8,6 +8,8 @@ This directory shares one PostgreSQL schema managed through Prisma.
 - ERD: `shared/schema-relations.svg`
 - D2 source: `shared/schema-relations.d2`
 
+![Shared schema relationships](./shared/schema-relations.svg)
+
 ## Database Design
 
 - `Question`: problem catalog and metadata

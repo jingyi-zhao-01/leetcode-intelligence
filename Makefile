@@ -1,4 +1,4 @@
-.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop clean
+.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop d2-render-architecture clean
 
 help:
 	@echo "Available commands:"
@@ -17,6 +17,7 @@ help:
 	@echo "  make analytics              - Start Analytics API"
 	@echo "  make dev-frontend           - Start Next.js frontend"
 	@echo "  make submission-stats       - Show submission statistics"
+	@echo "  make d2-render-architecture - Render all architecture.d2 files to architecture.svg"
 	@echo "  make test                   - Run Python tests"
 	@echo ""
 	@echo "Image Run"
@@ -89,6 +90,14 @@ submission-image-start:
 
 submission-image-stop:
 	@$(MAKE) -C docker submission-image-stop
+
+d2-render-architecture:
+	@command -v d2 >/dev/null 2>&1 || { echo "d2 CLI not found" >&2; exit 1; }
+	@find . -name 'architecture.d2' -print0 | while IFS= read -r -d '' file; do \
+		output="$${file%.d2}.svg"; \
+		echo "Rendering $$file -> $$output"; \
+		d2 "$$file" "$$output"; \
+	done
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache

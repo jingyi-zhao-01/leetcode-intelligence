@@ -14,11 +14,8 @@ a systematic way to handle leetcode solving to manage the entire life cycle:
 
 an AIO solution for tracking LeetCode submissions, analyzing problem-solving evolution, and receiving rule based recommendations (GenAI optional).
 
-This platform consists of **5 independent services** that work together to provide a comprehensive LeetCode practice workflow:
-
 ![System architecture](./architecture.svg)
 
-Source diagram: `architecture.d2`
 ## Services
 
 | Service | Ports | Protocol | Description |
@@ -26,7 +23,6 @@ Source diagram: `architecture.d2`
 | **Submission Service** | 3000, 8000 | TCP, HTTP | Submission tracking & analytics API |
 | **MCP Service** | stdio | MCP | LLM integration for submission analysis |
 | **Intelligence Service** | HTTP, Discord | HTTP | Prompt scoring & recommendations |
-| **Animation Service** | 8040 | HTTP | Execution trace and visualization generation |
 | **Ingestor** | CLI | Python | ETL for LeetCode problem ingestion |
 
 ### 1. Submission Service
@@ -55,9 +51,6 @@ TypeScript service for prompting, scoring, and recommendations:
 - Prompt response listener and scorer
 - Focus recommender
 
-### 4. Animation Service
-
-HTTP service for generating algorithm execution traces and visualizations.
 
 ### 5. Ingestor
 
@@ -249,129 +242,3 @@ Open problem in Neovim
 
 - **`Submission.timeSpentMinutes`** — elapsed minutes at the moment a submission is saved (snapshot, not total)
 - **`ProblemSession`** — a dedicated table recording completed sessions (stopped timers), enabling total-time-per-problem queries independent of submission count
-
----
-
-## Roadmap
-
-### Phase 1: Foundation
-**Status**: Completed  
-**Goal**: Basic submission tracking and per-question analysis
-
-- **Database Schema Design**
-  - Questions table with LeetCode metadata
-  - Submissions table with timestamps and status tracking
-  - Prisma ORM integration
-
-- **Submission Capture Pipeline**
-  - Neovim plugin integration via Lua wrapper
-  - Code cleaner that preserves comments
-  - Automatic timestamping and status tracking
-
-- **MCP Server Implementation**
-  - `get_submission_history`: List submissions with id, code, result, mistakes, and time
-  - `analyze_thought_progression`: Comment evolution tracking per question
-  - FastMCP-based server with stdio transport for GitHub Copilot
-
-- **Per-Question Analytics**
-  - Submission timeline visualization
-  - Success rate progression
-  - Code length trends
-  - Comment density analysis
-  - Complexity awareness tracking
-
-### Phase 2: Enhanced Analytics
-**Status**: In progress  
-**Goal**: Cross-question insights and pattern recognition
-
-- **Cross-Question Pattern Analysis**
-  - Identify recurring mistakes across different problems
-  - Track algorithmic patterns (DP, Two Pointers, Sliding Window, etc.)
-  - Analyze success rates by problem category
-  - Compare solving strategies across similar problems
-
-- **Learning Curve Metrics**
-  - Problem difficulty progression tracking
-  - Time-to-solve trends over time
-  - Retry rate analysis by topic
-  - Skill development heatmaps
-
-- **Advanced MCP Tools**
-  - `compare_problems`: Side-by-side submission evolution comparison
-  - `get_topic_mastery`: Analyze proficiency by algorithmic topic
-  - `identify_weak_areas`: Suggest problems based on struggle patterns
-  - `get_learning_insights`: Overall coding journey analytics
-
-### Phase 3: Intelligent Recommendations
-**Status**: Planned  
-**Goal**: AI-powered personalized learning assistance
-
-- **Smart Problem Recommendations**
-  - Analyze weak areas and recommend targeted problems
-  - Progressive difficulty adjustment based on success patterns
-  - Topic-based learning path generation
-
-- **Code Review & Feedback**
-  - Automatic code quality analysis
-  - Best practice suggestions based on historical patterns
-  - Anti-pattern detection from past mistakes
-
-- **Comparative Analytics**
-  - Compare your solutions with optimal approaches
-  - Benchmark against submission statistics
-  - Identify optimization opportunities
-
-- **Study Session Planning**
-  - Optimal review scheduling (spaced repetition)
-  - Problem clustering by similarity
-  - Weekly/monthly progress reports
-
-### Phase 4: Community and Advanced Features
-**Status**: Future  
-**Goal**: Collaborative learning and advanced tooling
-
-- **Multi-User Support**
-  - Team/study group analytics
-  - Peer comparison (anonymized)
-  - Collaborative problem-solving sessions
-
-- **Enhanced Visualization**
-  - Interactive dashboards
-  - Progress graphs and charts
-  - Knowledge graph of problem relationships
-
-- **Integration Expansions**
-  - Support for other coding platforms (HackerRank, CodeForces)
-  - IDE plugins (VS Code, IntelliJ)
-  - Mobile app for progress tracking
-
-- **Advanced AI Features**
-  - Natural language problem explanation generation
-  - Automated hint system without spoilers
-  - Voice-based coding session reviews
-
-### Current Limitations
-The system currently supports:
-- **Single question analysis**: Detailed evolution tracking for individual problems
-- **MCP integration**: Query via LLM clients (Copilot, Claude, GPT)
-- **Comment tracking**: Thought process evolution within single problems
-
-What's **not** yet supported:
-- **Cross-question analytics**: No pattern recognition across multiple problems
-- **Topic-based insights**: Cannot aggregate by algorithmic categories
-- **Recommendation engine**: No personalized problem suggestions
-- **Comparative analysis**: Cannot compare different problems' evolution
-- **Batch analytics**: No workspace-wide statistics or reports
-
-### Next Milestone: Cross-Question Analytics
-**Target**: Enable pattern recognition across entire submission history
-
-**Key Deliverables**:
-1. Topic tagging system for problems
-2. Cross-problem pattern detection algorithms
-3. New MCP tools for aggregate analytics
-4. Dashboard for visual progress tracking
-
-**Expected Impact**: Transform from single-problem tracker to comprehensive learning analytics platform
-
----

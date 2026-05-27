@@ -1,82 +1,71 @@
+...@services/shared/d2/architecture-style
+
 direction: right
 
 nvim: {
   label: "nvim\nentry point"
-  shape: cylinder
-  style.fill: "#fecaca"
+  class: entry_point
 }
 
 cli: {
   label: "cli\nentry point"
-  shape: cylinder
-  style.fill: "#fecaca"
+  class: entry_point
 }
 
 llm_clients: {
   label: "LLM clients\nexternal clients"
-  shape: circle
-  style.fill: "#f5b4fc"
+  class: external_ai
 }
 
 local_runtime: {
   label: "Strict local"
-  style.fill: "#fff7ed"
-  style.stroke: "#fdba74"
+  class: runtime_local
 
   submission_svc: {
     label: "submission_service"
-    shape: rectangle
-    style.fill: "#fdba74"
+    class: local_core
   }
 }
 
 cloud_runtime: {
   label: "Can be cloud hosted"
   direction: down
-  style.fill: "#f8fafc"
-  style.stroke: "#94a3b8"
+  class: runtime_cloud
 
   mcp_svc: {
     label: "mcp_service"
-    shape: rectangle
-    style.fill: "#fef08a"
+    class: local_analysis
   }
 
   ingestor: {
     label: "ingestor"
-    shape: rectangle
-    style.fill: "#d8b4fe"
+    class: cloud_ingestor
   }
 
   intelligence_svc: {
     label: "intelligence_service"
-    shape: rectangle
-    style.fill: "#86efac"
+    class: cloud_intelligence
   }
 }
 
 prisma_schema: {
   label: "shared prisma schema\ndata plane"
-  shape: rectangle
-  style.fill: "#dbeafe"
+  class: local_data
 }
 
 db: {
   label: "PostgreSQL\ndata plane"
-  shape: cylinder
-  style.fill: "#93c5fd"
+  class: data_plane
 }
 
 leetcode_api: {
   label: "LeetCode API\nexternal"
-  shape: cylinder
-  style.fill: "#fca5a5"
+  class: external_api
 }
 
 discord: {
   label: "Discord\nexternal"
-  shape: person
-  style.fill: "#93c5fd"
+  class: external_user
 }
 
 nvim -> local_runtime.submission_svc: "JSON over TCP"
@@ -84,7 +73,7 @@ cli -> local_runtime.submission_svc: "CLI / HTTP"
 llm_clients -> cloud_runtime.mcp_svc: "MCP"
 
 leetcode_api -> cloud_runtime.ingestor: "GraphQL"
-cloud_runtime.intelligence_svc -> discord: "Discord API"
+cloud_runtime.intelligence_svc -> discord: "Scheduled Prompt Submitted Question for Answering\n Scheduled Recommend Questions to Focus "
 
 local_runtime.submission_svc -> prisma_schema: "Prisma ORM"
 cloud_runtime.mcp_svc -> prisma_schema: "Prisma ORM"

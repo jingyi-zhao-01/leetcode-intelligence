@@ -1,0 +1,31 @@
+runtime: {
+  failure_analysis: {
+    label: "failure_analysis"
+    class: local_analysis
+  }
+
+  static_analysis: {
+    label: "static_analysis"
+    class: local_analysis
+  }
+
+  static_analysis_desc: {
+    label: "Builds the prompt,\ncalls OpenRouter,\nand parses structured JSON output"
+    shape: text
+  }
+
+  parser: {
+    label: "failure_analysis_parser"
+    class: local_worker
+  }
+
+  static_analysis_desc -> static_analysis: "details"
+  static_analysis -> parser: "parse JSON"
+}
+
+external: {
+  openrouter: {
+    label: "OpenRouter\nexternal GenAI"
+    class: external_ai
+  }
+}

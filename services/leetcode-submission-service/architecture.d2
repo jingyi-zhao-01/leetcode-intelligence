@@ -1,0 +1,27 @@
+...@d2/styles
+...@d2/clients.clients
+
+direction: right
+
+...@d2/static-analysis.external
+...@d2/storage.external
+local_runtime: @d2/runtime-core.local_runtime
+
+nvim -> local_runtime.submission_svc: "JSON over TCP"
+local_cli -> local_runtime.submission_svc: "JSON over TCP"
+
+local_runtime.submission_svc -> local_runtime.action_router: "dispatch"
+local_runtime.submission_svc -> postgres: "persisted submissions"
+local_runtime.action_router -> local_runtime.timer_manager: "timer actions"
+local_runtime.action_router -> local_runtime.submission_pipeline: "save_submission"
+local_runtime.action_router -> local_runtime.cache: "get_past_submissions"
+local_runtime.action_router -> postgres: "cache miss reads"
+local_runtime.action_router -> local_runtime.failure_analysis: "analyze_failure"
+
+local_runtime.submission_pipeline -> local_runtime.timer_manager: "read/restart"
+local_runtime.submission_pipeline -> local_runtime.cache: "cache recent submission"
+local_runtime.submission_pipeline -> postgres: "async persist"
+
+local_runtime.failure_analysis -> local_runtime.static_analysis: "delegate"
+local_runtime.static_analysis -> local_runtime.parser: "parse JSON"
+local_runtime.static_analysis -> openrouter: "chat completion"

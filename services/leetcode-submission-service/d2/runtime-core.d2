@@ -1,0 +1,24 @@
+local_runtime: {
+  label: "Strict local"
+  direction: down
+  class: runtime_local
+
+  submission_svc: {
+    label: "submission_service"
+    class: local_core
+  }
+
+  action_router: {
+    label: "action_router"
+    class: local_core
+  }
+
+  submission_pipeline: {
+    label: "submission_pipeline"
+    class: local_core
+  }
+
+  ...@timer.runtime
+  ...@static-analysis.runtime
+  ...@storage.runtime
+}
