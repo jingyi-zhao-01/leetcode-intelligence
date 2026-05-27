@@ -1,11 +1,14 @@
 # LeetCode Submission Service Architecture
 
-This service is a local TCP server that accepts newline-delimited JSON requests from `leetcode.nvim` and other local clients. Its responsibilities are intentionally narrow:
+This service is a local TCP server that accepts newline-delimited JSON requests from `leetcode.nvim`. Its responsibilities are intentionally narrow:
 
-- manage one active timer/session at a time
+- manage one active timer/session for a problem at a time
 - accept and persist submission records
-- serve recent submissions immediately through an in-memory cache
-- run failure analysis through OpenRouter when requested
+- run static failure analysis using LLM on test on submit failure and send structured lines of problem to vim for rendering so i immediately get feedbacks on whats wrong :D
+
+- it can also use a sqlite for simplicity but remote database is chosen because I have a PC and personally travel a lot with Laptop,
+- my laptop and PC has been registered as data plane nodes on my own native home cloud platform so every new changes here will be target deployed and always available on whatever devices that are active with me:D 
+
 
 The canonical component diagram lives in [architecture.d2](./architecture.d2).
 
