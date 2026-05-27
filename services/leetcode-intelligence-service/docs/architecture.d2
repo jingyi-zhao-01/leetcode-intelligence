@@ -3,57 +3,60 @@
 
 direction: down
 
-discord_band: {
+discord_boundary: {
   label: "Discord boundary"
-  direction: right
+  direction: down
   style.fill: "#eef2ff"
   style.stroke: "#c7d2fe"
   style.stroke-width: 1
 
-  discord_clients: @clients.discord_side.discord_clients
   discord: @clients.discord_side.discord
 }
 
-runtime_band: {
-  label: "Service runtime"
+runtime_orchestration: {
+  label: "Runtime orchestration"
   direction: down
   class: runtime_cloud
 
-  ingress_row: {
-    label: ""
+  entrypoints: {
+    label: "entrypoints"
     direction: right
     style.stroke-width: 0
     style.fill: "transparent"
 
-    intelligence_server: @runtime.service_runtime.service_stack.intelligence_server
-    intelligence_service: @runtime.service_runtime.service_stack.intelligence_service
+    intelligence_server: {
+      label: "intelligence_server"
+      class: cloud_intelligence
+    }
+
+    discord_adapters: {
+      label: "discord adapters\nprompt_dispatch / prompt_listener / recommender"
+      class: cloud_intelligence
+    }
+
+    discord_clients: @clients.discord_side.discord_clients
   }
 
-  worker_row: {
-    label: ""
-    direction: right
-    style.stroke-width: 0
-    style.fill: "transparent"
-
-    prompt_dispatch: @runtime.service_runtime.service_dispatch.prompt_dispatch
-    prompt_listener: @runtime.service_runtime.service_stack.prompt_listener
-    recommender: @runtime.service_runtime.service_dispatch.recommender
-  }
-
-  analysis_row: {
-    label: ""
-    direction: right
-    style.stroke-width: 0
-    style.fill: "transparent"
-
-    scoring_core: @core-domain.service_runtime.scoring_core
-    recommendation_core: @core-domain.service_runtime.recommendation_core
-    weight_model: @core-domain.service_runtime.weight_model
+  intelligence_runtime: {
+    label: "intelligence_runtime"
+    class: local_core
   }
 }
 
-data_band: {
-  label: "External dependencies"
+domain_services: {
+  label: "Domain services"
+  direction: right
+  style.fill: "#f8fafc"
+  style.stroke: "#94a3b8"
+  style.stroke-width: 2
+
+  scoring_core: @core-domain.service_runtime.scoring_core
+  recommendation_core: @core-domain.service_runtime.recommendation_core
+  weight_model: @core-domain.service_runtime.weight_model
+}
+
+integrations: {
+  label: "Persistence and external services"
   direction: right
   style.fill: "#eef2ff"
   style.stroke: "#c7d2fe"
@@ -63,26 +66,21 @@ data_band: {
   openrouter: @clients.data_side.openrouter
 }
 
-discord_band.discord_clients <-> discord_band.discord: "Discord events + bot messages"
+runtime_orchestration.entrypoints.discord_clients <-> discord_boundary.discord: "Discord events + bot messages"
 
-discord_band.discord_clients -> runtime_band.worker_row.prompt_listener: "commands + replies"
-runtime_band.ingress_row.intelligence_server -> runtime_band.ingress_row.intelligence_service: "hosts runtime"
+runtime_orchestration.entrypoints.intelligence_server -> runtime_orchestration.intelligence_runtime: "HTTP requests"
+runtime_orchestration.entrypoints.discord_adapters -> runtime_orchestration.intelligence_runtime: "trigger prompt / score reply / recommend"
+runtime_orchestration.intelligence_runtime -> runtime_orchestration.entrypoints.discord_adapters: "prompt / feedback / push payloads"
 
-runtime_band.ingress_row.intelligence_service -> runtime_band.worker_row.prompt_dispatch: "schedule prompts"
-runtime_band.ingress_row.intelligence_service -> runtime_band.worker_row.prompt_listener: "listen for replies"
-runtime_band.ingress_row.intelligence_service -> runtime_band.worker_row.recommender: "request focus pushes"
+runtime_orchestration.entrypoints.discord_adapters -> runtime_orchestration.entrypoints.discord_clients: "send prompts + recommendations"
+runtime_orchestration.entrypoints.discord_clients -> runtime_orchestration.entrypoints.discord_adapters: "commands + replies"
 
-runtime_band.worker_row.prompt_dispatch -> discord_band.discord_clients: "scheduled prompts"
-runtime_band.worker_row.recommender -> discord_band.discord_clients: "focus pushes"
-runtime_band.worker_row.prompt_listener -> runtime_band.ingress_row.intelligence_service: "score request"
-runtime_band.worker_row.prompt_listener -> runtime_band.analysis_row.scoring_core: "reply scoring"
+runtime_orchestration.intelligence_runtime -> domain_services.scoring_core: "prompt generation + reply scoring"
+runtime_orchestration.intelligence_runtime -> domain_services.recommendation_core: "focus recommendation"
 
-runtime_band.ingress_row.intelligence_service -> runtime_band.analysis_row.scoring_core: "prompt generation"
-runtime_band.ingress_row.intelligence_service -> runtime_band.analysis_row.recommendation_core: "ranking + narrative inputs"
+domain_services.scoring_core -> domain_services.weight_model: "next weight"
+domain_services.recommendation_core -> domain_services.weight_model: "normalized signal"
 
-runtime_band.analysis_row.scoring_core -> runtime_band.analysis_row.weight_model: "next weight selection"
-runtime_band.analysis_row.recommendation_core -> runtime_band.analysis_row.weight_model: "normalized signal"
-
-runtime_band.ingress_row.intelligence_service -> data_band.postgres: "shared Prisma schema"
-runtime_band.analysis_row.scoring_core -> data_band.openrouter: "LLM scoring"
-runtime_band.analysis_row.recommendation_core -> data_band.openrouter: "narrative generation"
+runtime_orchestration.intelligence_runtime -> integrations.postgres: "prompt events + scores + weights"
+domain_services.scoring_core -> integrations.openrouter: "LLM scoring"
+domain_services.recommendation_core -> integrations.openrouter: "narrative generation"

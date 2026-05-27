@@ -1,6 +1,6 @@
 import { GatewayIntentBits, type Message } from "discord.js";
 
-import type { IntelligenceService } from "../core.ts";
+import type { IntelligenceService } from "../service-runtime/index.ts";
 import { createLogger } from "../logger.ts";
 import { DiscordClient } from "./discord-client.ts";
 import { scorePromptReply } from "./prompt-flow.ts";

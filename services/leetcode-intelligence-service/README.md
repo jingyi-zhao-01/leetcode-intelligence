@@ -11,13 +11,15 @@ Service runtime for prompting, scoring, and focus recommendations on top of shar
 
 ## Architecture
 
-This directory is the service wrapper around the domain core in [`src/core`](./src/core).
+This directory is split into a service runtime layer and a domain core.
 
-- Service runtime concerns live here:
-  - process entrypoints
-  - Discord and HTTP startup
-  - Docker and Kubernetes integration
-  - environment wiring
+![Intelligence service architecture](./docs/architecture.svg)
+
+- Service runtime concerns live in [`src/service-runtime`](./src/service-runtime):
+  - runtime composition
+  - database boundary lifecycle
+  - external dependency wiring
+  - process entrypoints, Discord, and HTTP startup
 - Domain logic lives in [`src/core/README.md`](./src/core/README.md):
   - prompt generation
   - reply scoring

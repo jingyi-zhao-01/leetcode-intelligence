@@ -1,4 +1,4 @@
-import type { IntelligenceService } from "../core.ts";
+import type { IntelligenceService } from "../service-runtime/index.ts";
 import { createLogger } from "../logger.ts";
 
 const logger = createLogger("client/prompt-flow");

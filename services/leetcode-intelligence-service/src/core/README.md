@@ -10,12 +10,12 @@ This folder contains the domain logic for the intelligence service. It is the la
 
 ## Files
 
-- `index.ts`: orchestration entrypoint used by the service runtime
-- `env.ts`: environment parsing and defaults
 - `types.ts`: shared domain types
 - `shared/weight.ts`: shared weight abstraction used by both cores
 - `scoring/`: prompt generation, scoring, and reply evaluation
 - `recommendation/`: focus recommendation ranking and narrative generation
+
+Runtime composition now lives outside this folder in `src/service-runtime/`.
 
 ## Core Layout
 
@@ -113,7 +113,7 @@ flowchart TD
 
 ## End-to-End Flow
 
-1. `IntelligenceService.triggerPrompt()` calls `PromptGenerator.generate()`.
+1. `IntelligenceRuntimeService.triggerPrompt()` calls `PromptGenerator.generate()`.
 2. `PromptGenerator` loads recent submissions, collapses them into a question-level pipeline, drops recently prompted questions according to cooldown rules, and performs weighted random selection through `WeightCalculator.selectionWeight()`.
 3. A prompt event is persisted to `intelligencePromptEvent`.
 4. The client layer sends the prompt to Discord or CLI.
@@ -227,7 +227,7 @@ Default narrative behavior:
 
 ## Health and Database Access
 
-The service layer uses `IntelligenceService.withDatabase()` to connect only around active operations.
+The service runtime uses `DatabaseBoundIntelligenceService` to connect only around active operations.
 
 Current behavior:
 
