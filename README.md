@@ -8,6 +8,13 @@ a systematic way to handle leetcode solving to manage the entire life cycle:
 - How to manage frictionless refresh of my understanding on solved problem ? 
 - How to identify weak spot and plan triage on specific topics ?
 
+- Sample Experience :D on Discord
+<img width="3641" height="1910" alt="image" src="https://github.com/user-attachments/assets/1794016f-1d2a-4851-bf7c-5054fb3a1c3d" />
+
+- Sample Experience on Nvim (sorry it was in chinese :D)
+- <img width="3395" height="1627" alt="image" src="https://github.com/user-attachments/assets/c155cadb-f921-49e6-aa28-b658cfcac6ce" />
+
+
 
 
 ## Overview
