@@ -1,6 +1,6 @@
-import { createIntelligenceService } from "./service-runtime/index.ts";
-import { createLogger } from "./logger.ts";
 import { runCliIntelligenceClient } from "./client/index.ts";
+import { createLogger } from "./logger.ts";
+import { createIntelligenceService } from "./service-runtime/index.ts";
 
 const logger = createLogger("cli");
 

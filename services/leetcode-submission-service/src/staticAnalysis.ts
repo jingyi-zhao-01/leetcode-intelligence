@@ -60,8 +60,19 @@ export class OpenRouterFailureStaticAnalyzer implements FailureStaticAnalyzer {
   async analyze(request: FailureAnalysisRequest): Promise<FailureAnalysisResult> {
     const maxLine = Math.max(1, request.editorContent.split("\n").length);
     const startedAt = Date.now();
+    const numberedBuffer = numberedText(request.editorContent);
 
     try {
+      logger.info(
+        {
+          analyzer: "openrouter-llm",
+          titleSlug: request.titleSlug,
+          filetype: request.filetype || "text",
+          editorContent: numberedBuffer,
+        },
+        "Static analysis editor content",
+      );
+
       const response = await this.openRouter.chat.send({
         chatRequest: {
           model: this.model,
@@ -82,7 +93,7 @@ export class OpenRouterFailureStaticAnalyzer implements FailureStaticAnalyzer {
                 },
                 editor: {
                   filetype: request.filetype || "text",
-                  numberedBuffer: numberedText(request.editorContent),
+                  numberedBuffer,
                 },
                 submissionSentToLeetCode: truncate(request.submissionContent, 6000),
                 testcase: truncate(request.testcase, 1500),

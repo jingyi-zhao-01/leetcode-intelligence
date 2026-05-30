@@ -7,6 +7,7 @@ import { createLogger } from "../logger.ts";
 import { DiscordClient } from "./discord-client.ts";
 
 const logger = createLogger("client/recommendation-dispatch");
+const DISCORD_MESSAGE_MAX_LENGTH = 2000;
 
 export type RecommendationDispatchClientConfig = {
   botToken: string;
@@ -40,6 +41,31 @@ const formatRecommendations = (recommendations: FocusRecommendation[]): string =
     .join("\n");
 };
 
+const splitDiscordMessage = (body: string): string[] => {
+  if (body.length <= DISCORD_MESSAGE_MAX_LENGTH) {
+    return [body];
+  }
+
+  const chunks: string[] = [];
+  let remaining = body;
+
+  while (remaining.length > DISCORD_MESSAGE_MAX_LENGTH) {
+    const preferredBreak = remaining.lastIndexOf("\n### ", DISCORD_MESSAGE_MAX_LENGTH);
+    const fallbackBreak = remaining.lastIndexOf("\n", DISCORD_MESSAGE_MAX_LENGTH);
+    const splitAt =
+      preferredBreak > 0 ? preferredBreak : fallbackBreak > 0 ? fallbackBreak : DISCORD_MESSAGE_MAX_LENGTH;
+
+    chunks.push(remaining.slice(0, splitAt).trimEnd());
+    remaining = remaining.slice(splitAt).trimStart();
+  }
+
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+
+  return chunks;
+};
+
 const dispatchRecommendationMessage = async (
   service: IntelligenceService,
   discord: DiscordClient,
@@ -56,12 +82,18 @@ const dispatchRecommendationMessage = async (
     formatRecommendations(result.recommendations),
   ].join("\n");
 
-  const sentMessage = await discord.sendMessage(body.slice(0, 1800));
+  const chunks = splitDiscordMessage(body);
+  const sentMessages = [];
+  for (const chunk of chunks) {
+    sentMessages.push(await discord.sendMessage(chunk));
+  }
+
   logger.info(
     {
-      messageId: sentMessage.messageId ?? null,
+      messageId: sentMessages[0]?.messageId ?? null,
       channelId: discord.channelId,
       count: result.recommendations.length,
+      chunkCount: sentMessages.length,
     },
     "sent recommendations message",
   );
