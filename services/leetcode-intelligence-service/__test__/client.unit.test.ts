@@ -3,9 +3,11 @@ import { afterEach, describe, it } from "vitest";
 
 import { ChannelType, Client, GatewayIntentBits } from "discord.js";
 
+import { CliClient } from "../src/client/cli-client.ts";
 import { DiscordClient } from "../src/client/discord-client.ts";
+import { dispatchPrompt, runInteractivePromptSession, scorePromptReply } from "../src/client/prompt-flow.ts";
 import { PromptResponseClient } from "../src/client/prompt-response.ts";
-import { dispatchPrompt, scorePromptReply } from "../src/client/prompt-flow.ts";
+import { dispatchRecommendation, splitRenderedMessage } from "../src/client/recommendation-flow.ts";
 
 type FakePromptService = {
   triggerPromptCalls: Array<{ triggerSource: string; transport: { channelId: string } }>;
@@ -108,13 +110,13 @@ describe("prompt-flow", () => {
 
     const result = await dispatchPrompt(
       service as never,
-      {
-        channelId: "prompt-channel",
-        sendPrompt: async (promptText: string) => {
-          sentPromptBodies.push(promptText);
-          return { messageId: "discord-message-1" };
+        {
+          channelId: "prompt-channel",
+          renderPrompt: async (prompt) => {
+            sentPromptBodies.push(prompt.promptText);
+            return { messageId: "discord-message-1" };
+          },
         },
-      },
       "scheduled",
     );
 
@@ -148,13 +150,13 @@ describe("prompt-flow", () => {
 
     const result = await dispatchPrompt(
       service as never,
-      {
-        channelId: "prompt-channel",
-        sendPrompt: async (promptText: string) => {
-          sentPromptBodies.push(promptText);
-          return { messageId: "should-not-send" };
+        {
+          channelId: "prompt-channel",
+          renderPrompt: async (prompt) => {
+            sentPromptBodies.push(prompt.promptText);
+            return { messageId: "should-not-send" };
+          },
         },
-      },
       "scheduled",
     );
 
@@ -201,10 +203,40 @@ describe("prompt-flow", () => {
       },
     ]);
   });
+
+  it("runInteractivePromptSession reuses the shared prompt lifecycle for cli clients", async () => {
+    const service = createFakePromptService();
+    const originalWrite = process.stdout.write.bind(process.stdout);
+    const writes: string[] = [];
+
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+      return true;
+    }) as typeof process.stdout.write;
+
+    try {
+      const client = new CliClient();
+      client.requestReply = async () => "Use a hash map.";
+
+      const result = await runInteractivePromptSession(service as never, client, "cli");
+
+      assert.equal(result.ok, true);
+      assert.deepEqual(service.scorePromptReplyCalls, [
+        {
+          promptEventId: "prompt-event-1",
+          rawReply: "Use a hash map.",
+        },
+      ]);
+      assert.match(writes.join(""), /Question: two-sum/);
+      assert.match(writes.join(""), /Solve two-sum/);
+    } finally {
+      process.stdout.write = originalWrite;
+    }
+  });
 });
 
 describe("DiscordClient", () => {
-  it("sendPrompt sends content to the configured text channel", async () => {
+  it("renderPrompt sends content to the configured text channel", async () => {
     installDiscordStub();
     const client = new DiscordClient({
       scope: "client/test",
@@ -214,7 +246,11 @@ describe("DiscordClient", () => {
     });
 
     await client.start({ waitUntilReady: true });
-    const delivery = await client.sendPrompt("Solve two-sum");
+    const delivery = await client.renderPrompt({
+      ok: true,
+      promptEventId: "prompt-event-1",
+      promptText: "Solve two-sum",
+    });
     await client.stop();
 
     assert.deepEqual(delivery, { messageId: "message-1" });
@@ -229,6 +265,29 @@ describe("DiscordClient", () => {
             description: "Solve two-sum",
           },
         ],
+      },
+    ]);
+  });
+
+  it("renderText sends plain content to the configured text channel", async () => {
+    installDiscordStub();
+    const client = new DiscordClient({
+      scope: "client/test",
+      botToken: "bot-token",
+      channelId: "prompt-channel",
+      intents: [GatewayIntentBits.Guilds],
+    });
+
+    await client.start({ waitUntilReady: true });
+    const delivery = await client.renderText("plain message");
+    await client.stop();
+
+    assert.deepEqual(delivery, { messageId: "message-1" });
+    assert.deepEqual(sentMessages, [
+      {
+        channelId: "prompt-channel",
+        content: "plain message",
+        embeds: undefined,
       },
     ]);
   });
@@ -325,5 +384,73 @@ describe("PromptResponseClient", () => {
 
     assert.deepEqual(service.scorePromptReplyByMessageIdCalls, []);
     assert.equal(sentReplies.length, 0);
+  });
+});
+
+describe("recommendation-flow", () => {
+  it("dispatchRecommendation uses the shared text render client", async () => {
+    const service = createFakePromptService() as FakePromptService & {
+      recommendFocus: (topK: number) => Promise<Record<string, unknown>>;
+      recommendFocusCalls: number[];
+    };
+    service.recommendFocusCalls = [];
+    service.recommendFocus = async (topK: number) => {
+      service.recommendFocusCalls.push(topK);
+      return {
+        generatedAt: "2026-05-31T00:00:00.000Z",
+        lookbackDays: 14,
+        narrative: "Practice array problems first.",
+        recommendations: [
+          {
+            questionSlug: "two-sum",
+            title: "Two Sum",
+            difficulty: "Easy",
+            priority: 0.91,
+            signals: {
+              weight: 0.75,
+              failureRate: 0.5,
+              stalenessDays: 3,
+              promptCount: 1,
+              avgScore: 0.82,
+              recentAttemptCount: 2,
+              recentFailureStreak: 1,
+              recentSubmissionDays: 1.5,
+            },
+            reason: "High leverage refresher.",
+          },
+        ],
+      };
+    };
+
+    const rendered: string[] = [];
+    const result = await dispatchRecommendation(
+      service as never,
+      {
+        channelId: "cli",
+        renderText: async (content) => {
+          rendered.push(content);
+          return {};
+        },
+      },
+      3,
+    );
+
+    assert.deepEqual(service.recommendFocusCalls, [3]);
+    assert.equal(result.deliveries.length, 1);
+    assert.match(rendered[0] ?? "", /## Focus Recommendation/);
+    assert.match(rendered[0] ?? "", /Two Sum/);
+    assert.match(rendered[0] ?? "", /High leverage refresher/);
+  });
+
+  it("splitRenderedMessage preserves recommendation boundaries when chunking", () => {
+    const body = ["## Focus Recommendation", "", "### 1. **Two Sum**", "x".repeat(1940), "### 2. **Three Sum**"].join(
+      "\n",
+    );
+
+    const chunks = splitRenderedMessage(body, 2000);
+
+    assert.equal(chunks.length, 2);
+    assert.match(chunks[0] ?? "", /### 1\. \*\*Two Sum\*\*/);
+    assert.match(chunks[1] ?? "", /### 2\. \*\*Three Sum\*\*/);
   });
 });

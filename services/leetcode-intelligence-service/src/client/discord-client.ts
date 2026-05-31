@@ -4,6 +4,7 @@ import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message } fr
 import type { Logger } from "pino";
 
 import { createLogger } from "../logger.ts";
+import type { PromptDelivery, PromptDispatchSuccess } from "./contracts.ts";
 
 const baseLogger = createLogger("client/discord");
 const PROMPT_EMBED_COLOR = 0x5865F2;
@@ -77,19 +78,19 @@ export class DiscordClient {
     this.logger.info("client stopped");
   }
 
-  async sendPrompt(promptText: string): Promise<{ messageId?: string }> {
+  async renderPrompt(prompt: PromptDispatchSuccess): Promise<PromptDelivery> {
     const channel = await this.resolveTextChannel();
-    const sentMessage = await channel.send({ embeds: [buildPromptEmbed(promptText)] });
+    const sentMessage = await channel.send({ embeds: [buildPromptEmbed(prompt.promptText)] });
     return { messageId: sentMessage.id };
   }
 
-  async sendMessage(content: string): Promise<{ messageId?: string }> {
+  async renderText(content: string): Promise<PromptDelivery> {
     const channel = await this.resolveTextChannel();
     const sentMessage = await channel.send({ content });
     return { messageId: sentMessage.id };
   }
 
-  async replyToMessage(message: Message, content: string): Promise<{ messageId?: string }> {
+  async replyToMessage(message: Message, content: string): Promise<PromptDelivery> {
     const sentMessage = await message.reply({ content });
     return { messageId: sentMessage.id };
   }

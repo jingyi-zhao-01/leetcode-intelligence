@@ -1,30 +1,15 @@
 import type { IntelligenceService } from "../service-runtime/index.ts";
 import { createLogger } from "../logger.ts";
+import type {
+  InteractivePromptClient,
+  PromptDispatchFailure,
+  PromptDispatchOutcome,
+  PromptDispatchSuccess,
+  PromptRenderClient,
+  PromptReplyOutcome,
+} from "./contracts.ts";
 
 const logger = createLogger("client/prompt-flow");
-
-export type PromptDispatchFailure = {
-  ok: false;
-  message: string;
-};
-
-export type PromptDispatchSuccess = {
-  ok: true;
-  promptEventId: string;
-  promptText: string;
-  questionSlug?: string;
-  submissionId?: string;
-  weightBefore?: number;
-};
-
-export type PromptDispatchOutcome = PromptDispatchFailure | (PromptDispatchSuccess & { messageId?: string });
-
-export type PromptReplyOutcome = Record<string, unknown> | null;
-
-export type PromptDispatchTransport = {
-  channelId: string;
-  sendPrompt: (promptText: string) => Promise<{ messageId?: string }>;
-};
 
 export type PromptReplyRequest =
   | {
@@ -46,13 +31,13 @@ function isPromptDispatchFailure(result: Record<string, unknown>): result is Pro
 
 export async function dispatchPrompt(
   service: IntelligenceService,
-  transport: PromptDispatchTransport,
+  client: PromptRenderClient,
   triggerSource: string,
 ): Promise<PromptDispatchOutcome> {
-  const result = await service.triggerPrompt(triggerSource, { channelId: transport.channelId });
+  const result = await service.triggerPrompt(triggerSource, { channelId: client.channelId });
 
   if (isPromptDispatchFailure(result)) {
-    logger.warn({ channelId: transport.channelId, triggerSource, message: result.message }, "prompt generation skipped");
+    logger.warn({ channelId: client.channelId, triggerSource, message: result.message }, "prompt generation skipped");
     return result;
   }
 
@@ -60,12 +45,12 @@ export async function dispatchPrompt(
     throw new Error("Unexpected prompt result shape.");
   }
 
-  const delivery = await transport.sendPrompt(result.promptText);
+  const delivery = await client.renderPrompt(result);
   if (delivery.messageId) {
     await service.attachPromptMessage(result.promptEventId, delivery.messageId);
     logger.info(
       {
-        channelId: transport.channelId,
+        channelId: client.channelId,
         messageId: delivery.messageId,
         promptEventId: result.promptEventId,
       },
@@ -76,6 +61,39 @@ export async function dispatchPrompt(
   return {
     ...result,
     messageId: delivery.messageId,
+  };
+}
+
+export async function runInteractivePromptSession(
+  service: IntelligenceService,
+  client: InteractivePromptClient,
+  triggerSource: string,
+  replyQuestion?: string,
+): Promise<
+  | PromptDispatchFailure
+  | {
+      ok: true;
+      prompt: PromptDispatchOutcome & { ok: true };
+      rawReply: string;
+      scored: PromptReplyOutcome;
+    }
+> {
+  const prompt = await dispatchPrompt(service, client, triggerSource);
+  if (prompt.ok !== true) {
+    return prompt;
+  }
+
+  const rawReply = await client.requestReply(replyQuestion);
+  const scored = await scorePromptReply(service, {
+    promptEventId: prompt.promptEventId,
+    rawReply,
+  });
+
+  return {
+    ok: true,
+    prompt,
+    rawReply,
+    scored,
   };
 }
 
