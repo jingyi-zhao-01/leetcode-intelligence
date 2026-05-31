@@ -34,18 +34,36 @@ export const difficultyBoost = (difficulty: string): number => {
   return 0;
 };
 
+export const estimatedSolveMinutes = (difficulty: string): number | null => {
+  const normalized = difficulty.trim().toLowerCase();
+  if (normalized === "hard") {
+    return 45;
+  }
+  if (normalized === "medium") {
+    return 30;
+  }
+  if (normalized === "easy") {
+    return 15;
+  }
+  return null;
+};
+
 export const buildReason = (recommendation: FocusRecommendation): string => {
   const failurePct = Math.round(recommendation.signals.failureRate * 100);
   const avgScoreText = recommendation.signals.avgScore === null ? "n/a" : recommendation.signals.avgScore.toFixed(2);
   const recentSubmissionText = recommendation.signals.recentSubmissionDays === null
     ? "n/a"
     : `${Math.round(recommendation.signals.recentSubmissionDays)}d ago`;
+  const estimatedTimeText = recommendation.signals.estimatedSolveMinutes === null
+    ? "n/a"
+    : `${recommendation.signals.estimatedSolveMinutes}m`;
 
   return [
     `weight=${recommendation.signals.weight.toFixed(2)}`,
     `failureRate=${failurePct}%`,
     `staleness=${Math.round(recommendation.signals.stalenessDays)}d`,
     `avgScore=${avgScoreText}`,
+    `estimatedTime=${estimatedTimeText}`,
     `attempts=${recommendation.signals.recentAttemptCount}`,
     `failureStreak=${recommendation.signals.recentFailureStreak}`,
     `lastSubmission=${recentSubmissionText}`,

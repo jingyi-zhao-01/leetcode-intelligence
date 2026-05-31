@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 
 import type { PrismaClient } from "@prisma/client";
 
+import { buildPromptText } from "../../client/render.ts";
 import type {
   CandidateQuestion,
   CandidateSubmission,
@@ -11,87 +12,6 @@ import type {
 } from "../types.ts";
 import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
 import { PromptCandidatePipeline } from "./pipeline.ts";
-
-const DISCORD_DESCRIPTION_MAX_CHARS = 1200;
-
-const decodeHtmlEntities = (text: string): string => {
-  const namedEntities: Record<string, string> = {
-    nbsp: " ",
-    amp: "&",
-    lt: "<",
-    gt: ">",
-    quot: '"',
-    apos: "'",
-  };
-
-  return text
-    .replace(/&([a-z]+);/gi, (match, entityName: string) => namedEntities[entityName.toLowerCase()] ?? match)
-    .replace(/&#(\d+);/g, (match, codePointRaw: string) => {
-      const codePoint = Number.parseInt(codePointRaw, 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
-    })
-    .replace(/&#x([\da-f]+);/gi, (match, codePointRaw: string) => {
-      const codePoint = Number.parseInt(codePointRaw, 16);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
-    });
-};
-
-const htmlToDiscordText = (html: string): string => {
-  const withStructure = html
-    .replace(/<br\s*\/?>(\s*)/gi, "\n")
-    .replace(/<\/p>/gi, "\n\n")
-    .replace(/<p[^>]*>/gi, "")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<\/?(?:ul|ol)[^>]*>/gi, "\n")
-    .replace(/<pre[^>]*>/gi, "\n```text\n")
-    .replace(/<\/pre>/gi, "\n```\n")
-    .replace(/<code[^>]*>/gi, "`")
-    .replace(/<\/code>/gi, "`")
-    .replace(/<\/?(?:strong|b)[^>]*>/gi, "**")
-    .replace(/<\/?(?:em|i)[^>]*>/gi, "*");
-
-  const withoutTags = withStructure.replace(/<[^>]+>/g, "");
-  const decoded = decodeHtmlEntities(withoutTags);
-
-  return decoded
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
-
-const formatProblemDescription = (rawDescription: string): string => {
-  const cleaned = htmlToDiscordText(rawDescription);
-  if (cleaned.length <= DISCORD_DESCRIPTION_MAX_CHARS) {
-    return cleaned;
-  }
-
-  return `${cleaned.slice(0, DISCORD_DESCRIPTION_MAX_CHARS)}\n\n...(truncated for Discord readability)`;
-};
-
-const buildPromptText = (question: CandidateQuestion, submission: CandidateSubmission): string => {
-  const description = question.content
-    ? formatProblemDescription(question.content)
-    : `${question.title} (${question.difficulty})`;
-
-  return [
-    `Problem: ${question.title} [${question.titleSlug}]`,
-    `Difficulty: ${question.difficulty}`,
-    `Topics: ${(question.topicTags ?? []).join(", ") || "n/a"}`,
-    "",
-    "Problem description:",
-    description,
-    "",
-    "Past submission:",
-    `Submission ID: ${submission.id}`,
-    `Status: ${submission.status}`,
-    `SubmittedAt: ${submission.createdAt.toISOString()}`,
-    "",
-    "Reply in this channel with your interview-style approach.",
-    "Explain your reasoning, expected time/space complexity, edge cases, and any blind spot you notice.",
-    "You do not need to provide code. We are evaluating the quality and soundness of your thinking.",
-  ].join("\n");
-};
 
 export type PromptCandidate = WeightedCandidate;
 
@@ -123,6 +43,8 @@ export class PromptGenerator {
     this.weightCalculator = weightCalculator ?? new LinearWeightCalculator();
   }
 
+  // Select one eligible question/submission pair, persist the prompt event, and
+  // stamp the question weight record so reply scoring can later update it.
   async generate(triggerSource: string, transport?: PromptTransport): Promise<PromptGenerationOutcome> {
     const resolvedTransport = transport ?? { channelId: "cli" };
     const candidate = await this.pickCandidate();
@@ -173,6 +95,9 @@ export class PromptGenerator {
       promptText,
     };
   }
+
+  // Build a bounded candidate pool from recent submissions, attach question and
+  // weight metadata, then sample one candidate with weighted randomness.
   private async pickCandidate(): Promise<PromptCandidate | null> {
     const submissions = (await this.prisma.submission.findMany({
       where: { titleSlug: { not: null } },

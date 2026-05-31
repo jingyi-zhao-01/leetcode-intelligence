@@ -4,6 +4,7 @@ import {
   buildReason,
   daysSince,
   difficultyBoost,
+  estimatedSolveMinutes,
   round,
 } from "./util.ts";
 
@@ -47,6 +48,8 @@ export interface FocusRecommendationAlgorithm {
 // `scoreFromFailure`: boosts questions with a high historical failure rate.
 // `scoreFromStaleness`: boosts questions that have not been reviewed recently.
 // `scoreFromDifficulty`: adds a fixed difficulty bias so harder problems surface sooner.
+// `estimatedSolveMinutes`: derives a default time budget from difficulty
+// (Easy=15m, Medium=30m, Hard=45m) so downstream clients can show expected effort.
 // `scoreFromLowAverage`: boosts questions whose past prompt-response scores were weak.
 // `scoreFromRecentAttempts`: gives a small boost to questions with repeated recent attempts.
 // `scoreFromFailureStreak`: boosts questions where the user is currently failing repeatedly.
@@ -71,6 +74,7 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
         const failureRate = submissionStats.total > 0 ? submissionStats.failed / submissionStats.total : 0;
         const stalenessDays = daysSince(item.lastResponseAt ?? item.lastPromptAt);
         const avgScore = scoringStats.scoreCount > 0 ? scoringStats.scoreSum / scoringStats.scoreCount : null;
+        const estimatedTimeMinutes = estimatedSolveMinutes(item.Question?.difficulty ?? "");
         const recentSubmissionDays = submissionStats.lastSubmittedAt
           ? daysSince(submissionStats.lastSubmittedAt)
           : null;
@@ -109,6 +113,7 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
             stalenessDays: round(stalenessDays, 1),
             promptCount: scoringStats.count,
             avgScore: avgScore === null ? null : round(avgScore, 3),
+            estimatedSolveMinutes: estimatedTimeMinutes,
             recentAttemptCount: submissionStats.total,
             recentFailureStreak: submissionStats.recentFailureStreak,
             recentSubmissionDays: recentSubmissionDays === null ? null : round(recentSubmissionDays, 1),

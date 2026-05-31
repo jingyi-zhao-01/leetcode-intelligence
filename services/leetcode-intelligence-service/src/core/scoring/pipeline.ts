@@ -4,6 +4,9 @@ export type PromptPipelineEntry = WeightedCandidate & {
   lastPromptAt: Date | null;
 };
 
+// A small filtering pipeline used before prompt generation. It removes recently
+// prompted questions, dedupes multiple submissions for the same question, and
+// trims the candidate pool before weighted random selection happens downstream.
 const matchesRule = (entry: PromptPipelineEntry, rule: PromptCooldownRule): boolean => {
   if (rule.titleSlugs && !rule.titleSlugs.includes(entry.question.titleSlug)) {
     return false;
@@ -26,6 +29,8 @@ export class PromptCandidatePipeline {
     private readonly now: Date = new Date(),
   ) {}
 
+  // Drop questions that are still inside a cooldown window for the first
+  // matching rule. Entries without a prior prompt remain eligible.
   dropPromptedQuestions(rules: PromptCooldownRule[]): PromptCandidatePipeline {
     return new PromptCandidatePipeline(
       this.entries.filter((entry) => {

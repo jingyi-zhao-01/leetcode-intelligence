@@ -20,6 +20,8 @@ export class PromptResponseService {
     this.weightCalculator = weightCalculator ?? new LinearWeightCalculator();
   }
 
+  // Score one reply against its originating prompt event, then persist both the
+  // structured evaluation result and the resulting weight transition atomically.
   async accept(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
     const promptEvent = (await this.prisma.intelligencePromptEvent.findUnique({
       where: { id: promptEventId },
@@ -111,6 +113,7 @@ export class PromptResponseService {
     };
   }
 
+  // Resolve a Discord reply back to its prompt event through the stored message id.
   async acceptByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null> {
     const promptEvent = await this.prisma.intelligencePromptEvent.findUnique({
       where: { discordMessageId: messageId },

@@ -10,6 +10,8 @@ import { clamp } from "../shared/weight.ts";
 
 const logger = createLogger("intelligence/scoring");
 
+// The model is asked to judge interview reasoning quality rather than code
+// completeness, so strong approach discussion can still earn a high score.
 const INTERVIEW_SCORING_PROMPT = `
 You are scoring a candidate's LeetCode interview discussion reply, not grading a final coded solution.
 
@@ -81,6 +83,8 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
     private readonly model: string,
   ) {}
 
+  // Delegate structured scoring to the configured LLM and parse the JSON payload
+  // back into the service's internal scoring shape.
   async score(request: ScoreRequest): Promise<LlmScore> {
     logger.info(
       {
@@ -138,6 +142,8 @@ export class ReplyScorer {
     private readonly fallback: ScoringAlgorithm,
   ) {}
 
+  // Prefer the primary scorer when available, but degrade gracefully so reply
+  // evaluation still works during local development or model outages.
   async score(request: ScoreRequest): Promise<LlmScore> {
     if (!this.primary) {
       return this.fallback.score(request);

@@ -412,6 +412,7 @@ describe("recommendation-flow", () => {
               stalenessDays: 3,
               promptCount: 1,
               avgScore: 0.82,
+              estimatedSolveMinutes: 15,
               recentAttemptCount: 2,
               recentFailureStreak: 1,
               recentSubmissionDays: 1.5,
@@ -439,6 +440,7 @@ describe("recommendation-flow", () => {
     assert.equal(result.deliveries.length, 1);
     assert.match(rendered[0] ?? "", /## Focus Recommendation/);
     assert.match(rendered[0] ?? "", /Two Sum/);
+    assert.match(rendered[0] ?? "", /Estimated time: `15m`/);
     assert.match(rendered[0] ?? "", /High leverage refresher/);
   });
 

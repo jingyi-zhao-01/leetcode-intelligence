@@ -1,4 +1,5 @@
 export { CliClient } from "./cli-client.ts";
+export { buildPromptText, formatProblemDescription, renderHtmlToText } from "./render.ts";
 export type {
   InteractivePromptClient,
   PromptDispatchOutcome,

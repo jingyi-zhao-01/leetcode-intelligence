@@ -215,6 +215,12 @@ The default `HeuristicFocusRecommendationAlgorithm` gives each question a `prior
 - difficulty boost
 - low historical average reply score
 
+It also derives an estimated solve-time hint from difficulty for downstream presentation:
+
+- `Easy` -> `15m`
+- `Medium` -> `30m`
+- `Hard` -> `45m`
+
 The recommendation core does not define its own weight semantics. It reuses the shared weight model through `WeightCalculator.normalizedSignal()` before combining weight with the other signals.
 
 The service then sorts by `priority`, returns the top K, and passes the result to a narrative generator.

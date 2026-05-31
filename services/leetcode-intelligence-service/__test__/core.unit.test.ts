@@ -201,6 +201,9 @@ describe("core/recommendation", () => {
     assert.equal(recommendations[0]?.questionSlug, "hard-old");
     assert.equal(recommendations[1]?.questionSlug, "easy-fresh");
     assert.match(recommendations[0]?.reason ?? "", /failureRate=75%/);
+    assert.match(recommendations[0]?.reason ?? "", /estimatedTime=45m/);
+    assert.equal(recommendations[0]?.signals.estimatedSolveMinutes, 45);
+    assert.equal(recommendations[1]?.signals.estimatedSolveMinutes, 15);
     assert.equal(recommendations[0]?.signals.recentFailureStreak, 2);
     assert.equal(recommendations[0]?.signals.recentAttemptCount, 4);
   });
@@ -219,6 +222,7 @@ describe("core/recommendation", () => {
             stalenessDays: 7,
             promptCount: 3,
             avgScore: 2.5,
+            estimatedSolveMinutes: 30,
             recentAttemptCount: 2,
             recentFailureStreak: 1,
             recentSubmissionDays: 1,
@@ -255,6 +259,7 @@ describe("core/recommendation", () => {
           stalenessDays: 5,
           promptCount: 2,
           avgScore: 3,
+          estimatedSolveMinutes: 15,
           recentAttemptCount: 2,
           recentFailureStreak: 1,
           recentSubmissionDays: 2,
@@ -272,6 +277,7 @@ describe("core/recommendation", () => {
           stalenessDays: 9,
           promptCount: 3,
           avgScore: 2.5,
+          estimatedSolveMinutes: 30,
           recentAttemptCount: 4,
           recentFailureStreak: 2,
           recentSubmissionDays: 1,

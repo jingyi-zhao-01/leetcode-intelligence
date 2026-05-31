@@ -8,6 +8,7 @@ const DEFAULT_MESSAGE_MAX_LENGTH = 2000;
 
 const formatScore = (avgScore: number | null): string => (avgScore === null ? "n/a" : avgScore.toFixed(2));
 const formatRecentSubmission = (days: number | null): string => (days === null ? "n/a" : `${days.toFixed(1)}d ago`);
+const formatEstimatedTime = (minutes: number | null): string => (minutes === null ? "n/a" : `${minutes}m`);
 
 const formatRecommendations = (recommendations: FocusRecommendation[]): string => {
   if (recommendations.length === 0) {
@@ -21,6 +22,7 @@ const formatRecommendations = (recommendations: FocusRecommendation[]): string =
           `### ${index + 1}. **${item.title}**`,
           `- Slug: \`${item.questionSlug}\``,
           `- Difficulty: **${item.difficulty}**`,
+          `- Estimated time: \`${formatEstimatedTime(item.signals.estimatedSolveMinutes)}\``,
           `- Priority: \`${item.priority.toFixed(3)}\``,
           `- Signals: weight \`${item.signals.weight.toFixed(2)}\` | failure \`${Math.round(item.signals.failureRate * 100)}%\` | staleness \`${item.signals.stalenessDays}d\` | avg score \`${formatScore(item.signals.avgScore)}\``,
           `- Recent submissions: attempts \`${item.signals.recentAttemptCount}\` | failure streak \`${item.signals.recentFailureStreak}\` | last submit \`${formatRecentSubmission(item.signals.recentSubmissionDays)}\``,

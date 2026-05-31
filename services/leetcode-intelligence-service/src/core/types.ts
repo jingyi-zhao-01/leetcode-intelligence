@@ -107,6 +107,7 @@ export type FocusRecommendation = {
     stalenessDays: number;
     promptCount: number;
     avgScore: number | null;
+    estimatedSolveMinutes: number | null;
     recentAttemptCount: number;
     recentFailureStreak: number;
     recentSubmissionDays: number | null;
