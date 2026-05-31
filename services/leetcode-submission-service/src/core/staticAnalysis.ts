@@ -1,7 +1,7 @@
 import { OpenRouter } from "@openrouter/sdk";
-import type { FailureAnalysisRequest, FailureAnalysisResult } from "./failureAnalysis.js";
-import { parseFailureAnalysis } from "./failureAnalysisParser.js";
-import { createLogger } from "./logger.js";
+import type { FailureAnalysisRequest, FailureAnalysisResult } from "./failureAnalysis.ts";
+import { parseFailureAnalysis } from "../utils/failureAnalysisParser.ts";
+import { createLogger } from "../logger.ts";
 
 const FAILURE_ANALYSIS_PROMPT = `
 You are analyzing a failed LeetCode test run.

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createLogger } from "./logger.js";
+import { createLogger } from "./logger.ts";
 
 export type SubmissionSummary = {
   id: string;

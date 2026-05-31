@@ -1,5 +1,5 @@
 import { OpenRouter } from "@openrouter/sdk";
-import { OpenRouterFailureStaticAnalyzer, type FailureStaticAnalyzer } from "./staticAnalysis.js";
+import { OpenRouterFailureStaticAnalyzer, type FailureStaticAnalyzer } from "./staticAnalysis.ts";
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
@@ -30,8 +30,6 @@ export type FailureAnalysisResult = {
 export type FailureAnalyzer = {
   analyze(request: FailureAnalysisRequest): Promise<FailureAnalysisResult>;
 };
-
-export { parseFailureAnalysis } from "./failureAnalysisParser.js";
 
 class DefaultFailureAnalyzer implements FailureAnalyzer {
   constructor(private readonly staticAnalyzer: FailureStaticAnalyzer) {}

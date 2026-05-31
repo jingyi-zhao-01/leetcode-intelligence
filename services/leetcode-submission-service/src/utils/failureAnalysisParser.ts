@@ -1,4 +1,4 @@
-import type { FailureAnalysisResult, FailureAnnotation } from "./failureAnalysis.js";
+import type { FailureAnalysisResult, FailureAnnotation } from "../core/failureAnalysis.ts";
 
 const normalizeSeverity = (value: unknown): "error" | "warn" => {
   return value === "error" ? "error" : "warn";

@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { OpenRouter } from "@openrouter/sdk";
 import { type Submission, PrismaClient } from "@prisma/client";
-import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.js";
-import { Cache, type SubmissionSummary } from "./cache.js";
-import { extractThought, normalizeForEmbedding } from "./codeCleaner.js";
-import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.js";
-import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./failureAnalysis.js";
-import { createLogger } from "./logger.js";
-import { TimerManager } from "./timer.js";
+import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.ts";
+import { Cache, type SubmissionSummary } from "./cache.ts";
+import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./core/failureAnalysis.ts";
+import { extractThought, normalizeForEmbedding } from "./utils/codeCleaner.ts";
+import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.ts";
+import { createLogger } from "./logger.ts";
+import { TimerManager } from "./timer.ts";
 
 enum ServerAction {
   START_TIMER = "start_timer",

@@ -1,4 +1,4 @@
-import type { Cache, SubmissionSummary } from "./cache.js";
+import type { Cache, SubmissionSummary } from "./cache.ts";
 
 export type ActionContext = {
   cache: Cache;
