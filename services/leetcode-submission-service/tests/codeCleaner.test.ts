@@ -6,7 +6,7 @@ import { describe, it } from "vitest";
 import {
   extractThought,
   normalizeForEmbedding,
-} from "../src/codeCleaner.ts";
+} from "../src/utils/codeCleaner.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

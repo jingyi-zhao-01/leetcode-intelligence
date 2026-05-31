@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
 import { Cache } from "../src/cache.ts";
-import { parseFailureAnalysis } from "../src/failureAnalysis.ts";
+import { parseFailureAnalysis } from "../src/utils/failureAnalysisParser.ts";
 import { formatPacificTimestamp, inferIsTestSubmission } from "../src/server.ts";
 
 describe("submission server helpers", () => {
