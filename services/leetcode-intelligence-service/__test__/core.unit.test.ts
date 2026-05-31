@@ -126,7 +126,7 @@ describe("core/recommendation", () => {
       { titleSlug: "three-sum", status: "Runtime Error", createdAt: new Date("2026-05-02T00:00:00.000Z") },
       { titleSlug: null, status: "Accepted", createdAt: new Date("2026-05-01T00:00:00.000Z") },
     ]);
-    const promptAgg = builder.buildPromptAggregate([
+    const scoringAgg = builder.buildScoringAggregate([
       { questionSlug: "two-sum", responseScore: 2 },
       { questionSlug: "two-sum", responseScore: 4 },
       { questionSlug: "three-sum", responseScore: null },
@@ -144,8 +144,8 @@ describe("core/recommendation", () => {
       recentFailureStreak: 1,
       lastSubmittedAt: new Date("2026-05-02T00:00:00.000Z"),
     });
-    assert.deepEqual(promptAgg.get("two-sum"), { count: 2, scoreSum: 6, scoreCount: 2 });
-    assert.deepEqual(promptAgg.get("three-sum"), { count: 1, scoreSum: 0, scoreCount: 0 });
+    assert.deepEqual(scoringAgg.get("two-sum"), { count: 2, scoreSum: 6, scoreCount: 2 });
+    assert.deepEqual(scoringAgg.get("three-sum"), { count: 1, scoreSum: 0, scoreCount: 0 });
   });
 
   it("HeuristicFocusRecommendationAlgorithm ranks weaker and staler questions higher", () => {
@@ -191,7 +191,7 @@ describe("core/recommendation", () => {
           },
         ],
       ]),
-      promptAgg: new Map([
+      scoringAgg: new Map([
         ["hard-old", { count: 2, scoreSum: 4, scoreCount: 2 }],
         ["easy-fresh", { count: 2, scoreSum: 8, scoreCount: 2 }],
       ]),
@@ -234,7 +234,7 @@ describe("core/recommendation", () => {
       maxWeight: 5,
       weights: [],
       submissionAgg: new Map(),
-      promptAgg: new Map(),
+      scoringAgg: new Map(),
     });
 
     assert.deepEqual(recommendations.map((item) => item.questionSlug), ["delegated"]);

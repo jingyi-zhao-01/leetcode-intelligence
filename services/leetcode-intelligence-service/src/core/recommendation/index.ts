@@ -108,7 +108,7 @@ export class FocusRecommendationService {
 
     // Merge raw recent activity into per-question aggregates before ranking.
     const submissionAgg = this.aggregationBuilder.buildSubmissionAggregate(submissions);
-    const promptAgg = this.aggregationBuilder.buildPromptAggregate(promptEvents);
+    const scoringAgg = this.aggregationBuilder.buildScoringAggregate(promptEvents);
 
     const recommendations = this.algorithm.rank({
       lookbackDays,
@@ -116,7 +116,7 @@ export class FocusRecommendationService {
       maxWeight: this.config.INTELLIGENCE_MAX_WEIGHT,
       weights,
       submissionAgg,
-      promptAgg,
+      scoringAgg,
     });
 
     logger.info(

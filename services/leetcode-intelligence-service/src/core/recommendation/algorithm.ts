@@ -22,7 +22,7 @@ export type SubmissionAggregate = {
   lastSubmittedAt: Date | null;
 };
 
-export type PromptAggregate = {
+export type ScoringAggregate = {
   count: number;
   scoreSum: number;
   scoreCount: number;
@@ -34,13 +34,26 @@ export type RecommendationAlgorithmInput = {
   maxWeight: number;
   weights: RecommendationWeightRecord[];
   submissionAgg: Map<string, SubmissionAggregate>;
-  promptAgg: Map<string, PromptAggregate>;
+  scoringAgg: Map<string, ScoringAggregate>;
 };
 
 export interface FocusRecommendationAlgorithm {
   rank(input: RecommendationAlgorithmInput): FocusRecommendation[];
 }
 
+// This heuristic ranks each candidate question by summing several capped signals.
+// `scoreFromWeight`: boosts questions whose review weight is already high, meaning
+// they have accumulated more urgency from the spaced-review logic.
+// `scoreFromFailure`: boosts questions with a high historical failure rate.
+// `scoreFromStaleness`: boosts questions that have not been reviewed recently.
+// `scoreFromDifficulty`: adds a fixed difficulty bias so harder problems surface sooner.
+// `scoreFromLowAverage`: boosts questions whose past prompt-response scores were weak.
+// `scoreFromRecentAttempts`: gives a small boost to questions with repeated recent attempts.
+// `scoreFromFailureStreak`: boosts questions where the user is currently failing repeatedly.
+// `scoreFromRecentSubmission`: boosts questions that were submitted recently, so the system
+// can recommend timely follow-up while the context is still fresh.
+// The final `priority` is the rounded sum of those sub-scores, then the algorithm
+// sorts descending by priority and returns the top K questions.
 export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendationAlgorithm {
   constructor(private readonly weightCalculator: WeightCalculator = new LinearWeightCalculator()) {}
 
@@ -53,11 +66,11 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
           recentFailureStreak: 0,
           lastSubmittedAt: null,
         };
-        const promptStats = input.promptAgg.get(item.questionSlug) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
+        const scoringStats = input.scoringAgg.get(item.questionSlug) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
 
         const failureRate = submissionStats.total > 0 ? submissionStats.failed / submissionStats.total : 0;
         const stalenessDays = daysSince(item.lastResponseAt ?? item.lastPromptAt);
-        const avgScore = promptStats.scoreCount > 0 ? promptStats.scoreSum / promptStats.scoreCount : null;
+        const avgScore = scoringStats.scoreCount > 0 ? scoringStats.scoreSum / scoringStats.scoreCount : null;
         const recentSubmissionDays = submissionStats.lastSubmittedAt
           ? daysSince(submissionStats.lastSubmittedAt)
           : null;
@@ -94,7 +107,7 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
             weight: round(item.weight, 3),
             failureRate: round(failureRate, 3),
             stalenessDays: round(stalenessDays, 1),
-            promptCount: promptStats.count,
+            promptCount: scoringStats.count,
             avgScore: avgScore === null ? null : round(avgScore, 3),
             recentAttemptCount: submissionStats.total,
             recentFailureStreak: submissionStats.recentFailureStreak,

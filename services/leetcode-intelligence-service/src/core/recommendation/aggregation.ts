@@ -1,7 +1,7 @@
 import { createLogger } from "../../logger.ts";
 import { isFailedStatus } from "./util.ts";
 import type {
-  PromptAggregate,
+  ScoringAggregate,
   SubmissionAggregate,
 } from "./algorithm.ts";
 
@@ -55,34 +55,34 @@ export class RecommendationAggregationBuilder {
   }
 
   /**
-   * Collapse prompt events into per-question prompt frequency and scored
-   * response totals so ranking can derive prompt activity and average score.
+   * Collapse prompt-response history into per-question scoring stats so
+   * ranking can derive review frequency and average evaluation score.
    */
-  buildPromptAggregate(
+  buildScoringAggregate(
     promptEvents: Array<{ questionSlug: string; responseScore: number | null }>,
-  ): Map<string, PromptAggregate> {
-    const promptAgg = new Map<string, PromptAggregate>();
+  ): Map<string, ScoringAggregate> {
+    const scoringAgg = new Map<string, ScoringAggregate>();
     for (const event of promptEvents) {
-      const current = promptAgg.get(event.questionSlug) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
+      const current = scoringAgg.get(event.questionSlug) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
       current.count += 1;
       if (typeof event.responseScore === "number") {
         current.scoreSum += event.responseScore;
         current.scoreCount += 1;
       }
-      promptAgg.set(event.questionSlug, current);
+      scoringAgg.set(event.questionSlug, current);
     }
 
     logger.info(
       {
-        aggregateCount: promptAgg.size,
-        promptAggregate: Array.from(promptAgg.entries()).map(([questionSlug, aggregate]) => ({
+        aggregateCount: scoringAgg.size,
+        scoringAggregate: Array.from(scoringAgg.entries()).map(([questionSlug, aggregate]) => ({
           questionSlug,
           ...aggregate,
         })),
       },
-      "built prompt aggregate",
+      "built scoring aggregate",
     );
 
-    return promptAgg;
+    return scoringAgg;
   }
 }
