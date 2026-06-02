@@ -124,6 +124,7 @@ export class PromptResponseClient {
         await message.channel.send({ content: feedback });
       } else {
         await this.discord.replyToMessage(message, feedback);
+        await this.discord.addReaction(referenceMessageId, "👍");
       }
 
       logger.info(

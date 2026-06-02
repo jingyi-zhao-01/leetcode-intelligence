@@ -29,6 +29,11 @@ let sentMessages: Array<{
   content: string;
   embeds?: unknown[];
 }> = [];
+let reactedMessages: Array<{
+  channelId: string;
+  messageId: string;
+  emoji: string;
+}> = [];
 let stubChannelType = ChannelType.GuildText;
 let stubIsTextBased = true;
 
@@ -37,6 +42,7 @@ const resetStubs = (): void => {
   Client.prototype.isReady = originalIsReady;
   Client.prototype.destroy = originalDestroy;
   sentMessages = [];
+  reactedMessages = [];
   stubChannelType = ChannelType.GuildText;
   stubIsTextBased = true;
 };
@@ -47,6 +53,13 @@ const installDiscordStub = (): void => {
       fetch: async (channelId: string) => ({
         type: stubChannelType,
         isTextBased: () => stubIsTextBased,
+        messages: {
+          fetch: async (messageId: string) => ({
+            react: async (emoji: string) => {
+              reactedMessages.push({ channelId, messageId, emoji });
+            },
+          }),
+        },
         send: async ({ content, embeds }: { content?: string; embeds?: Array<{ toJSON?: () => unknown }> }) => {
           const messageId = `message-${sentMessages.length + 1}`;
           sentMessages.push({
@@ -311,6 +324,28 @@ describe("DiscordClient", () => {
     );
     await client.stop();
   });
+
+  it("addReaction reacts to a prompt message in the configured text channel", async () => {
+    installDiscordStub();
+    const client = new DiscordClient({
+      scope: "client/test",
+      botToken: "bot-token",
+      channelId: "prompt-channel",
+      intents: [GatewayIntentBits.Guilds],
+    });
+
+    await client.start({ waitUntilReady: true });
+    await client.addReaction("prompt-message-1", "👍");
+    await client.stop();
+
+    assert.deepEqual(reactedMessages, [
+      {
+        channelId: "prompt-channel",
+        messageId: "prompt-message-1",
+        emoji: "👍",
+      },
+    ]);
+  });
 });
 
 describe("PromptResponseClient", () => {
@@ -324,6 +359,13 @@ describe("PromptResponseClient", () => {
     const sentReplies: string[] = [];
     (client as any).discord = {
       ensureTargetChannel: async () => undefined,
+      addReaction: async (messageId: string, emoji: string) => {
+        reactedMessages.push({
+          channelId: "prompt-channel",
+          messageId,
+          emoji,
+        });
+      },
       replyToMessage: async (_message: unknown, content: string) => {
         sentReplies.push(content);
         return { messageId: "feedback-1" };
@@ -351,6 +393,13 @@ describe("PromptResponseClient", () => {
     ]);
     assert.equal(sentReplies.length, 1);
     assert.match(sentReplies[0] ?? "", /Score: 0.91/);
+    assert.deepEqual(reactedMessages, [
+      {
+        channelId: "prompt-channel",
+        messageId: "prompt-message-1",
+        emoji: "👍",
+      },
+    ]);
   });
 
   it("ignores thread messages that are not direct replies", async () => {

@@ -1,6 +1,6 @@
 import { once } from "node:events";
 
-import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message } from "discord.js";
+import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message, type TextChannel } from "discord.js";
 import type { Logger } from "pino";
 
 import { createLogger } from "../logger.ts";
@@ -95,11 +95,17 @@ export class DiscordClient {
     return { messageId: sentMessage.id };
   }
 
+  async addReaction(messageId: string, emoji: string): Promise<void> {
+    const channel = await this.resolveTextChannel();
+    const targetMessage = await channel.messages.fetch(messageId);
+    await targetMessage.react(emoji);
+  }
+
   async ensureTargetChannel(): Promise<void> {
     await this.resolveTextChannel();
   }
 
-  private async resolveTextChannel(): Promise<any> {
+  private async resolveTextChannel(): Promise<TextChannel> {
     const channel = await this.discord.channels.fetch(this.channelId);
     if (!(channel?.isTextBased()) || channel.type !== ChannelType.GuildText) {
       throw new Error(`Discord channel ${this.channelId} is not a guild text channel.`);
