@@ -7,10 +7,11 @@ Read this before editing the submission runtime, then use [ARCHITECTURE.md](./AR
 ## What This Service Owns
 
 - newline-delimited JSON over TCP for `leetcode.nvim`
+- local OpenAI-compatible HTTP chat endpoint for `CodeCompanion`
 - one active in-memory timer/session at a time
 - recent submission cache with write-through persistence behavior
 - durable submission persistence through Prisma
-- OpenRouter-backed failure analysis for failed submissions
+- OpenRouter-backed failure analysis and companion chat
 
 ## Start Here
 
@@ -19,6 +20,7 @@ Read this before editing the submission runtime, then use [ARCHITECTURE.md](./AR
 3. [src/action-middleware.ts](./src/action-middleware.ts)
 4. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
 5. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
+6. [src/core/companionChat.ts](./src/core/companionChat.ts)
 
 ## File Map
 
@@ -34,6 +36,8 @@ Read this before editing the submission runtime, then use [ARCHITECTURE.md](./AR
   Failure-analysis contracts and facade.
 - `src/core/staticAnalysis.ts`
   OpenRouter integration for failure analysis.
+- `src/core/companionChat.ts`
+  Service-owned chat prompt and OpenRouter call used by the local companion HTTP endpoint.
 - `src/utils/failureAnalysisParser.ts`
   Structured response parsing and sanitization.
 - `src/database.ts`
@@ -42,6 +46,7 @@ Read this before editing the submission runtime, then use [ARCHITECTURE.md](./AR
 ## Guardrails
 
 - Keep request/response payloads backward compatible with the editor integration unless explicitly changing the client contract.
+- Keep the companion HTTP endpoint OpenAI-compatible enough for local editor adapters.
 - Do not silently move durable state into memory-only paths.
 - Keep timer/cache behavior cheap and synchronous on the request path.
 - Keep failure-analysis output bounded and structured for editor rendering.

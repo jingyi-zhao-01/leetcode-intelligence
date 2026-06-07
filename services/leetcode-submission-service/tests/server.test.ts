@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 
+import { sanitizeCompanionMessages } from "../src/core/companionChat.ts";
 import { Cache } from "../src/cache.ts";
 import { parseFailureAnalysis } from "../src/utils/failureAnalysisParser.ts";
 import { formatPacificTimestamp, inferIsTestSubmission } from "../src/server.ts";
@@ -112,6 +113,23 @@ describe("submission server helpers", () => {
         severity: "error",
         column: undefined,
       },
+    ]);
+  });
+
+  it("sanitizes companion messages and drops invalid entries", () => {
+    const messages = sanitizeCompanionMessages([
+      { role: "system", content: "hidden prompt" },
+      { role: "user", content: " explain this " },
+      { role: "assistant", content: "previous answer" },
+      { role: "tool", content: "unsupported" },
+      { role: "user", content: "   " },
+      null,
+    ]);
+
+    assert.deepEqual(messages, [
+      { role: "system", content: "hidden prompt" },
+      { role: "user", content: "explain this" },
+      { role: "assistant", content: "previous answer" },
     ]);
   });
 });

@@ -1,10 +1,12 @@
 import net from "node:net";
+import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { OpenRouter } from "@openrouter/sdk";
 import { type Submission, PrismaClient } from "@prisma/client";
 import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.ts";
 import { Cache, type SubmissionSummary } from "./cache.ts";
+import { createDefaultCompanionChatService, sanitizeCompanionMessages, type CompanionChatRequest } from "./core/companionChat.ts";
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./core/failureAnalysis.ts";
 import { extractThought, normalizeForEmbedding } from "./utils/codeCleaner.ts";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.ts";
@@ -43,6 +45,43 @@ type SubmissionActionHandlers = {
 };
 
 const logger = createLogger("server");
+
+function parseJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+
+    req.on("data", (chunk) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+    });
+
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8").trim();
+      if (raw.length === 0) {
+        resolve({});
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          reject(new Error("JSON body must be an object."));
+          return;
+        }
+        resolve(parsed as Record<string, unknown>);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    req.on("error", reject);
+  });
+}
+
+function writeJson(res: ServerResponse, statusCode: number, body: Record<string, unknown>): void {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify(body));
+}
 
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -115,6 +154,7 @@ function createSubmissionSummary(args: {
 export class SubmissionServer {
   private readonly host: string;
   private readonly port: number;
+  private readonly companionHttpPort: number;
   private readonly timerManager = new TimerManager();
   readonly logger = logger;
   readonly cache = new Cache();
@@ -125,11 +165,26 @@ export class SubmissionServer {
         appTitle: "leetcode-submission-service",
       })
     : null;
+  private readonly companionOpenRouter = process.env.OPEN_ROUTER_API_KEY
+    ? new OpenRouter({
+        apiKey: process.env.OPEN_ROUTER_API_KEY,
+        httpReferer: "https://github.com/kawre/leetcode.nvim",
+        appTitle: "companion-service",
+      })
+    : null;
   private readonly failureAnalyzer = this.openRouter
     ? createDefaultFailureAnalyzer(
         this.openRouter,
         process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next",
       )
+    : null;
+  private readonly companionModel = process.env.LEETCODE_COMPANION_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next";
+  private readonly companionModels = (process.env.LEETCODE_COMPANION_MODELS ?? this.companionModel)
+    .split(",")
+    .map((model) => model.trim())
+    .filter((model) => model.length > 0);
+  private readonly companionChat = this.companionOpenRouter
+    ? createDefaultCompanionChatService(this.companionOpenRouter, this.companionModel)
     : null;
   private readonly actionContext: ActionContext = {
     cache: this.cache,
@@ -207,6 +262,8 @@ export class SubmissionServer {
   constructor(host = process.env.SUBMISSION_HOST ?? "127.0.0.1", port = Number(process.env.SUBMISSION_PORT ?? 3000)) {
     this.host = host;
     this.port = Number.isFinite(port) ? port : 3000;
+    const companionPort = Number(process.env.SUBMISSION_COMPANION_PORT ?? 3001);
+    this.companionHttpPort = Number.isFinite(companionPort) ? companionPort : 3001;
   }
 
   private startActiveSessionLogger(): void {
@@ -406,6 +463,121 @@ export class SubmissionServer {
     };
   }
 
+  private async createCompanionChatCompletion(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    if (!this.companionChat) {
+      return {
+        error: {
+          message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
+          type: "configuration_error",
+        },
+      };
+    }
+
+    if (body.stream === true) {
+      return {
+        error: {
+          message: "Streaming is not supported by the local companion endpoint yet.",
+          type: "unsupported_feature",
+        },
+      };
+    }
+
+    const messages = sanitizeCompanionMessages(body.messages);
+    if (messages.length === 0) {
+      return {
+        error: {
+          message: "messages must contain at least one non-empty chat message.",
+          type: "invalid_request_error",
+        },
+      };
+    }
+
+    const request = {
+      messages,
+      model: readString(body.model, this.companionModel),
+      temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+    } satisfies CompanionChatRequest;
+
+    const result = await this.companionChat.chat(request);
+    const created = Math.floor(Date.now() / 1000);
+
+    return {
+      id: `chatcmpl_${randomUUID()}`,
+      object: "chat.completion",
+      created,
+      model: result.model,
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: result.content,
+          },
+          finish_reason: result.finishReason ?? "stop",
+        },
+      ],
+      usage: result.usage,
+    };
+  }
+
+  private startCompanionHttpServer(): void {
+    const server = http.createServer(async (req, res) => {
+      const method = req.method ?? "GET";
+      const url = req.url ?? "/";
+
+      if (method === "GET" && url === "/health") {
+        writeJson(res, 200, {
+          status: "ok",
+          service: "leetcode-submission-service-companion",
+          port: this.companionHttpPort,
+        });
+        return;
+      }
+
+      if (method === "GET" && url === "/v1/models") {
+        writeJson(res, 200, {
+          object: "list",
+          data: this.companionModels.map((model) => ({
+            id: model,
+            object: "model",
+            created: 0,
+            owned_by: "leetcode-submission-service",
+          })),
+        });
+        return;
+      }
+
+      if (method === "POST" && url === "/v1/chat/completions") {
+        try {
+          const body = await parseJsonBody(req);
+          const response = await this.createCompanionChatCompletion(body);
+          const statusCode = response.error ? 400 : 200;
+          writeJson(res, statusCode, response);
+        } catch (error) {
+          logger.error({ err: error }, "Companion HTTP request failed");
+          writeJson(res, 500, {
+            error: {
+              message: error instanceof Error ? error.message : "Unknown companion HTTP error",
+              type: "server_error",
+            },
+          });
+        }
+        return;
+      }
+
+      writeJson(res, 404, {
+        error: {
+          message: `Unknown route: ${method} ${url}`,
+          type: "not_found",
+        },
+      });
+    });
+
+    server.listen(this.companionHttpPort, this.host, () => {
+      logger.info({ host: this.host, port: this.companionHttpPort }, "Companion HTTP server listening");
+    });
+  }
+
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
     const action = readString(request.action);
     logger.info({ action }, "Received request");
@@ -500,6 +672,7 @@ export class SubmissionServer {
     }
 
     this.startActiveSessionLogger();
+    this.startCompanionHttpServer();
 
     const server = net.createServer((socket) => {
       const peer = `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`;

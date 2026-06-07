@@ -5,6 +5,7 @@ This service is a local TCP server that accepts newline-delimited JSON requests 
 - manage one active timer/session for a problem at a time
 - accept and persist submission records
 - run static failure analysis using LLM on test on submit failure and send structured lines of problem to vim for rendering so i immediately get feedbacks on whats wrong :D
+- expose a local OpenAI-compatible HTTP endpoint so `CodeCompanion` can use this service as the owned LLM bridge
 
 - it can also use a sqlite for simplicity but remote database is chosen because I have a PC and personally travel a lot with Laptop,
 - my laptop and PC has been registered as data plane nodes on my own native home cloud platform so every new changes here will be target deployed and always available on whatever devices that are active with me:D 
@@ -17,6 +18,12 @@ The canonical component diagram lives in [architecture.d2](./architecture.d2).
 ## Runtime Overview
 
 The service starts in [src/server.ts](./src/server.ts). `SubmissionServer` opens a TCP listener, parses one JSON request per line, dispatches by `action`, and returns a JSON response on the same socket.
+
+The same runtime also opens a small local HTTP server for companion chat. That endpoint is intentionally OpenAI-compatible enough for local editor adapters and currently supports:
+
+- `GET /health`
+- `GET /v1/models`
+- `POST /v1/chat/completions` (non-streaming)
 
 The supported actions are:
 
@@ -36,6 +43,7 @@ The supported actions are:
 [src/server.ts](./src/server.ts) owns the top-level runtime:
 
 - TCP socket lifecycle
+- companion HTTP socket lifecycle
 - request parsing and action dispatch
 - Prisma client initialization
 - startup database diagnostics and connection logging
@@ -95,6 +103,17 @@ The `analyze_failure` action accepts question context, editor content, submitted
 - a short Chinese summary
 - a bounded list of line annotations with severity and reason
 
+### Companion Chat
+
+[src/core/companionChat.ts](./src/core/companionChat.ts) owns the service-side chat prompt for editor conversations. Incoming messages from `CodeCompanion` are sanitized, the service injects its own system prompt, and then the request is forwarded to OpenRouter.
+
+Current behavior:
+
+- the service owns the system prompt
+- upstream `system` messages from the client are ignored
+- normal `user` / `assistant` history is preserved
+- responses are returned in OpenAI chat-completion shape for local adapter compatibility
+
 ## Persistence Layer
 
 [src/database.ts](./src/database.ts) normalizes `DATABASE_URL`, especially for pooler-style connections, and exposes startup diagnostics.
@@ -150,6 +169,13 @@ The service persists:
 4. OpenRouter returns structured JSON.
 5. The parser sanitizes summary and line annotations.
 6. The service returns the final summary and annotations to the client.
+
+### Companion Chat
+
+1. `CodeCompanion` sends a non-streaming OpenAI-style request to the local HTTP endpoint.
+2. `SubmissionServer` sanitizes chat messages and applies the service-owned system prompt.
+3. OpenRouter generates the response.
+4. The service returns an OpenAI-compatible `chat.completion` payload to the editor.
 
 ## Current Boundaries
 
