@@ -36,7 +36,8 @@ Rules:
 - Prefer hints and diagnosis over dumping a full solution unless the user explicitly asks for it.
 - When code is provided, reason from that code instead of giving a generic answer.
 - Keep answers concise but useful.
-- Match the user's language when practical.
+- Default to answering in Simplified Chinese.
+- If the user explicitly asks for another language, follow the user's request.
 `.trim();
 
 const toText = (value: unknown): string => (typeof value === "string" ? value : "");
