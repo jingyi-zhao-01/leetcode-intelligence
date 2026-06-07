@@ -6,7 +6,12 @@ import { OpenRouter } from "@openrouter/sdk";
 import { type Submission, PrismaClient } from "@prisma/client";
 import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.ts";
 import { Cache, type SubmissionSummary } from "./cache.ts";
-import { createDefaultCompanionChatService, sanitizeCompanionMessages, type CompanionChatRequest } from "./core/companionChat.ts";
+import {
+  createDefaultCompanionChatService,
+  sanitizeCompanionMessages,
+  type CompanionChatRequest,
+  type CompanionChatStreamChunk,
+} from "./core/companionChat.ts";
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./core/failureAnalysis.ts";
 import { extractThought, normalizeForEmbedding } from "./utils/codeCleaner.ts";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.ts";
@@ -81,6 +86,59 @@ function writeJson(res: ServerResponse, statusCode: number, body: Record<string,
   res.statusCode = statusCode;
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(body));
+}
+
+function toOpenAiUsage(usage?: CompanionChatStreamChunk["usage"]): Record<string, number | null | undefined> | undefined {
+  if (!usage) {
+    return undefined;
+  }
+
+  return {
+    prompt_tokens: usage.promptTokens,
+    completion_tokens: usage.completionTokens,
+    total_tokens: usage.totalTokens,
+  };
+}
+
+function toOpenAiStreamChunk(chunk: CompanionChatStreamChunk): Record<string, unknown> {
+  return {
+    id: chunk.id,
+    object: "chat.completion.chunk",
+    created: chunk.created,
+    model: chunk.model,
+    choices: chunk.choices.map((choice) => ({
+      index: choice.index,
+      delta: {
+        role: choice.delta.role,
+        content: choice.delta.content,
+        refusal: choice.delta.refusal,
+        reasoning: choice.delta.reasoning,
+        tool_calls: choice.delta.toolCalls?.map((toolCall) => ({
+          index: toolCall.index,
+          id: toolCall.id,
+          type: toolCall.type,
+          function: toolCall.function
+            ? {
+                name: toolCall.function.name,
+                arguments: toolCall.function.arguments,
+              }
+            : undefined,
+        })),
+      },
+      finish_reason: choice.finishReason,
+      logprobs: choice.logprobs,
+    })),
+    usage: toOpenAiUsage(chunk.usage),
+  };
+}
+
+function writeSseChunk(res: ServerResponse, body: Record<string, unknown>): void {
+  res.write(`data: ${JSON.stringify(body)}\n\n`);
+}
+
+function writeSseDone(res: ServerResponse): void {
+  res.write("data: [DONE]\n\n");
+  res.end();
 }
 
 function readString(value: unknown, fallback = ""): string {
@@ -473,15 +531,6 @@ export class SubmissionServer {
       };
     }
 
-    if (body.stream === true) {
-      return {
-        error: {
-          message: "Streaming is not supported by the local companion endpoint yet.",
-          type: "unsupported_feature",
-        },
-      };
-    }
-
     const messages = sanitizeCompanionMessages(body.messages);
     if (messages.length === 0) {
       return {
@@ -520,6 +569,47 @@ export class SubmissionServer {
     };
   }
 
+  private async streamCompanionChatCompletion(body: Record<string, unknown>, res: ServerResponse): Promise<void> {
+    if (!this.companionChat) {
+      writeJson(res, 400, {
+        error: {
+          message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
+          type: "configuration_error",
+        },
+      });
+      return;
+    }
+
+    const messages = sanitizeCompanionMessages(body.messages);
+    if (messages.length === 0) {
+      writeJson(res, 400, {
+        error: {
+          message: "messages must contain at least one non-empty chat message.",
+          type: "invalid_request_error",
+        },
+      });
+      return;
+    }
+
+    const request = {
+      messages,
+      model: readString(body.model, this.companionModel),
+      temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+    } satisfies CompanionChatRequest;
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+
+    const stream = await this.companionChat.stream(request);
+    for await (const chunk of stream) {
+      writeSseChunk(res, toOpenAiStreamChunk(chunk));
+    }
+
+    writeSseDone(res);
+  }
+
   private startCompanionHttpServer(): void {
     const server = http.createServer(async (req, res) => {
       const method = req.method ?? "GET";
@@ -550,6 +640,10 @@ export class SubmissionServer {
       if (method === "POST" && url === "/v1/chat/completions") {
         try {
           const body = await parseJsonBody(req);
+          if (body.stream === true) {
+            await this.streamCompanionChatCompletion(body, res);
+            return;
+          }
           const response = await this.createCompanionChatCompletion(body);
           const statusCode = response.error ? 400 : 200;
           writeJson(res, statusCode, response);

@@ -18,8 +18,41 @@ export type CompanionChatResult = {
   usage?: Record<string, number | null | undefined>;
 };
 
+export type CompanionChatStreamChunk = {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    finishReason: string | null;
+    logprobs?: unknown;
+    delta: {
+      role?: string;
+      content?: string | null;
+      refusal?: string | null;
+      reasoning?: string | null;
+      toolCalls?: Array<{
+        index?: number;
+        id?: string;
+        type?: string;
+        function?: {
+          name?: string;
+          arguments?: string;
+        };
+      }>;
+    };
+  }>;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
+};
+
 export type CompanionChatService = {
   chat(request: CompanionChatRequest): Promise<CompanionChatResult>;
+  stream(request: CompanionChatRequest): Promise<AsyncIterable<CompanionChatStreamChunk>>;
 };
 
 const DEFAULT_COMPANION_SYSTEM_PROMPT = `
@@ -110,6 +143,25 @@ class DefaultCompanionChatService implements CompanionChatService {
           }
         : undefined,
     };
+  }
+
+  async stream(request: CompanionChatRequest): Promise<AsyncIterable<CompanionChatStreamChunk>> {
+    const messages = sanitizeCompanionMessages(request.messages);
+    if (messages.length === 0) {
+      throw new Error("At least one user or assistant message is required.");
+    }
+
+    const model = request.model?.trim() || this.defaultModel;
+    const temperature = Number.isFinite(request.temperature) ? request.temperature : 0.2;
+
+    return this.openRouter.chat.send({
+      chatRequest: {
+        model,
+        temperature,
+        stream: true,
+        messages: buildChatMessages(this.systemPrompt, messages),
+      },
+    });
   }
 }
 
