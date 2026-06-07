@@ -1,0 +1,3 @@
+[submodule "integrations/leetcode.nvim"]
+	path = integrations/leetcode.nvim
+	url = https://github.com/jingyi-zhao-01/leetcode.nvim.git
