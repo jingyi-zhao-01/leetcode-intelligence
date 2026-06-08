@@ -678,6 +678,21 @@ describe('submission server helpers', () => {
 
   it('hydrates recalled title-slug history into companion context before the first chat turn', async () => {
     const server = new SubmissionServer();
+    (
+      server as {
+        companionChat: {
+          chat: () => Promise<never>;
+          stream: () => Promise<AsyncIterable<never>>;
+        };
+      }
+    ).companionChat = {
+      chat: async () => {
+        throw new Error('not used in buildCompanionChatRequest test');
+      },
+      stream: async () => {
+        throw new Error('not used in buildCompanionChatRequest test');
+      },
+    };
 
     (
       server as {
