@@ -53,6 +53,7 @@ If you are only touching one service, stop after the relevant service-local docu
 - [docs/adrs/001-stateful-failure-analysis-session-aggregation.md](./docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
 - [docs/adrs/002-session-bound-companion-memory-and-failure-events.md](./docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
 - [docs/adrs/003-mem0-session-snapshot-persistence.md](./docs/adrs/003-mem0-session-snapshot-persistence.md)
+- [docs/adrs/004-mem0-recall-lifecycle-and-hydration.md](./docs/adrs/004-mem0-recall-lifecycle-and-hydration.md)
 - [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
 - [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
 
@@ -73,6 +74,7 @@ If you are only touching one service, stop after the relevant service-local docu
 - Keep changes scoped to the user request.
 - Preserve the split between domain logic and runtime composition when editing the intelligence service.
 - Preserve the split between request handling, caching, persistence, and failure analysis when editing the submission service.
+- When touching submission-session behavior, Mem0 persistence/recall, or companion context hydration, read the submission-service ADRs before editing code.
 - Keep MCP tool names and payload shapes stable unless the user explicitly asks for a contract change.
 - Prefer code-adjacent documentation over adding large top-level prose.
 

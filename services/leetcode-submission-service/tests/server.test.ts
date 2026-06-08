@@ -6,6 +6,7 @@ import { Cache } from '../src/cache.ts';
 import { SubmissionServer } from '../src/server.ts';
 import {
   ActiveSessionScopeManager,
+  countSessionInteractions,
   Mem0SessionRecordRecaller,
   extractCompanionSessionContext,
   Mem0SessionRecordPersister,
@@ -494,6 +495,7 @@ describe('submission server helpers', () => {
     assert.match(rendered, /Wrong Answer/);
     assert.match(rendered, /Companion Conversation/);
     assert.match(rendered, /always returns \[\]/);
+    assert.equal(countSessionInteractions(scope), 3);
   });
 
   it('submits a session snapshot to Mem0 with session-scoped ids', async () => {
@@ -529,6 +531,24 @@ describe('submission server helpers', () => {
         title: 'Two Sum',
         lang: 'python3',
         editorContent: 'class Solution:\n    return []',
+        companionMemory: {
+          updatedAt: '2026-06-08T00:04:59.000Z',
+          messages: [
+            { role: 'user', content: '我刚刚哪里错了' },
+            { role: 'assistant', content: '你现在总是返回空数组。' },
+            { role: 'user', content: '那我下一步该看哪里' },
+            { role: 'assistant', content: '先检查返回条件。' },
+          ],
+        },
+        sessionMemory: {
+          updatedAt: '2026-06-08T00:04:58.000Z',
+          messages: [
+            {
+              role: 'user',
+              content: '# Submission Service Failure Update\n\n- Event ID: failure_test_mem0',
+            },
+          ],
+        },
       },
       {
         reason: 'stop_timer',
@@ -542,8 +562,57 @@ describe('submission server helpers', () => {
     assert.equal(requestOptions?.appId, 'leetcode-qa');
     assert.equal(requestOptions?.runId, 'leetcode-session:two-sum:2026-06-08T00:00:00.000Z');
     assert.equal(requestOptions?.infer, false);
+    assert.equal((requestOptions?.metadata as Record<string, unknown> | undefined)?.interactionCount, 5);
     assert.equal(Array.isArray(requestMessages), true);
     assert.match(String(requestMessages?.[0]?.content ?? ''), /Title Slug: two-sum/);
+  });
+
+  it('does not persist a Mem0 session snapshot when interaction count is below threshold', async () => {
+    let addCalls = 0;
+
+    const persister = new Mem0SessionRecordPersister({
+      apiKey: 'mem0-test-key',
+      userId: 'jingyi',
+      client: {
+        add: async () => {
+          addCalls += 1;
+          return {
+            status: 'PENDING',
+            eventId: 'evt_mem0_skip',
+          };
+        },
+      },
+    });
+
+    await persister.persist(
+      {
+        titleSlug: 'two-sum',
+        activatedAt: '2026-06-08T00:00:00.000Z',
+        companionMemory: {
+          updatedAt: '2026-06-08T00:01:00.000Z',
+          messages: [
+            { role: 'user', content: '帮我看下' },
+            { role: 'assistant', content: '先看返回值。' },
+          ],
+        },
+        sessionMemory: {
+          updatedAt: '2026-06-08T00:01:01.000Z',
+          messages: [
+            {
+              role: 'user',
+              content: '# Submission Service Failure Update\n\n- Event ID: failure_test_skip',
+            },
+          ],
+        },
+      },
+      {
+        reason: 'drop_timer',
+        endedAt: '2026-06-08T00:02:00.000Z',
+        elapsedMinutes: 2,
+      },
+    );
+
+    assert.equal(addCalls, 0);
   });
 
   it('recalls all ended session records for a title slug from Mem0', async () => {

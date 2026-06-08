@@ -16,6 +16,7 @@ const MAX_SERVICE_UPDATES = 8;
 const MAX_RECALLED_SESSION_RECORDS = 12;
 const MAX_RECALLED_CODE_CHARS = 600;
 const DEFAULT_MEM0_BASE_URL = 'https://api.mem0.ai';
+const MIN_INTERACTIONS_TO_PERSIST = 5;
 
 export type SessionEndReason =
   | 'stop_timer'
@@ -201,6 +202,12 @@ const pushMessagesSection = (
 
 export function buildMem0RunId(scope: ActiveSessionScope): string {
   return `leetcode-session:${scope.titleSlug}:${scope.activatedAt}`;
+}
+
+export function countSessionInteractions(scope: ActiveSessionScope): number {
+  const companionCount = scope.companionMemory?.messages.length ?? 0;
+  const serviceCount = scope.sessionMemory?.messages.length ?? 0;
+  return companionCount + serviceCount;
 }
 
 export function renderPersistedSessionRecord(scope: ActiveSessionScope, event: SessionEndEvent): string {
@@ -426,6 +433,20 @@ export class Mem0SessionRecordPersister implements SessionRecordPersister {
   }
 
   async persist(scope: ActiveSessionScope, event: SessionEndEvent): Promise<void> {
+    const interactionCount = countSessionInteractions(scope);
+    if (interactionCount < MIN_INTERACTIONS_TO_PERSIST) {
+      logger.info(
+        {
+          titleSlug: scope.titleSlug,
+          interactionCount,
+          minimumInteractionsToPersist: MIN_INTERACTIONS_TO_PERSIST,
+          endReason: event.reason,
+        },
+        'Skipped persisting LeetCode session record to Mem0 because interaction count is below threshold',
+      );
+      return;
+    }
+
     const runId = buildMem0RunId(scope);
     const response = (await this.client.add(
       [
@@ -450,6 +471,7 @@ export class Mem0SessionRecordPersister implements SessionRecordPersister {
           elapsedMinutes: event.elapsedMinutes ?? null,
           difficulty: scope.difficulty ?? null,
           language: scope.lang ?? null,
+          interactionCount,
           latestFailureStatus: readJudgeStatus(scope.latestFailure?.judgeResult),
           replacedByTitleSlug: event.replacedByTitleSlug ?? null,
         },
@@ -459,6 +481,7 @@ export class Mem0SessionRecordPersister implements SessionRecordPersister {
       {
         titleSlug: scope.titleSlug,
         runId,
+        interactionCount,
         mem0EventId: response.eventId,
         mem0Status: response.status,
         endReason: event.reason,

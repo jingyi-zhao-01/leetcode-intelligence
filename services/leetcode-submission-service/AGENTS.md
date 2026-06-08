@@ -19,13 +19,14 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
 1. [../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md](../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
 2. [../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md](../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
 3. [../../docs/adrs/003-mem0-session-snapshot-persistence.md](../../docs/adrs/003-mem0-session-snapshot-persistence.md)
-4. [ARCHITECTURE.md](./ARCHITECTURE.md)
-5. [src/server.ts](./src/server.ts)
-6. [src/session/scope.ts](./src/session/scope.ts)
-7. [src/session/mem0.ts](./src/session/mem0.ts)
-8. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
-9. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
-10. [src/core/companionChat.ts](./src/core/companionChat.ts)
+4. [../../docs/adrs/004-mem0-recall-lifecycle-and-hydration.md](../../docs/adrs/004-mem0-recall-lifecycle-and-hydration.md)
+5. [ARCHITECTURE.md](./ARCHITECTURE.md)
+6. [src/server.ts](./src/server.ts)
+7. [src/session/scope.ts](./src/session/scope.ts)
+8. [src/session/mem0.ts](./src/session/mem0.ts)
+9. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
+10. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
+11. [src/core/companionChat.ts](./src/core/companionChat.ts)
 
 ## File Map
 
@@ -73,5 +74,6 @@ From repo root:
 ## When To Update Docs
 
 - Update ADRs first when session scope, failure lifecycle, companion/session contracts, or session persistence behavior change.
+- Update ADRs first when Mem0 persistence, title-slug recall, hydrate timing, or recalled prompt shape change.
 - Update [ARCHITECTURE.md](./ARCHITECTURE.md) when actions, runtime boundaries, or persistence behavior change.
 - Update this file only when the navigation map or edit guardrails change.
