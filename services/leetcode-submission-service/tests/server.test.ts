@@ -3,6 +3,7 @@ import { describe, it } from "vitest";
 
 import { sanitizeCompanionMessages } from "../src/core/companionChat.ts";
 import { Cache } from "../src/cache.ts";
+import { ActiveSessionScopeManager, extractCompanionSessionContext, renderActiveSessionScope } from "../src/session/index.ts";
 import { parseFailureAnalysis } from "../src/utils/failureAnalysisParser.ts";
 import { formatPacificTimestamp, inferIsTestSubmission } from "../src/server.ts";
 
@@ -131,5 +132,85 @@ describe("submission server helpers", () => {
       { role: "user", content: "explain this" },
       { role: "assistant", content: "previous answer" },
     ]);
+  });
+
+  it("extracts leetcode companion context from the hidden problem message", () => {
+    const context = extractCompanionSessionContext([
+      {
+        role: "user",
+        content: [
+          "# LeetCode Problem Context",
+          "",
+          "- Title: Two Sum",
+          "- Title Slug: two-sum",
+          "- Difficulty: Easy",
+          "- Language: python3",
+          "",
+          "## Problem Description",
+          "Find two numbers.",
+          "",
+          "## Active Testcase",
+          "```text",
+          "[2,7,11,15]",
+          "```",
+          "",
+          "## Current Code",
+          "```python3",
+          "class Solution:",
+          "    pass",
+          "```",
+        ].join("\n"),
+      },
+    ]);
+
+    assert.deepEqual(context, {
+      title: "Two Sum",
+      titleSlug: "two-sum",
+      difficulty: "Easy",
+      lang: "python3",
+      description: "Find two numbers.",
+      testcase: "[2,7,11,15]",
+      code: "class Solution:\n    pass",
+    });
+  });
+
+  it("binds failure analysis and companion context into the same active session scope", () => {
+    const manager = new ActiveSessionScopeManager();
+    manager.activate("two-sum");
+    manager.recordCompanionContext({
+      title: "Two Sum",
+      titleSlug: "two-sum",
+      difficulty: "Easy",
+      lang: "python3",
+      description: "Find two numbers.",
+      testcase: "[2,7,11,15]",
+      code: "class Solution:\n    pass",
+    });
+    manager.recordFailureAnalysis(
+      {
+        titleSlug: "two-sum",
+        title: "Two Sum",
+        questionContent: "Find two numbers.",
+        editorContent: "class Solution:\n    pass",
+        submissionContent: "class Solution:\n    pass",
+        testcase: "[2,7,11,15]",
+        judgeResult: { status_msg: "Wrong Answer" },
+        filetype: "python",
+      },
+      {
+        summary: "The hash map lookup happens after the insert.",
+        annotations: [{ line: 2, reason: "order is wrong", severity: "error" }],
+      },
+    );
+
+    const scope = manager.getActiveScope();
+    assert.ok(scope);
+    assert.equal(scope.titleSlug, "two-sum");
+    assert.equal(scope.lastFailureAnalysis?.summary, "The hash map lookup happens after the insert.");
+
+    const rendered = renderActiveSessionScope(scope);
+    assert.match(rendered, /Title Slug: two-sum/);
+    assert.match(rendered, /Latest Failure Analysis/);
+    assert.match(rendered, /order is wrong/);
   });
 });

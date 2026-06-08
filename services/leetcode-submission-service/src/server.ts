@@ -10,13 +10,14 @@ import {
   createDefaultCompanionChatService,
   sanitizeCompanionMessages,
   type CompanionChatRequest,
+  type CompanionChatMessage,
   type CompanionChatStreamChunk,
 } from "./core/companionChat.ts";
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./core/failureAnalysis.ts";
+import { ActiveSessionScopeManager, extractCompanionSessionContext, TimerManager } from "./session/index.ts";
 import { extractThought, normalizeForEmbedding } from "./utils/codeCleaner.ts";
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.ts";
 import { createLogger } from "./logger.ts";
-import { TimerManager } from "./timer.ts";
 
 enum ServerAction {
   START_TIMER = "start_timer",
@@ -214,6 +215,7 @@ export class SubmissionServer {
   private readonly port: number;
   private readonly companionHttpPort: number;
   private readonly timerManager = new TimerManager();
+  private readonly sessionScope = new ActiveSessionScopeManager();
   readonly logger = logger;
   readonly cache = new Cache();
   private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
@@ -324,6 +326,44 @@ export class SubmissionServer {
     this.companionHttpPort = Number.isFinite(companionPort) ? companionPort : 3001;
   }
 
+  private startSession(titleSlug: string): { alreadyActive: boolean; evictedTitleSlugs: string[] } {
+    const result = this.timerManager.start(titleSlug);
+    this.sessionScope.activate(titleSlug, result.evictedTitleSlugs);
+    return result;
+  }
+
+  private stopSession(titleSlug: string): number {
+    const minutes = this.timerManager.stop(titleSlug);
+    this.sessionScope.clear(titleSlug);
+    return minutes;
+  }
+
+  private getActiveSessionTitleSlug(): string | null {
+    return this.sessionScope.getActiveScope()?.titleSlug ?? null;
+  }
+
+  private ensureActiveSession(titleSlug?: string): { ok: true; titleSlug: string } | { ok: false; error: string } {
+    const activeTitleSlug = this.getActiveSessionTitleSlug();
+    if (!activeTitleSlug) {
+      return {
+        ok: false,
+        error: "No active LeetCode session exists on submission-service. Start a session before using LLM flows.",
+      };
+    }
+
+    if (titleSlug && activeTitleSlug !== titleSlug) {
+      return {
+        ok: false,
+        error: `Active submission-service session is bound to \`${activeTitleSlug}\`, not \`${titleSlug}\`.`,
+      };
+    }
+
+    return {
+      ok: true,
+      titleSlug: activeTitleSlug,
+    };
+  }
+
   private startActiveSessionLogger(): void {
     setInterval(() => {
       const timers = this.timerManager.getActiveTimers();
@@ -355,9 +395,9 @@ export class SubmissionServer {
 
     if (status === "Accepted" && !isTest) {
       if (this.timerManager.hasActiveTimer(titleSlug)) {
-        this.timerManager.stop(titleSlug);
+        this.stopSession(titleSlug);
       }
-      this.timerManager.start(titleSlug);
+      this.startSession(titleSlug);
       this.logger.info({ titleSlug }, "Timer restarted for accepted solution");
     }
 
@@ -493,6 +533,15 @@ export class SubmissionServer {
       };
     }
 
+    const activeSession = this.ensureActiveSession(payload.titleSlug);
+    if (!activeSession.ok) {
+      return {
+        success: false,
+        action: ServerAction.ANALYZE_FAILURE,
+        error: activeSession.error,
+      };
+    }
+
     logger.info(
       {
         action: ServerAction.ANALYZE_FAILURE,
@@ -503,6 +552,7 @@ export class SubmissionServer {
       "starting failure analysis",
     );
     const analysis = await this.failureAnalyzer.analyze(payload);
+    this.sessionScope.recordFailureAnalysis(payload, analysis);
     logger.info(
       {
         action: ServerAction.ANALYZE_FAILURE,
@@ -521,12 +571,30 @@ export class SubmissionServer {
     };
   }
 
-  private async createCompanionChatCompletion(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  private buildCompanionChatRequest(body: Record<string, unknown>):
+    | { ok: true; request: CompanionChatRequest }
+    | { ok: false; response: Record<string, unknown> } {
     if (!this.companionChat) {
       return {
-        error: {
-          message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
-          type: "configuration_error",
+        ok: false,
+        response: {
+          error: {
+            message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
+            type: "configuration_error",
+          },
+        },
+      };
+    }
+
+    const activeSession = this.ensureActiveSession();
+    if (!activeSession.ok) {
+      return {
+        ok: false,
+        response: {
+          error: {
+            message: activeSession.error,
+            type: "invalid_request_error",
+          },
         },
       };
     }
@@ -534,20 +602,52 @@ export class SubmissionServer {
     const messages = sanitizeCompanionMessages(body.messages);
     if (messages.length === 0) {
       return {
-        error: {
-          message: "messages must contain at least one non-empty chat message.",
-          type: "invalid_request_error",
+        ok: false,
+        response: {
+          error: {
+            message: "messages must contain at least one non-empty chat message.",
+            type: "invalid_request_error",
+          },
         },
       };
     }
 
-    const request = {
-      messages,
-      model: readString(body.model, this.companionModel),
-      temperature: typeof body.temperature === "number" ? body.temperature : undefined,
-    } satisfies CompanionChatRequest;
+    const companionContext = extractCompanionSessionContext(messages);
+    if (companionContext && companionContext.titleSlug !== activeSession.titleSlug) {
+      return {
+        ok: false,
+        response: {
+          error: {
+            message: `Companion chat context is bound to \`${companionContext.titleSlug}\`, but the active submission-service session is \`${activeSession.titleSlug}\`.`,
+            type: "invalid_request_error",
+          },
+        },
+      };
+    }
 
-    const result = await this.companionChat.chat(request);
+    if (companionContext) {
+      this.sessionScope.recordCompanionContext(companionContext);
+    }
+
+    const scopedMessages: CompanionChatMessage[] = this.sessionScope.buildCompanionMessages(messages);
+
+    return {
+      ok: true,
+      request: {
+        messages: scopedMessages,
+        model: readString(body.model, this.companionModel),
+        temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+      } satisfies CompanionChatRequest,
+    };
+  }
+
+  private async createCompanionChatCompletion(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const prepared = this.buildCompanionChatRequest(body);
+    if (!prepared.ok) {
+      return prepared.response;
+    }
+
+    const result = await this.companionChat!.chat(prepared.request);
     const created = Math.floor(Date.now() / 1000);
 
     return {
@@ -570,39 +670,18 @@ export class SubmissionServer {
   }
 
   private async streamCompanionChatCompletion(body: Record<string, unknown>, res: ServerResponse): Promise<void> {
-    if (!this.companionChat) {
-      writeJson(res, 400, {
-        error: {
-          message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
-          type: "configuration_error",
-        },
-      });
+    const prepared = this.buildCompanionChatRequest(body);
+    if (!prepared.ok) {
+      writeJson(res, 400, prepared.response);
       return;
     }
-
-    const messages = sanitizeCompanionMessages(body.messages);
-    if (messages.length === 0) {
-      writeJson(res, 400, {
-        error: {
-          message: "messages must contain at least one non-empty chat message.",
-          type: "invalid_request_error",
-        },
-      });
-      return;
-    }
-
-    const request = {
-      messages,
-      model: readString(body.model, this.companionModel),
-      temperature: typeof body.temperature === "number" ? body.temperature : undefined,
-    } satisfies CompanionChatRequest;
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-transform");
     res.setHeader("Connection", "keep-alive");
 
-    const stream = await this.companionChat.stream(request);
+    const stream = await this.companionChat!.stream(prepared.request);
     for await (const chunk of stream) {
       writeSseChunk(res, toOpenAiStreamChunk(chunk));
     }
@@ -679,7 +758,7 @@ export class SubmissionServer {
     switch (action) {
       case ServerAction.START_TIMER: {
         const titleSlug = readString(request.title_slug);
-        const result = this.timerManager.start(titleSlug);
+        const result = this.startSession(titleSlug);
         return {
           success: true,
           action: ServerAction.START_TIMER,
@@ -691,7 +770,7 @@ export class SubmissionServer {
 
       case ServerAction.STOP_TIMER: {
         const titleSlug = readString(request.title_slug);
-        const minutes = this.timerManager.stop(titleSlug);
+        const minutes = this.stopSession(titleSlug);
         return {
           success: true,
           action: ServerAction.STOP_TIMER,
@@ -702,7 +781,7 @@ export class SubmissionServer {
 
       case ServerAction.DROP_TIMER: {
         const titleSlug = readString(request.title_slug);
-        this.timerManager.stop(titleSlug);
+        this.stopSession(titleSlug);
         return { success: true, action: ServerAction.DROP_TIMER, title_slug: titleSlug };
       }
 
