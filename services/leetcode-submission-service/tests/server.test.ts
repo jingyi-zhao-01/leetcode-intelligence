@@ -318,10 +318,10 @@ describe('submission server helpers', () => {
             memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
             createdAt: '2026-06-08T01:33:16.332Z',
             metadata: {
-              activatedAt: '2026-06-08T01:33:16.332Z',
-              endedAt: '2026-06-08T01:38:40.878Z',
-              endReason: 'accepted_restart',
-              latestFailureStatus: 'Runtime Error',
+              activated_at: '2026-06-08T01:33:16.332Z',
+              ended_at: '2026-06-08T01:38:40.878Z',
+              end_reason: 'accepted_restart',
+              latest_failure_status: 'Runtime Error',
             },
           },
           {
@@ -329,10 +329,10 @@ describe('submission server helpers', () => {
             memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
             createdAt: '2026-06-08T01:38:40.881Z',
             metadata: {
-              activatedAt: '2026-06-08T01:38:40.881Z',
-              endedAt: '2026-06-08T01:38:40.913Z',
-              endReason: 'drop_timer',
-              latestFailureStatus: null,
+              activated_at: '2026-06-08T01:38:40.881Z',
+              ended_at: '2026-06-08T01:38:40.913Z',
+              end_reason: 'drop_timer',
+              latest_failure_status: null,
             },
           },
         ],
@@ -540,9 +540,9 @@ describe('submission server helpers', () => {
                 memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number',
                 created_at: '2026-06-08T01:33:16.332Z',
                 metadata: {
-                  titleSlug: 'palindrome-number',
-                  recordType: 'leetcode_session_record',
-                  endReason: 'accepted_restart',
+                  title_slug: 'palindrome-number',
+                  record_type: 'leetcode_session_record',
+                  end_reason: 'accepted_restart',
                 },
               },
               {
@@ -550,9 +550,9 @@ describe('submission server helpers', () => {
                 memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number',
                 created_at: '2026-06-08T01:38:40.881Z',
                 metadata: {
-                  titleSlug: 'palindrome-number',
-                  recordType: 'leetcode_session_record',
-                  endReason: 'drop_timer',
+                  title_slug: 'palindrome-number',
+                  record_type: 'leetcode_session_record',
+                  end_reason: 'drop_timer',
                 },
               },
             ],
@@ -572,11 +572,11 @@ describe('submission server helpers', () => {
     assert.match(fetchedUrl, /v3\/memories\/\?page=1&page_size=200/);
     assert.equal(fetchedOptions?.method, 'POST');
     assert.equal((fetchedOptions?.headers as Record<string, string>)?.Authorization, 'Token mem0-test-key');
-    assert.match(String(fetchedOptions?.body ?? ''), /"titleSlug":"palindrome-number"/);
-    assert.match(String(fetchedOptions?.body ?? ''), /"recordType":"leetcode_session_record"/);
+    assert.match(String(fetchedOptions?.body ?? ''), /"title_slug":"palindrome-number"/);
+    assert.match(String(fetchedOptions?.body ?? ''), /"record_type":"leetcode_session_record"/);
     assert.equal(recalled.titleSlug, 'palindrome-number');
     assert.equal(recalled.records.length, 2);
-    assert.equal(recalled.records[0]?.metadata?.endReason, 'accepted_restart');
+    assert.equal(recalled.records[0]?.metadata?.end_reason, 'accepted_restart');
   });
 
   it('hydrates recalled title-slug history into companion context before the first chat turn', async () => {
@@ -595,10 +595,10 @@ describe('submission server helpers', () => {
             memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: accepted_restart',
             createdAt: '2026-06-08T01:33:16.332Z',
             metadata: {
-              activatedAt: '2026-06-08T01:33:16.332Z',
-              endedAt: '2026-06-08T01:38:40.878Z',
-              endReason: 'accepted_restart',
-              latestFailureStatus: 'Runtime Error',
+              activated_at: '2026-06-08T01:33:16.332Z',
+              ended_at: '2026-06-08T01:38:40.878Z',
+              end_reason: 'accepted_restart',
+              latest_failure_status: 'Runtime Error',
             },
           },
           {
@@ -606,9 +606,9 @@ describe('submission server helpers', () => {
             memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
             createdAt: '2026-06-08T01:38:40.881Z',
             metadata: {
-              activatedAt: '2026-06-08T01:38:40.881Z',
-              endedAt: '2026-06-08T01:38:40.913Z',
-              endReason: 'drop_timer',
+              activated_at: '2026-06-08T01:38:40.881Z',
+              ended_at: '2026-06-08T01:38:40.913Z',
+              end_reason: 'drop_timer',
             },
           },
         ],

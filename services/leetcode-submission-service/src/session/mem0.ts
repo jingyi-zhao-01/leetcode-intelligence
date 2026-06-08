@@ -130,6 +130,28 @@ const readMetadataRecord = (value: unknown): Record<string, unknown> | undefined
   return value as Record<string, unknown>;
 };
 
+const readMetadataString = (metadata: Record<string, unknown>, ...keys: string[]): string | undefined => {
+  for (const key of keys) {
+    const value = readStringValue(metadata[key]);
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+};
+
+const readMetadataNumber = (metadata: Record<string, unknown>, ...keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
 const pushTextSection = (parts: string[], heading: string, content?: string): void => {
   if (!content || content.trim().length === 0) {
     return;
@@ -271,13 +293,13 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
 
   visibleRecords.forEach((record, index) => {
     const metadata = record.metadata ?? {};
-    const activatedAt = readStringValue(metadata.activatedAt);
-    const endedAt = readStringValue(metadata.endedAt);
-    const endReason = readStringValue(metadata.endReason);
-    const language = readStringValue(metadata.language);
-    const difficulty = readStringValue(metadata.difficulty);
-    const latestFailureStatus = readStringValue(metadata.latestFailureStatus);
-    const elapsedMinutes = typeof metadata.elapsedMinutes === 'number' ? metadata.elapsedMinutes : null;
+    const activatedAt = readMetadataString(metadata, 'activated_at', 'activatedAt');
+    const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt');
+    const endReason = readMetadataString(metadata, 'end_reason', 'endReason');
+    const language = readMetadataString(metadata, 'language');
+    const difficulty = readMetadataString(metadata, 'difficulty');
+    const latestFailureStatus = readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus');
+    const elapsedMinutes = readMetadataNumber(metadata, 'elapsed_minutes', 'elapsedMinutes');
 
     parts.push('', `## Session ${index + 1}`);
 
@@ -443,8 +465,8 @@ export class Mem0SessionRecordRecaller implements SessionRecordRecaller {
         { user_id: this.options.userId },
         { agent_id: this.agentId },
         { app_id: this.appId },
-        { metadata: { recordType: 'leetcode_session_record' } },
-        { metadata: { titleSlug } },
+        { metadata: { record_type: 'leetcode_session_record' } },
+        { metadata: { title_slug: titleSlug } },
       ],
     };
     const records: RecalledSessionRecord[] = [];
