@@ -25,7 +25,10 @@ import {
   createDefaultSessionRecordPersister,
   extractCompanionSessionContext,
   renderRecalledSessionRecords,
+  renderRecalledMountSummary,
+  summarizeRecalledSessionsForMount,
   TimerManager,
+  type RecalledMountSessionSummary,
   type SessionEndReason,
   type SessionRecordRecallResult,
 } from './session/index.ts';
@@ -40,6 +43,7 @@ enum ServerAction {
   GET_ACTIVE_TIMERS = 'get_active_timers',
   GET_ACTIVE_SESSIONS = 'get_active_sessions',
   GET_PAST_SUBMISSIONS = 'get_past_submissions',
+  GET_MEM0_RECALL_SUMMARY = 'get_mem0_recall_summary',
   SAVE_SUBMISSION = 'save_submission',
   ANALYZE_FAILURE = 'analyze_failure',
 }
@@ -484,7 +488,10 @@ export class SubmissionServer {
     }
 
     const message = recalled.records.length > 0 ? renderRecalledSessionRecords(recalled) : undefined;
-    this.sessionScope.recordMem0Recall(titleSlug, recalled.records.length, message);
+    const mountSummary = recalled.records.length > 0 ? renderRecalledMountSummary(recalled) : undefined;
+    const mountSessions: RecalledMountSessionSummary[] =
+      recalled.records.length > 0 ? summarizeRecalledSessionsForMount(recalled) : [];
+    this.sessionScope.recordMem0Recall(titleSlug, recalled.records.length, message, mountSummary, mountSessions);
   }
 
   private ensureActiveSession(titleSlug?: string): { ok: true; titleSlug: string } | { ok: false; error: string } {
@@ -654,6 +661,61 @@ export class SubmissionServer {
       throw new Error('get_past_submissions handler not configured');
     }
     return handler(this.actionContext, titleSlug, limit);
+  }
+
+  private async getMem0RecallSummary(titleSlug: string): Promise<Record<string, unknown>> {
+    if (!titleSlug) {
+      return {
+        success: false,
+        action: ServerAction.GET_MEM0_RECALL_SUMMARY,
+        error: 'title_slug is required.',
+      };
+    }
+
+    await this.hydrateMem0Recall(titleSlug);
+
+    const scope = this.sessionScope.getScope(titleSlug);
+    if (scope?.mem0Recall) {
+      return {
+        success: true,
+        action: ServerAction.GET_MEM0_RECALL_SUMMARY,
+        title_slug: titleSlug,
+        record_count: scope.mem0Recall.recordCount,
+        has_history: scope.mem0Recall.recordCount > 0,
+        summary: scope.mem0Recall.mountSummary,
+        sessions: scope.mem0Recall.mountSessions ?? [],
+      };
+    }
+
+    let recalled: SessionRecordRecallResult;
+    try {
+      recalled = await this.sessionRecordRecaller.recallByTitleSlug(titleSlug);
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          titleSlug,
+          action: ServerAction.GET_MEM0_RECALL_SUMMARY,
+        },
+        'Failed to recall Mem0 summary for on-mount question hint',
+      );
+      return {
+        success: false,
+        action: ServerAction.GET_MEM0_RECALL_SUMMARY,
+        title_slug: titleSlug,
+        error: 'Failed to recall historical session memory from Mem0.',
+      };
+    }
+
+    return {
+      success: true,
+      action: ServerAction.GET_MEM0_RECALL_SUMMARY,
+      title_slug: titleSlug,
+      record_count: recalled.records.length,
+      has_history: recalled.records.length > 0,
+      summary: renderRecalledMountSummary(recalled),
+      sessions: summarizeRecalledSessionsForMount(recalled),
+    };
   }
 
   private async analyzeFailure(request: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -1005,6 +1067,11 @@ export class SubmissionServer {
         const titleSlug = readString(request.title_slug);
         const limit = readNumber(request.limit, 10);
         return this.getPastSubmissions(titleSlug, limit);
+      }
+
+      case ServerAction.GET_MEM0_RECALL_SUMMARY: {
+        const titleSlug = readString(request.title_slug);
+        return this.getMem0RecallSummary(titleSlug);
       }
 
       case ServerAction.SAVE_SUBMISSION: {

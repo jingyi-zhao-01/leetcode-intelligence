@@ -4,6 +4,7 @@
 
 
 local M = {}
+local shown_mem0_recall_at = {}
 
 local function debug_log(msg)
   vim.schedule(function()
@@ -397,6 +398,111 @@ end
 
 function M.show_past_submissions(question, limit)
   M.get_past_submissions(question, nil, limit)
+end
+
+local function format_mem0_recall_lines(response)
+  local lines = {}
+  local sessions = type(response.sessions) == "table" and response.sessions or {}
+
+  table.insert(lines, string.format("之前做过这道题，找到了 %d 条历史记录。", tonumber(response.record_count) or #sessions))
+
+  for index, session in ipairs(sessions) do
+    local header = string.format("%d. %s", index, session.endReason or "unknown")
+    if session.latestFailureStatus and session.latestFailureStatus ~= vim.NIL then
+      header = header .. " | " .. session.latestFailureStatus
+    end
+    table.insert(lines, header)
+
+    if session.failureSummary and session.failureSummary ~= vim.NIL and session.failureSummary ~= "" then
+      table.insert(lines, "  之前的 failure: " .. session.failureSummary)
+    end
+
+    if type(session.stuckPoints) == "table" and #session.stuckPoints > 0 then
+      table.insert(lines, "  当时卡点: " .. table.concat(session.stuckPoints, " | "))
+    end
+
+    if type(session.thoughtProcess) == "table" and #session.thoughtProcess > 0 then
+      table.insert(lines, "  你的思路: " .. table.concat(session.thoughtProcess, " | "))
+    end
+  end
+
+  return lines
+end
+
+function M.get_mem0_recall_summary(question, callback)
+  local title_slug = question.q.title_slug
+  local response_line
+
+  local request = json_request({
+    action = "get_mem0_recall_summary",
+    title_slug = title_slug,
+  })
+
+  send_request(request, {
+    timeout_ms = 10000,
+    on_exit = function(_, exit_code, _)
+      if exit_code ~= 0 then
+        callback({
+          success = false,
+          error = "Mem0 recall lookup failed (code: " .. exit_code .. ")",
+        })
+        return
+      end
+
+      if not response_line then
+        callback({
+          success = false,
+          error = "Mem0 recall lookup returned no data",
+        })
+        return
+      end
+
+      local ok, response = pcall(vim.fn.json_decode, response_line)
+      if not ok then
+        callback({
+          success = false,
+          error = "Failed to parse Mem0 recall response",
+        })
+        return
+      end
+
+      callback(response)
+    end,
+    on_stdout = function(_, data, _)
+      response_line = extract_response_line(data) or response_line
+    end,
+  })
+end
+
+function M.show_mem0_recall_summary(question, opts)
+  opts = opts or {}
+  local title_slug = question.q.title_slug
+  local now = vim.loop.hrtime() / 1000000
+  local last_shown = shown_mem0_recall_at[title_slug] or 0
+
+  if now - last_shown < (opts.debounce_ms or 3000) then
+    return
+  end
+
+  shown_mem0_recall_at[title_slug] = now
+
+  M.get_mem0_recall_summary(question, function(response)
+    if not response or response.success == false then
+      local message = response and response.error or "Mem0 recall lookup failed"
+      debug_log("mem0 recall summary failed: " .. tostring(message))
+      return
+    end
+
+    if not response.has_history then
+      return
+    end
+
+    local lines = format_mem0_recall_lines(response)
+    vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, {
+      title = "LeetCode Memory: " .. title_slug,
+      timeout = opts.timeout or 12000,
+    })
+  end)
 end
 
 function M.analyze_failure(question, buffer, item, callback)

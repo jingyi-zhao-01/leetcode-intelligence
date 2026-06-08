@@ -12,7 +12,9 @@ import {
   Mem0SessionRecordPersister,
   renderActiveSessionScope,
   renderPersistedSessionRecord,
+  renderRecalledMountSummary,
   renderRecalledSessionRecords,
+  summarizeRecalledSessionsForMount,
 } from '../src/session/index.ts';
 import { parseFailureAnalysis } from '../src/utils/failureAnalysisParser.ts';
 import { formatPacificTimestamp, inferIsTestSubmission } from '../src/server.ts';
@@ -406,6 +408,48 @@ describe('submission server helpers', () => {
     assert.equal(messages[2]?.role, 'user');
     assert.match(messages[2]?.content ?? '', /Submission Service Failure Update/);
     assert.deepEqual(messages.slice(3), [{ role: 'user', content: '我这题之前发生过什么' }]);
+  });
+
+  it('builds an on-mount Mem0 summary with failure reasons, stuck points, and thought process', () => {
+    const recalled = {
+      titleSlug: 'best-time-to-buy-and-sell-stock',
+      records: [
+        {
+          id: 'mem_1',
+          memory: [
+            '# LeetCode Session Record',
+            '',
+            '## Latest Failure Analysis',
+            '- Summary: You computed a local profit but never wrote it back into max_profit.',
+            '- Annotations:',
+            '  - line 5 [error]: assign the result back into max_profit',
+            '  - line 7 [warn]: return max_profit instead of the transient variable',
+            '',
+            '## Companion Conversation',
+            '- user: 我是不是把当前利润和全局最大利润混了',
+            '- assistant: 对，这里少了一次状态更新。',
+            '- user: 我一直在想为什么最后输出是 3 不是 5',
+          ].join('\n'),
+          createdAt: '2026-06-08T01:38:40.881Z',
+          metadata: {
+            ended_at: '2026-06-08T01:38:40.913Z',
+            end_reason: 'failure_analysis',
+            latest_failure_status: 'Wrong Answer',
+          },
+        },
+      ],
+    };
+
+    const sessions = summarizeRecalledSessionsForMount(recalled);
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0]?.failureSummary, 'You computed a local profit but never wrote it back into max_profit.');
+    assert.match(sessions[0]?.stuckPoints[0] ?? '', /assign the result back into max_profit/);
+    assert.match(sessions[0]?.thoughtProcess[0] ?? '', /当前利润和全局最大利润混了/);
+
+    const rendered = renderRecalledMountSummary(recalled);
+    assert.match(rendered ?? '', /Failure reason: You computed a local profit/);
+    assert.match(rendered ?? '', /Stuck points:/);
+    assert.match(rendered ?? '', /Thought process:/);
   });
 
   it('clears agent memory when the active session ends', () => {
@@ -860,6 +904,55 @@ describe('submission server helpers', () => {
     assert.match(prepared.request.messages[1]?.content ?? '', /return str\(x\) == str\(x\)\[::-1\]/);
     assert.match(prepared.request.messages[2]?.content ?? '', /帮我回忆一下这题之前都发生了什么/);
     assert.equal((server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope()?.mem0Recall?.recordCount, 2);
+  });
+
+  it('returns an on-mount Mem0 recall summary for the current title slug', async () => {
+    const server = new SubmissionServer();
+
+    (
+      server as {
+        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+      }
+    ).sessionRecordRecaller = {
+      recallByTitleSlug: async (titleSlug) => ({
+        titleSlug,
+        records: [
+          {
+            id: 'mem_1',
+            memory: [
+              '# LeetCode Session Record',
+              '',
+              '## Latest Failure Analysis',
+              '- Summary: The loop updated profit but not max_profit.',
+              '- Annotations:',
+              '  - line 4 [error]: write back into max_profit',
+              '',
+              '## Companion Conversation',
+              '- user: 我是不是把局部 profit 当成结果了',
+            ].join('\n'),
+            createdAt: '2026-06-08T01:33:16.332Z',
+            metadata: {
+              ended_at: '2026-06-08T01:38:40.878Z',
+              end_reason: 'failure_analysis',
+              latest_failure_status: 'Wrong Answer',
+            },
+          },
+        ],
+      }),
+    };
+
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
+
+    const response = await (
+      server as {
+        getMem0RecallSummary: (titleSlug: string) => Promise<Record<string, unknown>>;
+      }
+    ).getMem0RecallSummary('best-time-to-buy-and-sell-stock');
+
+    assert.equal(response.success, true);
+    assert.equal(response.record_count, 1);
+    assert.equal(response.has_history, true);
+    assert.match(String(response.summary ?? ''), /Failure reason: The loop updated profit but not max_profit/);
   });
 
   it('persists a session snapshot when the server stops an active session', async () => {

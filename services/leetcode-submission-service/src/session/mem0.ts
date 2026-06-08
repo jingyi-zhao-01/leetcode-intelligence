@@ -17,6 +17,8 @@ const MAX_RECALLED_SESSION_RECORDS = 12;
 const MAX_RECALLED_CODE_CHARS = 600;
 const MAX_RECALLED_ANALYSIS_CHARS = 1_200;
 const MAX_RECALLED_FAILURE_CHARS = 900;
+const MAX_MOUNT_SUMMARY_RECORDS = 3;
+const MAX_MOUNT_SUMMARY_CHARS = 1_600;
 const DEFAULT_MEM0_BASE_URL = 'https://api.mem0.ai';
 const MIN_INTERACTIONS_TO_PERSIST = 5;
 
@@ -51,6 +53,15 @@ export type RecalledSessionRecord = {
 export type SessionRecordRecallResult = {
   titleSlug: string;
   records: RecalledSessionRecord[];
+};
+
+export type RecalledMountSessionSummary = {
+  endedAt?: string;
+  endReason?: string;
+  latestFailureStatus?: string;
+  failureSummary?: string;
+  stuckPoints: string[];
+  thoughtProcess: string[];
 };
 
 export type SessionRecordRecaller = {
@@ -170,6 +181,18 @@ const readMarkdownSection = (content: string, heading: string): string | undefin
 const stripCodeFence = (content: string): string => {
   const fenced = content.match(/^```[^\n]*\n([\s\S]*?)\n```$/);
   return fenced?.[1]?.trim() ?? content.trim();
+};
+
+const extractBulletValues = (content: string, pattern: RegExp): string[] => {
+  const matches = content.matchAll(pattern);
+  const values: string[] = [];
+  for (const match of matches) {
+    const value = match[1]?.trim();
+    if (value) {
+      values.push(value);
+    }
+  }
+  return values;
 };
 
 const pushTextSection = (parts: string[], heading: string, content?: string): void => {
@@ -413,6 +436,69 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
     role: 'user',
     content: parts.join('\n'),
   };
+}
+
+export function summarizeRecalledSessionsForMount(result: SessionRecordRecallResult): RecalledMountSessionSummary[] {
+  const records = [...result.records].sort((left, right) =>
+    (right.createdAt ?? right.updatedAt ?? '').localeCompare(left.createdAt ?? left.updatedAt ?? ''),
+  );
+
+  return records.slice(0, MAX_MOUNT_SUMMARY_RECORDS).map((record) => {
+    const metadata = record.metadata ?? {};
+    const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt');
+    const endReason = readMetadataString(metadata, 'end_reason', 'endReason');
+    const latestFailureStatus = readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus');
+    const failureAnalysis = readMarkdownSection(record.memory, 'Latest Failure Analysis') ?? '';
+    const companionConversation = readMarkdownSection(record.memory, 'Companion Conversation') ?? '';
+
+    const failureSummaryMatch = failureAnalysis.match(/^- Summary:\s*(.+)$/m);
+    const failureSummary = readStringValue(failureSummaryMatch?.[1]);
+    const stuckPoints = extractBulletValues(failureAnalysis, /^\s*-\s*line\s+\d+\s+\[[^\]]+\]:\s*(.+)$/gm).slice(0, 3);
+    const thoughtProcess = extractBulletValues(companionConversation, /^- user:\s*(.+)$/gm).slice(-3);
+
+    return {
+      endedAt,
+      endReason,
+      latestFailureStatus,
+      failureSummary,
+      stuckPoints,
+      thoughtProcess,
+    };
+  });
+}
+
+export function renderRecalledMountSummary(result: SessionRecordRecallResult): string | undefined {
+  const sessions = summarizeRecalledSessionsForMount(result);
+  if (sessions.length === 0) {
+    return undefined;
+  }
+
+  const parts = [
+    `You have historical LeetCode memory for \`${result.titleSlug}\`.`,
+    `Recent recalled sessions: ${result.records.length}.`,
+  ];
+
+  sessions.forEach((session, index) => {
+    parts.push('', `Session ${index + 1}:`);
+
+    if (session.endReason) {
+      parts.push(`- End reason: ${session.endReason}`);
+    }
+    if (session.latestFailureStatus) {
+      parts.push(`- Failure status: ${session.latestFailureStatus}`);
+    }
+    if (session.failureSummary) {
+      parts.push(`- Failure reason: ${session.failureSummary}`);
+    }
+    if (session.stuckPoints.length > 0) {
+      parts.push(`- Stuck points: ${session.stuckPoints.join(' | ')}`);
+    }
+    if (session.thoughtProcess.length > 0) {
+      parts.push(`- Thought process: ${session.thoughtProcess.join(' | ')}`);
+    }
+  });
+
+  return truncate(parts.join('\n'), MAX_MOUNT_SUMMARY_CHARS);
 }
 
 class NoopSessionRecordPersister implements SessionRecordPersister {

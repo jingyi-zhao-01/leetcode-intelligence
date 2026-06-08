@@ -1,5 +1,6 @@
 import type { CompanionChatMessage } from '../core/companionChat.ts';
 import type { FailureAnalysisRequest, FailureAnalysisResult } from '../core/failureAnalysis.ts';
+import type { RecalledMountSessionSummary } from './mem0.ts';
 
 export type CompanionSessionContext = {
   title?: string;
@@ -30,6 +31,8 @@ export type ActiveSessionScope = {
     hydratedAt: string;
     recordCount: number;
     message?: CompanionChatMessage;
+    mountSummary?: string;
+    mountSessions?: RecalledMountSessionSummary[];
   };
   sessionMemory?: {
     updatedAt: string;
@@ -331,12 +334,20 @@ export class ActiveSessionScopeManager {
     return !!this.scopes.get(titleSlug)?.mem0Recall;
   }
 
-  recordMem0Recall(titleSlug: string, recordCount: number, message?: CompanionChatMessage): ActiveSessionScope {
+  recordMem0Recall(
+    titleSlug: string,
+    recordCount: number,
+    message?: CompanionChatMessage,
+    mountSummary?: string,
+    mountSessions?: RecalledMountSessionSummary[],
+  ): ActiveSessionScope {
     const scope = this.activate(titleSlug);
     scope.mem0Recall = {
       hydratedAt: new Date().toISOString(),
       recordCount,
       message,
+      mountSummary,
+      mountSessions,
     };
 
     if (!message) {

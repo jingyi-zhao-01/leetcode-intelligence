@@ -7,12 +7,15 @@ export {
   createDefaultSessionRecordPersister,
   Mem0SessionRecordRecaller,
   Mem0SessionRecordPersister,
+  renderRecalledMountSummary,
   renderRecalledSessionRecords,
   renderPersistedSessionRecord,
+  summarizeRecalledSessionsForMount,
 } from './mem0.ts';
 export type { ActiveSessionScope, CompanionSessionContext } from './scope.ts';
 export type {
   RecalledSessionRecord,
+  RecalledMountSessionSummary,
   SessionEndEvent,
   SessionEndReason,
   SessionRecordPersister,
