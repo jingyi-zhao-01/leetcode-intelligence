@@ -4,32 +4,33 @@ import { parseFailureAnalysis } from "../utils/failureAnalysisParser.ts";
 import { createLogger } from "../logger.ts";
 
 const FAILURE_ANALYSIS_PROMPT = `
-You are analyzing a failed LeetCode test run.
+你在分析一次 LeetCode 失败测试。
 
-Explain the bug briefly in English, then identify the most likely problematic lines in the user's editor buffer.
-Use the absolute line numbers from the numbered editor buffer below.
-Focus on the user's submission and the LeetCode error response. Do not rewrite the whole solution.
-If the raw LeetCode error already suggests a location, preserve that signal in your analysis.
+请用中文、尽可能短地说明 bug，并找出最可能出问题的代码行。
+行号必须使用下面带编号 editor buffer 的绝对行号。
+只关注用户当前提交和 LeetCode 返回结果，不要重写整题解法。
+如果原始错误信息已经暗示了位置，优先保留这个信号。
 
-Return JSON only with this shape:
+只返回 JSON，格式如下：
 {
-  "summary": "short English explanation",
+  "summary": "极短中文总结",
   "annotations": [
     {
       "line": 12,
-      "reason": "short English reason",
+      "reason": "极短中文原因",
       "severity": "error"
     }
   ]
 }
 
-Rules:
-- summary must be English.
-- reason must be concise and in English.
-- severity must be "error" or "warn".
-- Keep at most 6 annotations.
-- If you cannot infer a useful line, return an empty annotations array.
-- Do not wrap the JSON in markdown fences.
+规则：
+- summary 必须是中文，最好 8-20 个字。
+- reason 必须是中文，尽量不超过 16 个字。
+- severity 只能是 "error" 或 "warn"。
+- 最多返回 6 条 annotations。
+- 如果推不出有价值的行号，就返回空数组。
+- 不要输出 markdown code fence。
+- 不要解释，不要寒暄，不要输出 JSON 之外的任何文字。
 `.trim();
 
 const logger = createLogger("static-analysis");

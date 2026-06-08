@@ -564,6 +564,12 @@ function M.analyze_failure(question, buffer, item, callback)
         end)
       end
 
+      if response and response.success then
+        pcall(function()
+          require("leetcode-ui.split.submissions").refresh_memory_for_slug(title_slug)
+        end)
+      end
+
       callback(response)
     end,
     on_stdout = function(_, data, _)

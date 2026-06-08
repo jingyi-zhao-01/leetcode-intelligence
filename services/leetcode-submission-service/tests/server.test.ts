@@ -129,6 +129,28 @@ describe('submission server helpers', () => {
     ]);
   });
 
+  it('accepts short Chinese failure summaries and reasons', () => {
+    const parsed = parseFailureAnalysis(
+      JSON.stringify({
+        summary: '未更新最大利润',
+        annotations: [
+          { line: 4, reason: '应回写 max_profit', severity: 'error' },
+        ],
+      }),
+      10,
+    );
+
+    assert.equal(parsed.summary, '未更新最大利润');
+    assert.deepEqual(parsed.annotations, [
+      {
+        line: 4,
+        reason: '应回写 max_profit',
+        severity: 'error',
+        column: undefined,
+      },
+    ]);
+  });
+
   it('sanitizes companion messages and drops invalid entries', () => {
     const messages = sanitizeCompanionMessages([
       { role: 'system', content: 'hidden prompt' },
