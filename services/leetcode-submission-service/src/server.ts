@@ -551,11 +551,13 @@ export class SubmissionServer {
       "starting failure analysis",
     );
     const analysis = await this.failureAnalyzer.analyze(payload);
-    this.sessionScope.recordFailureAnalysis(payload, analysis);
+    const eventId = `failure_${randomUUID()}`;
+    this.sessionScope.recordFailureAnalysis(payload, analysis, eventId);
     logger.info(
       {
         action: ServerAction.ANALYZE_FAILURE,
         titleSlug: payload.titleSlug,
+        eventId,
         annotationCount: analysis.annotations.length,
       },
       "completed failure analysis",
@@ -563,6 +565,7 @@ export class SubmissionServer {
     return {
       success: true,
       action: ServerAction.ANALYZE_FAILURE,
+      event_id: eventId,
       title_slug: payload.titleSlug,
       summary: analysis.summary,
       annotations: analysis.annotations,
@@ -647,6 +650,16 @@ export class SubmissionServer {
       return prepared.response;
     }
 
+    logger.info(
+      {
+        titleSlug: prepared.titleSlug,
+        model: prepared.request.model ?? this.companionModel,
+        stream: false,
+        messageCount: prepared.request.messages.length,
+      },
+      "Companion completion request accepted",
+    );
+
     const result = await this.companionChat!.chat(prepared.request);
     this.sessionScope.appendCompanionReply(prepared.titleSlug, result.content);
     const created = Math.floor(Date.now() / 1000);
@@ -676,6 +689,16 @@ export class SubmissionServer {
       writeJson(res, 400, prepared.response);
       return;
     }
+
+    logger.info(
+      {
+        titleSlug: prepared.titleSlug,
+        model: prepared.request.model ?? this.companionModel,
+        stream: true,
+        messageCount: prepared.request.messages.length,
+      },
+      "Companion stream request accepted",
+    );
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");

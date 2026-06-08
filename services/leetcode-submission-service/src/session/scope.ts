@@ -26,7 +26,12 @@ export type ActiveSessionScope = {
     updatedAt: string;
     messages: CompanionChatMessage[];
   };
+  sessionMemory?: {
+    updatedAt: string;
+    messages: CompanionChatMessage[];
+  };
   latestFailure?: {
+    eventId: string;
     recordedAt: string;
     judgeResult: FailureAnalysisRequest["judgeResult"];
     submissionContent?: string;
@@ -41,6 +46,7 @@ export type ActiveSessionScope = {
 };
 
 const SESSION_MEMORY_LIMIT = 24;
+const SERVICE_MEMORY_LIMIT = 8;
 
 const lineValue = (content: string, label: string): string => {
   const match = content.match(new RegExp(`^- ${label}:\\s*(.+)$`, "m"));
@@ -115,6 +121,7 @@ export function renderActiveSessionScope(scope: ActiveSessionScope): string {
 
   if (scope.latestFailure) {
     parts.push("", "## Latest LeetCode Failure");
+    parts.push(`- Event ID: ${scope.latestFailure.eventId}`);
 
     const status =
       scope.latestFailure.judgeResult &&
@@ -161,6 +168,56 @@ function normalizeConversationMemory(messages: CompanionChatMessage[]): Companio
   }
 
   return visibleMessages.slice(visibleMessages.length - SESSION_MEMORY_LIMIT);
+}
+
+function normalizeServiceMemory(messages: CompanionChatMessage[]): CompanionChatMessage[] {
+  if (messages.length <= SERVICE_MEMORY_LIMIT) {
+    return messages;
+  }
+
+  return messages.slice(messages.length - SERVICE_MEMORY_LIMIT);
+}
+
+function buildFailureMemoryMessage(eventId: string, request: FailureAnalysisRequest, result: FailureAnalysisResult): CompanionChatMessage {
+  const parts = [
+    "# Submission Service Failure Update",
+    "",
+    `- Event ID: ${eventId}`,
+    `- Title Slug: ${request.titleSlug}`,
+    "- This update supersedes any earlier companion diagnosis for the current failed run.",
+  ];
+
+  const status =
+    request.judgeResult &&
+    typeof request.judgeResult === "object" &&
+    "status_msg" in request.judgeResult &&
+    typeof request.judgeResult.status_msg === "string"
+      ? request.judgeResult.status_msg
+      : "";
+
+  if (status) {
+    parts.push(`- Judge Status: ${status}`);
+  }
+
+  if (request.testcase.trim().length > 0) {
+    parts.push("", "## Failed Testcase", "```text", request.testcase.trim(), "```");
+  }
+
+  parts.push("", "## Static Analysis Summary", result.summary);
+
+  if (result.annotations.length > 0) {
+    parts.push("", "## Static Analysis Annotations");
+    for (const annotation of result.annotations) {
+      parts.push(`- line ${annotation.line} [${annotation.severity}]: ${annotation.reason}`);
+    }
+  }
+
+  parts.push("", "## Raw Judge Result", "```json", JSON.stringify(request.judgeResult, null, 2), "```");
+
+  return {
+    role: "user",
+    content: parts.join("\n"),
+  };
 }
 
 export class ActiveSessionScopeManager {
@@ -241,7 +298,17 @@ export class ActiveSessionScopeManager {
     return scope;
   }
 
-  recordFailureAnalysis(request: FailureAnalysisRequest, result: FailureAnalysisResult): ActiveSessionScope {
+  recordSessionMemory(titleSlug: string, message: CompanionChatMessage): ActiveSessionScope {
+    const scope = this.activate(titleSlug);
+    const existingMessages = scope.sessionMemory?.messages ?? [];
+    scope.sessionMemory = {
+      updatedAt: new Date().toISOString(),
+      messages: normalizeServiceMemory([...existingMessages, message]),
+    };
+    return scope;
+  }
+
+  recordFailureAnalysis(request: FailureAnalysisRequest, result: FailureAnalysisResult, eventId: string): ActiveSessionScope {
     const scope = this.activate(request.titleSlug);
     scope.title = request.title || scope.title;
     scope.questionContent = request.questionContent || scope.questionContent;
@@ -250,6 +317,7 @@ export class ActiveSessionScopeManager {
     scope.testcase = request.testcase || scope.testcase;
     scope.filetype = request.filetype || scope.filetype;
     scope.latestFailure = {
+      eventId,
       recordedAt: new Date().toISOString(),
       judgeResult: request.judgeResult,
       submissionContent: request.submissionContent || scope.submissionContent,
@@ -261,6 +329,10 @@ export class ActiveSessionScopeManager {
       annotations: result.annotations,
       judgeResult: request.judgeResult,
     };
+    this.recordSessionMemory(
+      request.titleSlug,
+      buildFailureMemoryMessage(eventId, request, result),
+    );
     return scope;
   }
 
@@ -280,6 +352,7 @@ export class ActiveSessionScopeManager {
         role: "user",
         content: renderActiveSessionScope(scope),
       },
+      ...(this.getActiveScope()?.sessionMemory?.messages ?? []),
       ...(this.getActiveScope()?.companionMemory?.messages ?? []),
     ];
   }

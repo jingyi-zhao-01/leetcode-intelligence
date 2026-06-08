@@ -205,18 +205,26 @@ describe("submission server helpers", () => {
         summary: "The hash map lookup happens after the insert.",
         annotations: [{ line: 2, reason: "order is wrong", severity: "error" }],
       },
+      "failure_test_1",
     );
 
     const scope = manager.getActiveScope();
     assert.ok(scope);
     assert.equal(scope.titleSlug, "two-sum");
     assert.equal(scope.companionMemory?.messages.length, 2);
+    assert.equal(scope.sessionMemory?.messages.length, 1);
+    assert.match(scope.sessionMemory?.messages[0]?.content ?? "", /Submission Service Failure Update/);
+    assert.match(scope.sessionMemory?.messages[0]?.content ?? "", /Event ID: failure_test_1/);
+    assert.match(scope.sessionMemory?.messages[0]?.content ?? "", /Static Analysis Summary/);
+    assert.match(scope.sessionMemory?.messages[0]?.content ?? "", /Wrong Answer/);
+    assert.equal(scope.latestFailure?.eventId, "failure_test_1");
     assert.equal(scope.latestFailure?.judgeResult && typeof scope.latestFailure.judgeResult === "object" ? scope.latestFailure.judgeResult.status_msg : "", "Wrong Answer");
     assert.equal(scope.lastFailureAnalysis?.summary, "The hash map lookup happens after the insert.");
 
     const rendered = renderActiveSessionScope(scope);
     assert.match(rendered, /Title Slug: two-sum/);
     assert.match(rendered, /Latest LeetCode Failure/);
+    assert.match(rendered, /Event ID: failure_test_1/);
     assert.match(rendered, /Wrong Answer/);
     assert.match(rendered, /Latest Failure Analysis/);
     assert.match(rendered, /order is wrong/);
@@ -249,6 +257,47 @@ describe("submission server helpers", () => {
     assert.match(messages[0]?.content ?? "", /Submission Service Active Session/);
     assert.deepEqual(manager.getActiveScope()?.companionMemory?.messages, [
       { role: "user", content: "帮我看下为什么 test 过不了" },
+    ]);
+  });
+
+  it("always injects the latest failure snapshot before companion history", () => {
+    const manager = new ActiveSessionScopeManager();
+    manager.activate("two-sum");
+    manager.recordCompanionMessages("two-sum", [
+      { role: "user", content: "我刚刚犯了什么错误" },
+      { role: "assistant", content: "这是旧诊断。" },
+    ]);
+    manager.recordFailureAnalysis(
+      {
+        titleSlug: "two-sum",
+        title: "Two Sum",
+        questionContent: "Find two numbers.",
+        editorContent: "class Solution:\n    return []",
+        submissionContent: "class Solution:\n    return []",
+        testcase: "[3,2,4]\n6",
+        judgeResult: { status_msg: "Wrong Answer", expected_code_answer: "[1,2]" },
+        filetype: "python",
+      },
+      {
+        summary: "The current code returns an empty list for every input.",
+        annotations: [{ line: 2, reason: "always returns []", severity: "error" }],
+      },
+      "failure_test_2",
+    );
+
+    const messages = manager.buildCompanionMessages([
+      { role: "user", content: "我刚刚犯了什么错误" },
+    ]);
+
+    assert.equal(messages[0]?.role, "user");
+    assert.match(messages[0]?.content ?? "", /Submission Service Active Session/);
+    assert.equal(messages[1]?.role, "user");
+    assert.match(messages[1]?.content ?? "", /Submission Service Failure Update/);
+    assert.match(messages[1]?.content ?? "", /Event ID: failure_test_2/);
+    assert.match(messages[1]?.content ?? "", /supersedes any earlier companion diagnosis/);
+    assert.match(messages[1]?.content ?? "", /always returns \[\]/);
+    assert.deepEqual(messages.slice(2), [
+      { role: "user", content: "我刚刚犯了什么错误" },
     ]);
   });
 });

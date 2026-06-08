@@ -1,5 +1,6 @@
 import { Agent, OpenAIProvider, Runner, assistant, user, type AgentInputItem } from "@openai/agents";
 import OpenAI from "openai";
+import { createLogger } from "../logger.ts";
 
 export type CompanionChatMessage = {
   role: "system" | "user" | "assistant";
@@ -74,6 +75,8 @@ Rules:
 - If the user explicitly asks for another language, follow the user's request.
 `.trim();
 
+const logger = createLogger("companion-chat");
+
 const toText = (value: unknown): string => (typeof value === "string" ? value : "");
 
 export function sanitizeCompanionMessages(messages: unknown): CompanionChatMessage[] {
@@ -137,6 +140,14 @@ function extractFinalText(output: unknown): string {
   return "";
 }
 
+function summarizeMessages(messages: CompanionChatMessage[]): Array<{ role: CompanionChatMessage["role"]; chars: number; preview: string }> {
+  return messages.map((message) => ({
+    role: message.role,
+    chars: message.content.length,
+    preview: message.content.slice(0, 160),
+  }));
+}
+
 class AgentsSdkCompanionChatService implements CompanionChatService {
   private readonly openaiClient: OpenAI;
   private readonly modelProvider: OpenAIProvider;
@@ -184,6 +195,18 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
     const model = request.model?.trim() || this.defaultModel;
     const temperature = Number.isFinite(request.temperature) ? request.temperature : 0.2;
     const agent = this.createAgent(request);
+    const startedAt = Date.now();
+
+    logger.info(
+      {
+        model,
+        stream: false,
+        messageCount: messages.length,
+        messages: summarizeMessages(messages),
+      },
+      "Companion chat request started",
+    );
+
     const runner = new Runner({
       modelProvider: this.modelProvider,
       modelSettings: {
@@ -197,9 +220,22 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
       maxTurns: 1,
     });
 
+    const content = extractFinalText(result.finalOutput);
+
+    logger.info(
+      {
+        model,
+        stream: false,
+        durationMs: Date.now() - startedAt,
+        outputChars: content.length,
+        outputPreview: content.slice(0, 200),
+      },
+      "Companion chat request completed",
+    );
+
     return {
       model,
-      content: extractFinalText(result.finalOutput),
+      content,
       finishReason: "stop",
     };
   }
@@ -213,6 +249,18 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
     const model = request.model?.trim() || this.defaultModel;
     const temperature = Number.isFinite(request.temperature) ? request.temperature : 0.2;
     const agent = this.createAgent(request);
+    const startedAt = Date.now();
+
+    logger.info(
+      {
+        model,
+        stream: true,
+        messageCount: messages.length,
+        messages: summarizeMessages(messages),
+      },
+      "Companion chat stream started",
+    );
+
     const runner = new Runner({
       modelProvider: this.modelProvider,
       modelSettings: {
@@ -228,12 +276,19 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
 
     async function* iterate(): AsyncIterable<CompanionChatStreamChunk> {
       let sentRole = false;
+      let outputChars = 0;
+      let outputPreview = "";
       const textStream = result.toTextStream({ compatibleWithNodeStreams: true });
 
       for await (const piece of textStream) {
         const content = typeof piece === "string" ? piece : String(piece ?? "");
         if (content.length === 0) {
           continue;
+        }
+
+        outputChars += content.length
+        if (outputPreview.length < 200) {
+          outputPreview = (outputPreview + content).slice(0, 200)
         }
 
         yield {
@@ -257,6 +312,17 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
       }
 
       await result.completed;
+
+      logger.info(
+        {
+          model,
+          stream: true,
+          durationMs: Date.now() - startedAt,
+          outputChars,
+          outputPreview,
+        },
+        "Companion chat stream completed",
+      );
 
       yield {
         id: chunkId,

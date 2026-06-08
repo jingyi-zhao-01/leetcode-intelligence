@@ -452,6 +452,12 @@ function M.analyze_failure(question, buffer, item, callback)
         return
       end
 
+      if response and response.success and response.event_id then
+        pcall(function()
+          require("leetcode.integrations.codecompanion").render_failure_event(question, response)
+        end)
+      end
+
       callback(response)
     end,
     on_stdout = function(_, data, _)
