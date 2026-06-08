@@ -49,6 +49,7 @@ type NormalizedRecalledSession = {
   failureSnapshot?: string;
   failureAnalysis?: string;
   failureSummary?: string;
+  failureSummaries: string[];
   stuckPoints: string[];
   thoughtProcess: string[];
   sortTimestamp: string;
@@ -280,6 +281,7 @@ function parseRecalledSessionRecord(record: RecalledSessionRecord): NormalizedRe
     failureSnapshot,
     failureAnalysis,
     failureSummary: readStringValue(failureSummaryMatch?.[1]),
+    failureSummaries: uniqueValues([readStringValue(failureSummaryMatch?.[1])]),
     stuckPoints: extractBulletValues(failureAnalysis ?? '', /^\s*-\s*line\s+\d+\s+\[[^\]]+\]:\s*(.+)$/gm),
     thoughtProcess: extractBulletValues(companionConversation, /^- user:\s*(.+)$/gm),
     sortTimestamp: endedAt ?? record.createdAt ?? record.updatedAt ?? activatedAt ?? '',
@@ -304,6 +306,7 @@ function mergeRecalledSessions(primary: NormalizedRecalledSession, secondary: No
     failureSnapshot: primary.failureSnapshot ?? secondary.failureSnapshot,
     failureAnalysis: primary.failureAnalysis ?? secondary.failureAnalysis,
     failureSummary: primary.failureSummary ?? secondary.failureSummary,
+    failureSummaries: uniqueValues([...primary.failureSummaries, ...secondary.failureSummaries], 6),
     stuckPoints: uniqueValues([...primary.stuckPoints, ...secondary.stuckPoints], 6),
     thoughtProcess: uniqueValues([...primary.thoughtProcess, ...secondary.thoughtProcess], 6),
     sortTimestamp: primary.sortTimestamp || secondary.sortTimestamp,
@@ -345,6 +348,7 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
     `- Recalled Session Count: ${sessions.length}`,
     '- These are historical session records recalled from Mem0 for this exact LeetCode problem.',
     '- Records may include ended-session snapshots and failure-analysis-triggered snapshots.',
+    '- When the user asks about past mistakes, enumerate every distinct recalled mistake summary instead of collapsing them into one primary issue.',
     '- Treat these as historical summaries only; do not assume omitted code or truncated snapshots are ground truth.',
   ];
 
@@ -386,6 +390,9 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
     if (session.rawRecordCount > 1) {
       parts.push(`- Merged Raw Record Count: ${session.rawRecordCount}`);
     }
+    if (session.failureSummaries.length > 0) {
+      parts.push(`- Distinct Historical Mistake Count: ${session.failureSummaries.length}`);
+    }
 
     parts.push(
       `- Observed Artifacts: ${session.observedArtifacts.length > 0 ? session.observedArtifacts.join(', ') : 'metadata_only'}`,
@@ -401,6 +408,18 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
     if (session.failureAnalysis) {
       parts.push('', '### Recalled Failure Analysis', truncate(session.failureAnalysis, MAX_RECALLED_ANALYSIS_CHARS));
     }
+    if (session.failureSummaries.length > 0) {
+      parts.push('', '### Recalled Mistake Summaries');
+      for (const summary of session.failureSummaries) {
+        parts.push(`- ${truncate(summary, MAX_MESSAGE_CHARS)}`);
+      }
+    }
+    if (session.stuckPoints.length > 0) {
+      parts.push('', '### Recalled Stuck Points');
+      for (const stuckPoint of session.stuckPoints) {
+        parts.push(`- ${truncate(stuckPoint, 240)}`);
+      }
+    }
   });
 
   return {
@@ -415,7 +434,9 @@ export function summarizeRecalledSessionsForMount(result: SessionRecordRecallRes
     endedAt: session.endedAt,
     endReason: session.endReason,
     latestFailureStatus: session.latestFailureStatus,
+    distinctMistakeCount: session.failureSummaries.length,
     failureSummary: session.failureSummary,
+    failureSummaries: session.failureSummaries.slice(0, 3),
     stuckPoints: session.stuckPoints.slice(0, 3),
     thoughtProcess: session.thoughtProcess.slice(-3),
   }));
@@ -443,8 +464,14 @@ export function renderRecalledMountSummary(result: SessionRecordRecallResult): s
     if (session.latestFailureStatus) {
       parts.push(`- Failure status: ${session.latestFailureStatus}`);
     }
+    if (typeof session.distinctMistakeCount === 'number' && session.distinctMistakeCount > 0) {
+      parts.push(`- Distinct mistakes: ${session.distinctMistakeCount}`);
+    }
     if (session.failureSummary) {
       parts.push(`- Failure reason: ${session.failureSummary}`);
+    }
+    if (session.failureSummaries && session.failureSummaries.length > 1) {
+      parts.push(`- Other failure reasons: ${session.failureSummaries.slice(1).join(' | ')}`);
     }
     if (session.stuckPoints.length > 0) {
       parts.push(`- Stuck points: ${session.stuckPoints.join(' | ')}`);

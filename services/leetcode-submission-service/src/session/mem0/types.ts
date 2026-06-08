@@ -39,7 +39,9 @@ export type RecalledMountSessionSummary = {
   endedAt?: string;
   endReason?: string;
   latestFailureStatus?: string;
+  distinctMistakeCount?: number;
   failureSummary?: string;
+  failureSummaries?: string[];
   stuckPoints: string[];
   thoughtProcess: string[];
 };

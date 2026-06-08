@@ -542,6 +542,21 @@ export class SubmissionServer {
     const mountSummary = normalizedRecordCount > 0 ? renderRecalledMountSummary(recalled) : undefined;
     const mountSessions: RecalledMountSessionSummary[] =
       normalizedRecordCount > 0 ? summarizeRecalledSessionsForMount(recalled) : [];
+    logger.info(
+      {
+        titleSlug,
+        rawRecordCount: recalled.records.length,
+        normalizedRecordCount,
+        sessions: mountSessions.map((session) => ({
+          runId: session.runId,
+          endReason: session.endReason,
+          latestFailureStatus: session.latestFailureStatus,
+          distinctMistakeCount: session.distinctMistakeCount ?? 0,
+          failureSummaries: session.failureSummaries ?? [],
+        })),
+      },
+      'Hydrated Mem0 recall summary into active session',
+    );
     this.sessionScope.recordMem0Recall(titleSlug, normalizedRecordCount, message, mountSummary, mountSessions);
   }
 

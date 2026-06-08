@@ -470,6 +470,7 @@ describe('submission server helpers', () => {
     assert.match(sessions[0]?.thoughtProcess[0] ?? '', /当前利润和全局最大利润混了/);
 
     const rendered = renderRecalledMountSummary(recalled);
+    assert.match(rendered ?? '', /Distinct mistakes: 1/);
     assert.match(rendered ?? '', /Failure reason: You computed a local profit/);
     assert.match(rendered ?? '', /Stuck points:/);
     assert.match(rendered ?? '', /Thought process:/);
@@ -505,6 +506,34 @@ describe('submission server helpers', () => {
             ended_at: '2026-06-08T01:10:00.000Z',
             end_reason: 'failure_analysis',
             latest_failure_status: 'Wrong Answer',
+          },
+        },
+        {
+          id: 'mem_failure_2',
+          memory: [
+            '# LeetCode Session Record',
+            '',
+            '- Title Slug: maximum-subarray',
+            '- Run ID: leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            '- Activated At: 2026-06-08T01:00:00.000Z',
+            '- Ended At: 2026-06-08T01:11:00.000Z',
+            '- End Reason: failure_analysis',
+            '',
+            '## Latest Failure Analysis',
+            '- Summary: max() received only one argument, so the Kadane transition was malformed.',
+            '- Annotations:',
+            '  - line 4 [error]: max needs both the standalone value and the extended prefix',
+            '',
+            '## Companion Conversation',
+            '- user: 我是不是把 max 的第二个参数漏掉了',
+          ].join('\n'),
+          createdAt: '2026-06-08T01:11:00.000Z',
+          metadata: {
+            run_id: 'leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            activated_at: '2026-06-08T01:00:00.000Z',
+            ended_at: '2026-06-08T01:11:00.000Z',
+            end_reason: 'failure_analysis',
+            latest_failure_status: 'Runtime Error',
           },
         },
         {
@@ -546,14 +575,21 @@ describe('submission server helpers', () => {
     assert.equal(mountSessions.length, 1);
     assert.equal(mountSessions[0]?.runId, 'leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z');
     assert.equal(mountSessions[0]?.endReason, 'accepted_restart');
-    assert.match(mountSessions[0]?.failureSummary ?? '', /double-counted the first element/);
+    assert.equal(mountSessions[0]?.distinctMistakeCount, 2);
+    assert.equal(mountSessions[0]?.failureSummaries?.length, 2);
+    assert.ok((mountSessions[0]?.failureSummaries ?? []).some((summary) => /double-counted the first element/.test(summary)));
+    assert.ok((mountSessions[0]?.failureSummaries ?? []).some((summary) => /Kadane transition was malformed/.test(summary)));
 
     const rendered = renderRecalledSessionRecords(recalled).content;
     assert.match(rendered, /Recalled Session Count: 1/);
-    assert.match(rendered, /Raw Mem0 Record Count: 2/);
-    assert.match(rendered, /Merged Raw Record Count: 2/);
+    assert.match(rendered, /Raw Mem0 Record Count: 3/);
+    assert.match(rendered, /Merged Raw Record Count: 3/);
+    assert.match(rendered, /Distinct Historical Mistake Count: 2/);
     assert.match(rendered, /accepted_restart/);
     assert.match(rendered, /double-counted the first element/);
+    assert.match(rendered, /Kadane transition was malformed/);
+    assert.match(rendered, /Recalled Mistake Summaries/);
+    assert.match(rendered, /Recalled Stuck Points/);
   });
 
   it('clears agent memory when the active session ends', () => {
