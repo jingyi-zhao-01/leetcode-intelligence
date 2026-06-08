@@ -22,6 +22,7 @@ import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from './cor
 import {
   ActiveSessionScopeManager,
   buildSyntheticRecalledSessionRecord,
+  countNormalizedRecalledSessions,
   createDefaultSessionRecordRecaller,
   createDefaultSessionRecordPersister,
   extractCompanionSessionContext,
@@ -536,11 +537,12 @@ export class SubmissionServer {
       return;
     }
 
-    const message = recalled.records.length > 0 ? renderRecalledSessionRecords(recalled) : undefined;
-    const mountSummary = recalled.records.length > 0 ? renderRecalledMountSummary(recalled) : undefined;
+    const normalizedRecordCount = countNormalizedRecalledSessions(recalled);
+    const message = normalizedRecordCount > 0 ? renderRecalledSessionRecords(recalled) : undefined;
+    const mountSummary = normalizedRecordCount > 0 ? renderRecalledMountSummary(recalled) : undefined;
     const mountSessions: RecalledMountSessionSummary[] =
-      recalled.records.length > 0 ? summarizeRecalledSessionsForMount(recalled) : [];
-    this.sessionScope.recordMem0Recall(titleSlug, recalled.records.length, message, mountSummary, mountSessions);
+      normalizedRecordCount > 0 ? summarizeRecalledSessionsForMount(recalled) : [];
+    this.sessionScope.recordMem0Recall(titleSlug, normalizedRecordCount, message, mountSummary, mountSessions);
   }
 
   private ensureActiveSession(titleSlug?: string): { ok: true; titleSlug: string } | { ok: false; error: string } {
@@ -756,12 +758,13 @@ export class SubmissionServer {
       };
     }
 
+    const normalizedRecordCount = countNormalizedRecalledSessions(recalled);
     return {
       success: true,
       action: ServerAction.GET_MEM0_RECALL_SUMMARY,
       title_slug: titleSlug,
-      record_count: recalled.records.length,
-      has_history: recalled.records.length > 0,
+      record_count: normalizedRecordCount,
+      has_history: normalizedRecordCount > 0,
       summary: renderRecalledMountSummary(recalled),
       sessions: summarizeRecalledSessionsForMount(recalled),
     };

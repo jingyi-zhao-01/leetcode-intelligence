@@ -6,6 +6,7 @@ import { Cache } from '../src/cache.ts';
 import { SubmissionServer } from '../src/server.ts';
 import {
   ActiveSessionScopeManager,
+  countNormalizedRecalledSessions,
   countSessionInteractions,
   Mem0SessionRecordRecaller,
   extractCompanionSessionContext,
@@ -472,6 +473,87 @@ describe('submission server helpers', () => {
     assert.match(rendered ?? '', /Failure reason: You computed a local profit/);
     assert.match(rendered ?? '', /Stuck points:/);
     assert.match(rendered ?? '', /Thought process:/);
+  });
+
+  it('normalizes duplicate raw Mem0 records from the same run before rendering history', () => {
+    const recalled = {
+      titleSlug: 'maximum-subarray',
+      records: [
+        {
+          id: 'mem_failure',
+          memory: [
+            '# LeetCode Session Record',
+            '',
+            '- Title Slug: maximum-subarray',
+            '- Run ID: leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            '- Activated At: 2026-06-08T01:00:00.000Z',
+            '- Ended At: 2026-06-08T01:10:00.000Z',
+            '- End Reason: failure_analysis',
+            '',
+            '## Latest Failure Analysis',
+            '- Summary: enumerate(nums) from index 0 double-counted the first element.',
+            '- Annotations:',
+            '  - line 3 [error]: start from nums[1] or initialize from negative infinity',
+            '',
+            '## Companion Conversation',
+            '- user: 我是不是把第一个元素算了两次',
+          ].join('\n'),
+          createdAt: '2026-06-08T01:10:00.000Z',
+          metadata: {
+            run_id: 'leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            activated_at: '2026-06-08T01:00:00.000Z',
+            ended_at: '2026-06-08T01:10:00.000Z',
+            end_reason: 'failure_analysis',
+            latest_failure_status: 'Wrong Answer',
+          },
+        },
+        {
+          id: 'mem_accepted',
+          memory: [
+            '# LeetCode Session Record',
+            '',
+            '- Title Slug: maximum-subarray',
+            '- Run ID: leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            '- Activated At: 2026-06-08T01:00:00.000Z',
+            '- Ended At: 2026-06-08T01:12:00.000Z',
+            '- End Reason: accepted_restart',
+            '',
+            '## Last Submitted Code',
+            '```python',
+            'class Solution:',
+            '    def maxSubArray(self, nums: List[int]) -> int:',
+            '        curr_sum = max_sum = nums[0]',
+            '        for v in nums[1:]:',
+            '            curr_sum = max(v, curr_sum + v)',
+            '            max_sum = max(max_sum, curr_sum)',
+            '        return max_sum',
+            '```',
+          ].join('\n'),
+          createdAt: '2026-06-08T01:12:00.000Z',
+          metadata: {
+            run_id: 'leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z',
+            activated_at: '2026-06-08T01:00:00.000Z',
+            ended_at: '2026-06-08T01:12:00.000Z',
+            end_reason: 'accepted_restart',
+          },
+        },
+      ],
+    };
+
+    assert.equal(countNormalizedRecalledSessions(recalled), 1);
+
+    const mountSessions = summarizeRecalledSessionsForMount(recalled);
+    assert.equal(mountSessions.length, 1);
+    assert.equal(mountSessions[0]?.runId, 'leetcode-session:maximum-subarray:2026-06-08T01:00:00.000Z');
+    assert.equal(mountSessions[0]?.endReason, 'accepted_restart');
+    assert.match(mountSessions[0]?.failureSummary ?? '', /double-counted the first element/);
+
+    const rendered = renderRecalledSessionRecords(recalled).content;
+    assert.match(rendered, /Recalled Session Count: 1/);
+    assert.match(rendered, /Raw Mem0 Record Count: 2/);
+    assert.match(rendered, /Merged Raw Record Count: 2/);
+    assert.match(rendered, /accepted_restart/);
+    assert.match(rendered, /double-counted the first element/);
   });
 
   it('clears agent memory when the active session ends', () => {

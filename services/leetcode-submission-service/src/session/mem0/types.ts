@@ -35,6 +35,7 @@ export type SessionRecordRecallResult = {
 };
 
 export type RecalledMountSessionSummary = {
+  runId?: string;
   endedAt?: string;
   endReason?: string;
   latestFailureStatus?: string;

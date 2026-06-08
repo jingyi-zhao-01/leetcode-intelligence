@@ -32,6 +32,28 @@ import type {
   SessionRecordRecallResult,
 } from './types.ts';
 
+type NormalizedRecalledSession = {
+  id: string;
+  sourceRecordIds: string[];
+  rawRecordCount: number;
+  runId?: string;
+  activatedAt?: string;
+  endedAt?: string;
+  endReason?: string;
+  difficulty?: string;
+  language?: string;
+  latestFailureStatus?: string;
+  elapsedMinutes?: number;
+  observedArtifacts: string[];
+  codeExcerpt?: string;
+  failureSnapshot?: string;
+  failureAnalysis?: string;
+  failureSummary?: string;
+  stuckPoints: string[];
+  thoughtProcess: string[];
+  sortTimestamp: string;
+};
+
 export function buildMem0RunId(scope: ActiveSessionScope): string {
   return `leetcode-session:${scope.titleSlug}:${scope.activatedAt}`;
 }
@@ -48,11 +70,13 @@ export function buildPersistedSessionRecordMetadata(
 ): Record<string, unknown> {
   const interactionCount = countSessionInteractions(scope);
   const latestFailureStatus = readJudgeStatus(scope.latestFailure?.judgeResult);
+  const runId = buildMem0RunId(scope);
 
   return {
     source: 'leetcode-submission-service',
     recordType: 'leetcode_session_record',
     titleSlug: scope.titleSlug,
+    runId,
     endReason: event.reason,
     activatedAt: scope.activatedAt,
     endedAt: event.endedAt,
@@ -62,6 +86,7 @@ export function buildPersistedSessionRecordMetadata(
     replacedByTitleSlug: event.replacedByTitleSlug ?? null,
     record_type: 'leetcode_session_record',
     title_slug: scope.titleSlug,
+    run_id: runId,
     end_reason: event.reason,
     activated_at: scope.activatedAt,
     ended_at: event.endedAt,
@@ -168,97 +193,213 @@ export function buildSyntheticRecalledSessionRecord(
   };
 }
 
+function readRecordLineValue(content: string, label: string): string | undefined {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = content.match(new RegExp(`^- ${escapedLabel}:\\s*(.+)$`, 'm'));
+  return readStringValue(match?.[1]);
+}
+
+function uniqueValues(values: Array<string | undefined>, limit?: number): string[] {
+  const seen = new Set<string>();
+  const collected: string[] = [];
+
+  for (const value of values) {
+    const normalized = readStringValue(value);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+
+    seen.add(normalized);
+    collected.push(normalized);
+    if (typeof limit === 'number' && collected.length >= limit) {
+      break;
+    }
+  }
+
+  return collected;
+}
+
+function parseRecalledSessionRecord(record: RecalledSessionRecord): NormalizedRecalledSession {
+  const metadata = record.metadata ?? {};
+  const activatedAt =
+    readMetadataString(metadata, 'activated_at', 'activatedAt') ?? readRecordLineValue(record.memory, 'Activated At');
+  const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt') ?? readRecordLineValue(record.memory, 'Ended At');
+  const endReason = readMetadataString(metadata, 'end_reason', 'endReason') ?? readRecordLineValue(record.memory, 'End Reason');
+  const runId = readMetadataString(metadata, 'run_id', 'runId') ?? readRecordLineValue(record.memory, 'Run ID');
+  const language = readMetadataString(metadata, 'language') ?? readRecordLineValue(record.memory, 'Language');
+  const difficulty = readMetadataString(metadata, 'difficulty') ?? readRecordLineValue(record.memory, 'Difficulty');
+  const latestFailureStatus =
+    readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus') ??
+    readRecordLineValue(record.memory, 'Judge Status');
+  const elapsedMinutes =
+    readMetadataNumber(metadata, 'elapsed_minutes', 'elapsedMinutes') ??
+    Number(readRecordLineValue(record.memory, 'Elapsed Minutes') ?? NaN);
+  const hasEditorCode = hasMarkdownSection(record.memory, 'Final Editor Code');
+  const hasSubmittedCode = hasMarkdownSection(record.memory, 'Last Submitted Code');
+  const hasFailureSnapshot = hasMarkdownSection(record.memory, 'Latest LeetCode Failure');
+  const hasFailureAnalysis = hasMarkdownSection(record.memory, 'Latest Failure Analysis');
+  const hasCompanionConversation = hasMarkdownSection(record.memory, 'Companion Conversation');
+  const submittedCode = readMarkdownSection(record.memory, 'Last Submitted Code');
+  const editorCode = readMarkdownSection(record.memory, 'Final Editor Code');
+  const failureSnapshot = readMarkdownSection(record.memory, 'Latest LeetCode Failure');
+  const failureAnalysis = readMarkdownSection(record.memory, 'Latest Failure Analysis');
+  const companionConversation = readMarkdownSection(record.memory, 'Companion Conversation') ?? '';
+  const failureSummaryMatch = failureAnalysis?.match(/^- Summary:\s*(.+)$/m);
+
+  const observedArtifacts: string[] = [];
+  if (hasEditorCode) {
+    observedArtifacts.push('editor_code');
+  }
+  if (hasSubmittedCode) {
+    observedArtifacts.push('submitted_code');
+  }
+  if (hasFailureSnapshot) {
+    observedArtifacts.push('failure_snapshot');
+  }
+  if (hasFailureAnalysis) {
+    observedArtifacts.push('failure_analysis');
+  }
+  if (hasCompanionConversation) {
+    observedArtifacts.push('companion_conversation');
+  }
+
+  return {
+    id: record.id,
+    sourceRecordIds: [record.id],
+    rawRecordCount: 1,
+    runId,
+    activatedAt,
+    endedAt,
+    endReason,
+    difficulty,
+    language,
+    latestFailureStatus,
+    elapsedMinutes: Number.isFinite(elapsedMinutes) ? elapsedMinutes : undefined,
+    observedArtifacts,
+    codeExcerpt: submittedCode ? stripCodeFence(submittedCode) : editorCode ? stripCodeFence(editorCode) : undefined,
+    failureSnapshot,
+    failureAnalysis,
+    failureSummary: readStringValue(failureSummaryMatch?.[1]),
+    stuckPoints: extractBulletValues(failureAnalysis ?? '', /^\s*-\s*line\s+\d+\s+\[[^\]]+\]:\s*(.+)$/gm),
+    thoughtProcess: extractBulletValues(companionConversation, /^- user:\s*(.+)$/gm),
+    sortTimestamp: endedAt ?? record.createdAt ?? record.updatedAt ?? activatedAt ?? '',
+  };
+}
+
+function mergeRecalledSessions(primary: NormalizedRecalledSession, secondary: NormalizedRecalledSession): NormalizedRecalledSession {
+  return {
+    id: primary.id,
+    sourceRecordIds: uniqueValues([...primary.sourceRecordIds, ...secondary.sourceRecordIds]),
+    rawRecordCount: primary.rawRecordCount + secondary.rawRecordCount,
+    runId: primary.runId ?? secondary.runId,
+    activatedAt: primary.activatedAt ?? secondary.activatedAt,
+    endedAt: primary.endedAt ?? secondary.endedAt,
+    endReason: primary.endReason ?? secondary.endReason,
+    difficulty: primary.difficulty ?? secondary.difficulty,
+    language: primary.language ?? secondary.language,
+    latestFailureStatus: primary.latestFailureStatus ?? secondary.latestFailureStatus,
+    elapsedMinutes: primary.elapsedMinutes ?? secondary.elapsedMinutes,
+    observedArtifacts: uniqueValues([...primary.observedArtifacts, ...secondary.observedArtifacts]),
+    codeExcerpt: primary.codeExcerpt ?? secondary.codeExcerpt,
+    failureSnapshot: primary.failureSnapshot ?? secondary.failureSnapshot,
+    failureAnalysis: primary.failureAnalysis ?? secondary.failureAnalysis,
+    failureSummary: primary.failureSummary ?? secondary.failureSummary,
+    stuckPoints: uniqueValues([...primary.stuckPoints, ...secondary.stuckPoints], 6),
+    thoughtProcess: uniqueValues([...primary.thoughtProcess, ...secondary.thoughtProcess], 6),
+    sortTimestamp: primary.sortTimestamp || secondary.sortTimestamp,
+  };
+}
+
+function normalizeRecalledSessions(result: SessionRecordRecallResult): NormalizedRecalledSession[] {
+  const parsed = result.records
+    .map(parseRecalledSessionRecord)
+    .sort((left, right) => right.sortTimestamp.localeCompare(left.sortTimestamp));
+  const grouped = new Map<string, NormalizedRecalledSession>();
+
+  for (const session of parsed) {
+    const groupKey = session.runId ?? session.activatedAt ?? session.id;
+    const existing = grouped.get(groupKey);
+    if (!existing) {
+      grouped.set(groupKey, session);
+      continue;
+    }
+
+    grouped.set(groupKey, mergeRecalledSessions(existing, session));
+  }
+
+  return [...grouped.values()].sort((left, right) => right.sortTimestamp.localeCompare(left.sortTimestamp));
+}
+
+export function countNormalizedRecalledSessions(result: SessionRecordRecallResult): number {
+  return normalizeRecalledSessions(result).length;
+}
+
 export function renderRecalledSessionRecords(result: SessionRecordRecallResult) {
-  const records = [...result.records].sort((left, right) =>
-    (left.createdAt ?? left.updatedAt ?? '').localeCompare(right.createdAt ?? right.updatedAt ?? ''),
-  );
-  const visibleRecords = records.slice(-MAX_RECALLED_SESSION_RECORDS);
-  const omittedCount = records.length - visibleRecords.length;
+  const sessions = normalizeRecalledSessions(result);
+  const visibleSessions = sessions.slice(0, MAX_RECALLED_SESSION_RECORDS);
+  const omittedCount = sessions.length - visibleSessions.length;
   const parts = [
     '# Submission Service Mem0 Recall',
     '',
     `- Title Slug: ${result.titleSlug}`,
-    `- Recalled Session Count: ${records.length}`,
+    `- Recalled Session Count: ${sessions.length}`,
     '- These are historical session records recalled from Mem0 for this exact LeetCode problem.',
     '- Records may include ended-session snapshots and failure-analysis-triggered snapshots.',
     '- Treat these as historical summaries only; do not assume omitted code or truncated snapshots are ground truth.',
   ];
 
+  if (result.records.length !== sessions.length) {
+    parts.push(`- Raw Mem0 Record Count: ${result.records.length}`);
+  }
+
   if (omittedCount > 0) {
     parts.push(`- Omitted Older Session Count: ${omittedCount}`);
   }
 
-  visibleRecords.forEach((record, index) => {
-    const metadata = record.metadata ?? {};
-    const activatedAt = readMetadataString(metadata, 'activated_at', 'activatedAt');
-    const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt');
-    const endReason = readMetadataString(metadata, 'end_reason', 'endReason');
-    const language = readMetadataString(metadata, 'language');
-    const difficulty = readMetadataString(metadata, 'difficulty');
-    const latestFailureStatus = readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus');
-    const elapsedMinutes = readMetadataNumber(metadata, 'elapsed_minutes', 'elapsedMinutes');
-    const hasEditorCode = hasMarkdownSection(record.memory, 'Final Editor Code');
-    const hasSubmittedCode = hasMarkdownSection(record.memory, 'Last Submitted Code');
-    const hasFailureSnapshot = hasMarkdownSection(record.memory, 'Latest LeetCode Failure');
-    const hasFailureAnalysis = hasMarkdownSection(record.memory, 'Latest Failure Analysis');
-    const hasCompanionConversation = hasMarkdownSection(record.memory, 'Companion Conversation');
-    const submittedCode = readMarkdownSection(record.memory, 'Last Submitted Code');
-    const editorCode = readMarkdownSection(record.memory, 'Final Editor Code');
-    const failureSnapshot = readMarkdownSection(record.memory, 'Latest LeetCode Failure');
-    const failureAnalysis = readMarkdownSection(record.memory, 'Latest Failure Analysis');
-
+  visibleSessions.forEach((session, index) => {
     parts.push('', `## Session ${index + 1}`);
 
-    if (activatedAt) {
-      parts.push(`- Activated At: ${activatedAt}`);
+    if (session.runId) {
+      parts.push(`- Run ID: ${session.runId}`);
     }
-    if (endedAt) {
-      parts.push(`- Ended At: ${endedAt}`);
+    if (session.activatedAt) {
+      parts.push(`- Activated At: ${session.activatedAt}`);
     }
-    if (endReason) {
-      parts.push(`- End Reason: ${endReason}`);
+    if (session.endedAt) {
+      parts.push(`- Ended At: ${session.endedAt}`);
     }
-    if (typeof elapsedMinutes === 'number' && Number.isFinite(elapsedMinutes)) {
-      parts.push(`- Elapsed Minutes: ${elapsedMinutes}`);
+    if (session.endReason) {
+      parts.push(`- End Reason: ${session.endReason}`);
     }
-    if (difficulty) {
-      parts.push(`- Difficulty: ${difficulty}`);
+    if (typeof session.elapsedMinutes === 'number' && Number.isFinite(session.elapsedMinutes)) {
+      parts.push(`- Elapsed Minutes: ${session.elapsedMinutes}`);
     }
-    if (language) {
-      parts.push(`- Language: ${language}`);
+    if (session.difficulty) {
+      parts.push(`- Difficulty: ${session.difficulty}`);
     }
-    if (latestFailureStatus) {
-      parts.push(`- Latest Failure Status: ${latestFailureStatus}`);
+    if (session.language) {
+      parts.push(`- Language: ${session.language}`);
     }
-
-    const observed: string[] = [];
-    if (hasEditorCode) {
-      observed.push('editor_code');
+    if (session.latestFailureStatus) {
+      parts.push(`- Latest Failure Status: ${session.latestFailureStatus}`);
     }
-    if (hasSubmittedCode) {
-      observed.push('submitted_code');
-    }
-    if (hasFailureSnapshot) {
-      observed.push('failure_snapshot');
-    }
-    if (hasFailureAnalysis) {
-      observed.push('failure_analysis');
-    }
-    if (hasCompanionConversation) {
-      observed.push('companion_conversation');
-    }
-    parts.push(`- Observed Artifacts: ${observed.length > 0 ? observed.join(', ') : 'metadata_only'}`);
-
-    const preferredCode = submittedCode ?? editorCode;
-    if (preferredCode) {
-      parts.push('', '### Recalled Code Excerpt', '```text', truncate(stripCodeFence(preferredCode), MAX_RECALLED_CODE_CHARS), '```');
+    if (session.rawRecordCount > 1) {
+      parts.push(`- Merged Raw Record Count: ${session.rawRecordCount}`);
     }
 
-    if (failureSnapshot) {
-      parts.push('', '### Recalled Failure Snapshot', truncate(failureSnapshot, MAX_RECALLED_FAILURE_CHARS));
+    parts.push(
+      `- Observed Artifacts: ${session.observedArtifacts.length > 0 ? session.observedArtifacts.join(', ') : 'metadata_only'}`,
+    );
+
+    if (session.codeExcerpt) {
+      parts.push('', '### Recalled Code Excerpt', '```text', truncate(session.codeExcerpt, MAX_RECALLED_CODE_CHARS), '```');
     }
-    if (failureAnalysis) {
-      parts.push('', '### Recalled Failure Analysis', truncate(failureAnalysis, MAX_RECALLED_ANALYSIS_CHARS));
+
+    if (session.failureSnapshot) {
+      parts.push('', '### Recalled Failure Snapshot', truncate(session.failureSnapshot, MAX_RECALLED_FAILURE_CHARS));
+    }
+    if (session.failureAnalysis) {
+      parts.push('', '### Recalled Failure Analysis', truncate(session.failureAnalysis, MAX_RECALLED_ANALYSIS_CHARS));
     }
   });
 
@@ -269,28 +410,15 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
 }
 
 export function summarizeRecalledSessionsForMount(result: SessionRecordRecallResult): RecalledMountSessionSummary[] {
-  const records = [...result.records].sort((left, right) =>
-    (right.createdAt ?? right.updatedAt ?? '').localeCompare(left.createdAt ?? left.updatedAt ?? ''),
-  );
-
-  return records.slice(0, MAX_MOUNT_SUMMARY_RECORDS).map((record) => {
-    const metadata = record.metadata ?? {};
-    const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt');
-    const endReason = readMetadataString(metadata, 'end_reason', 'endReason');
-    const latestFailureStatus = readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus');
-    const failureAnalysis = readMarkdownSection(record.memory, 'Latest Failure Analysis') ?? '';
-    const companionConversation = readMarkdownSection(record.memory, 'Companion Conversation') ?? '';
-    const failureSummaryMatch = failureAnalysis.match(/^- Summary:\s*(.+)$/m);
-
-    return {
-      endedAt,
-      endReason,
-      latestFailureStatus,
-      failureSummary: readStringValue(failureSummaryMatch?.[1]),
-      stuckPoints: extractBulletValues(failureAnalysis, /^\s*-\s*line\s+\d+\s+\[[^\]]+\]:\s*(.+)$/gm).slice(0, 3),
-      thoughtProcess: extractBulletValues(companionConversation, /^- user:\s*(.+)$/gm).slice(-3),
-    };
-  });
+  return normalizeRecalledSessions(result).slice(0, MAX_MOUNT_SUMMARY_RECORDS).map((session) => ({
+    runId: session.runId,
+    endedAt: session.endedAt,
+    endReason: session.endReason,
+    latestFailureStatus: session.latestFailureStatus,
+    failureSummary: session.failureSummary,
+    stuckPoints: session.stuckPoints.slice(0, 3),
+    thoughtProcess: session.thoughtProcess.slice(-3),
+  }));
 }
 
 export function renderRecalledMountSummary(result: SessionRecordRecallResult): string | undefined {
@@ -301,11 +429,14 @@ export function renderRecalledMountSummary(result: SessionRecordRecallResult): s
 
   const parts = [
     `You have historical LeetCode memory for \`${result.titleSlug}\`.`,
-    `Recent recalled sessions: ${result.records.length}.`,
+    `Recent recalled sessions: ${sessions.length}.`,
   ];
 
   sessions.forEach((session, index) => {
     parts.push('', `Session ${index + 1}:`);
+    if (session.runId) {
+      parts.push(`- Run ID: ${session.runId}`);
+    }
     if (session.endReason) {
       parts.push(`- End reason: ${session.endReason}`);
     }

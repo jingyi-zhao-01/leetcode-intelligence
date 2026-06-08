@@ -4,6 +4,7 @@ export {
   buildPersistedSessionRecordMetadata,
   buildSyntheticRecalledSessionRecord,
   buildMem0RunId,
+  countNormalizedRecalledSessions,
   countSessionInteractions,
   createDefaultSessionRecordRecaller,
   createDefaultSessionRecordPersister,

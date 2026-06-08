@@ -8,6 +8,7 @@ export {
   buildMem0RunId,
   buildPersistedSessionRecordMetadata,
   buildSyntheticRecalledSessionRecord,
+  countNormalizedRecalledSessions,
   countSessionInteractions,
   renderPersistedSessionRecord,
   renderRecalledMountSummary,
