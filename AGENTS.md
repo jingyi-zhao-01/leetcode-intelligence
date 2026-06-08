@@ -52,6 +52,7 @@ If you are only touching one service, stop after the relevant service-local docu
 
 - [docs/adrs/001-stateful-failure-analysis-session-aggregation.md](./docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
 - [docs/adrs/002-session-bound-companion-memory-and-failure-events.md](./docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
+- [docs/adrs/003-mem0-session-snapshot-persistence.md](./docs/adrs/003-mem0-session-snapshot-persistence.md)
 - [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
 - [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
 

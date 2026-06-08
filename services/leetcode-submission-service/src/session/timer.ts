@@ -1,38 +1,50 @@
-import { createLogger } from "../logger.ts";
+import { createLogger } from '../logger.ts';
 
-const logger = createLogger("timer");
+const logger = createLogger('timer');
+
+export type EvictedTimer = {
+  titleSlug: string;
+  elapsedMinutes: number;
+};
 
 export class TimerManager {
   private readonly timers = new Map<string, Date>();
 
-  start(titleSlug: string): { alreadyActive: boolean; evictedTitleSlugs: string[] } {
+  start(titleSlug: string): { alreadyActive: boolean; evictedTimers: EvictedTimer[] } {
     const existing = this.timers.get(titleSlug);
-    const evictedTitleSlugs: string[] = [];
+    const evictedTimers: EvictedTimer[] = [];
 
     if (existing && this.timers.size === 1) {
       const elapsed = Math.floor((Date.now() - existing.getTime()) / 60000);
-      logger.info({ titleSlug, elapsedMinutes: elapsed }, "Timer already active");
-      return { alreadyActive: true, evictedTitleSlugs };
+      logger.info({ titleSlug, elapsedMinutes: elapsed }, 'Timer already active');
+      return { alreadyActive: true, evictedTimers };
     }
 
     if (this.timers.size > 0) {
       for (const [slug, start] of this.timers.entries()) {
-        evictedTitleSlugs.push(slug);
+        const elapsedMinutes = Math.floor((Date.now() - start.getTime()) / 60000);
+        evictedTimers.push({ titleSlug: slug, elapsedMinutes });
         logger.info(
           {
             titleSlug: slug,
-            elapsedMinutes: Math.floor((Date.now() - start.getTime()) / 60000),
+            elapsedMinutes,
             replacedBy: titleSlug,
           },
-          "Evicting active timer",
+          'Evicting active timer',
         );
       }
       this.timers.clear();
     }
 
     this.timers.set(titleSlug, new Date());
-    logger.info({ titleSlug, evictedTitleSlugs }, "Timer started");
-    return { alreadyActive: false, evictedTitleSlugs };
+    logger.info(
+      {
+        titleSlug,
+        evictedTitleSlugs: evictedTimers.map((entry) => entry.titleSlug),
+      },
+      'Timer started',
+    );
+    return { alreadyActive: false, evictedTimers };
   }
 
   stop(titleSlug: string): number {
@@ -43,7 +55,7 @@ export class TimerManager {
 
     this.timers.delete(titleSlug);
     const minutes = Math.max(1, Math.floor((Date.now() - start.getTime()) / 60000));
-    logger.info({ titleSlug, minutes }, "Timer stopped");
+    logger.info({ titleSlug, minutes }, 'Timer stopped');
     return minutes;
   }
 

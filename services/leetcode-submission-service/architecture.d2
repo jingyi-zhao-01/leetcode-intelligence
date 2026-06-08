@@ -5,6 +5,10 @@ direction: right
 
 ...@d2/static-analysis.external
 ...@d2/storage.external
+mem0: {
+  label: "Mem0\nsession memory"
+  class: external_ai
+}
 local_runtime: @d2/runtime-core.local_runtime
 
 nvim -> local_runtime.submission_svc: "JSON over TCP"
@@ -24,6 +28,9 @@ local_runtime.submission_pipeline -> local_runtime.cache: "cache recent submissi
 local_runtime.submission_pipeline -> postgres: "async persist"
 
 local_runtime.timer_manager -> local_runtime.session_scope: "activate / clear lifecycle"
+local_runtime.submission_svc -> local_runtime.session_persistence: "stop / drop / evict / shutdown"
+local_runtime.session_scope -> local_runtime.session_persistence: "take ended scope"
+local_runtime.session_persistence -> mem0: "persist session record"
 local_runtime.failure_analysis -> local_runtime.static_analysis: "delegate"
 local_runtime.failure_analysis -> local_runtime.session_scope: "write latest failure + event_id"
 local_runtime.companion_http -> local_runtime.session_scope: "hydrate scoped messages"

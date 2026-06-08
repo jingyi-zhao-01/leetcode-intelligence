@@ -1,5 +1,5 @@
-import type { CompanionChatMessage } from "../core/companionChat.ts";
-import type { FailureAnalysisRequest, FailureAnalysisResult } from "../core/failureAnalysis.ts";
+import type { CompanionChatMessage } from '../core/companionChat.ts';
+import type { FailureAnalysisRequest, FailureAnalysisResult } from '../core/failureAnalysis.ts';
 
 export type CompanionSessionContext = {
   title?: string;
@@ -33,15 +33,15 @@ export type ActiveSessionScope = {
   latestFailure?: {
     eventId: string;
     recordedAt: string;
-    judgeResult: FailureAnalysisRequest["judgeResult"];
+    judgeResult: FailureAnalysisRequest['judgeResult'];
     submissionContent?: string;
     testcase?: string;
   };
   lastFailureAnalysis?: {
     analyzedAt: string;
     summary: string;
-    annotations: FailureAnalysisResult["annotations"];
-    judgeResult: FailureAnalysisRequest["judgeResult"];
+    annotations: FailureAnalysisResult['annotations'];
+    judgeResult: FailureAnalysisRequest['judgeResult'];
   };
 };
 
@@ -49,13 +49,13 @@ const SESSION_MEMORY_LIMIT = 24;
 const SERVICE_MEMORY_LIMIT = 8;
 
 const lineValue = (content: string, label: string): string => {
-  const match = content.match(new RegExp(`^- ${label}:\\s*(.+)$`, "m"));
-  return match?.[1]?.trim() ?? "";
+  const match = content.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'm'));
+  return match?.[1]?.trim() ?? '';
 };
 
 const markdownSection = (content: string, heading: string): string => {
   const match = content.match(new RegExp(`## ${heading}\\n([\\s\\S]*?)(?:\\n## |$)`));
-  return match?.[1]?.trim() ?? "";
+  return match?.[1]?.trim() ?? '';
 };
 
 const stripCodeFence = (content: string): string => {
@@ -65,23 +65,23 @@ const stripCodeFence = (content: string): string => {
 
 export function extractCompanionSessionContext(messages: CompanionChatMessage[]): CompanionSessionContext | null {
   for (const message of messages) {
-    if (!message.content.includes("# LeetCode Problem Context")) {
+    if (!message.content.includes('# LeetCode Problem Context')) {
       continue;
     }
 
-    const titleSlug = lineValue(message.content, "Title Slug");
+    const titleSlug = lineValue(message.content, 'Title Slug');
     if (!titleSlug) {
       continue;
     }
 
     return {
-      title: lineValue(message.content, "Title") || undefined,
+      title: lineValue(message.content, 'Title') || undefined,
       titleSlug,
-      difficulty: lineValue(message.content, "Difficulty") || undefined,
-      lang: lineValue(message.content, "Language") || undefined,
-      description: markdownSection(message.content, "Problem Description") || undefined,
-      testcase: stripCodeFence(markdownSection(message.content, "Active Testcase")) || undefined,
-      code: stripCodeFence(markdownSection(message.content, "Current Code")) || undefined,
+      difficulty: lineValue(message.content, 'Difficulty') || undefined,
+      lang: lineValue(message.content, 'Language') || undefined,
+      description: markdownSection(message.content, 'Problem Description') || undefined,
+      testcase: stripCodeFence(markdownSection(message.content, 'Active Testcase')) || undefined,
+      code: stripCodeFence(markdownSection(message.content, 'Current Code')) || undefined,
     };
   }
 
@@ -89,11 +89,7 @@ export function extractCompanionSessionContext(messages: CompanionChatMessage[])
 }
 
 export function renderActiveSessionScope(scope: ActiveSessionScope): string {
-  const parts = [
-    "# Submission Service Active Session",
-    "",
-    `- Title Slug: ${scope.titleSlug}`,
-  ];
+  const parts = ['# Submission Service Active Session', '', `- Title Slug: ${scope.titleSlug}`];
 
   if (scope.title) {
     parts.push(`- Title: ${scope.title}`);
@@ -108,61 +104,61 @@ export function renderActiveSessionScope(scope: ActiveSessionScope): string {
   }
 
   if (scope.questionContent) {
-    parts.push("", "## Problem Description", scope.questionContent);
+    parts.push('', '## Problem Description', scope.questionContent);
   }
 
   if (scope.testcase) {
-    parts.push("", "## Active Testcase", "```text", scope.testcase, "```");
+    parts.push('', '## Active Testcase', '```text', scope.testcase, '```');
   }
 
   if (scope.editorContent) {
-    parts.push("", "## Current Code", `\`\`\`${scope.filetype ?? scope.lang ?? "text"}`, scope.editorContent, "```");
+    parts.push('', '## Current Code', `\`\`\`${scope.filetype ?? scope.lang ?? 'text'}`, scope.editorContent, '```');
   }
 
   if (scope.latestFailure) {
-    parts.push("", "## Latest LeetCode Failure");
+    parts.push('', '## Latest LeetCode Failure');
     parts.push(`- Event ID: ${scope.latestFailure.eventId}`);
 
     const status =
       scope.latestFailure.judgeResult &&
-      typeof scope.latestFailure.judgeResult === "object" &&
-      "status_msg" in scope.latestFailure.judgeResult &&
-      typeof scope.latestFailure.judgeResult.status_msg === "string"
+      typeof scope.latestFailure.judgeResult === 'object' &&
+      'status_msg' in scope.latestFailure.judgeResult &&
+      typeof scope.latestFailure.judgeResult.status_msg === 'string'
         ? scope.latestFailure.judgeResult.status_msg
-        : "";
+        : '';
 
     if (status) {
       parts.push(`- Judge Status: ${status}`);
     }
 
-    parts.push("```json");
+    parts.push('```json');
     parts.push(JSON.stringify(scope.latestFailure.judgeResult, null, 2));
-    parts.push("```");
+    parts.push('```');
   }
 
   if (scope.lastFailureAnalysis) {
-    parts.push("", "## Latest Failure Analysis", `- Summary: ${scope.lastFailureAnalysis.summary}`);
+    parts.push('', '## Latest Failure Analysis', `- Summary: ${scope.lastFailureAnalysis.summary}`);
 
     if (scope.lastFailureAnalysis.annotations.length > 0) {
-      parts.push("- Annotations:");
+      parts.push('- Annotations:');
       for (const annotation of scope.lastFailureAnalysis.annotations) {
         parts.push(`  - line ${annotation.line} [${annotation.severity}]: ${annotation.reason}`);
       }
     }
   }
 
-  return parts.join("\n");
+  return parts.join('\n');
 }
 
 function isHiddenCompanionContext(message: CompanionChatMessage): boolean {
   return (
-    message.content.includes("# LeetCode Problem Context") ||
-    message.content.includes("# Submission Service Active Session")
+    message.content.includes('# LeetCode Problem Context') ||
+    message.content.includes('# Submission Service Active Session')
   );
 }
 
 function normalizeConversationMemory(messages: CompanionChatMessage[]): CompanionChatMessage[] {
-  const visibleMessages = messages.filter((message) => !isHiddenCompanionContext(message) && message.role !== "system");
+  const visibleMessages = messages.filter((message) => !isHiddenCompanionContext(message) && message.role !== 'system');
   if (visibleMessages.length <= SESSION_MEMORY_LIMIT) {
     return visibleMessages;
   }
@@ -178,45 +174,49 @@ function normalizeServiceMemory(messages: CompanionChatMessage[]): CompanionChat
   return messages.slice(messages.length - SERVICE_MEMORY_LIMIT);
 }
 
-function buildFailureMemoryMessage(eventId: string, request: FailureAnalysisRequest, result: FailureAnalysisResult): CompanionChatMessage {
+function buildFailureMemoryMessage(
+  eventId: string,
+  request: FailureAnalysisRequest,
+  result: FailureAnalysisResult,
+): CompanionChatMessage {
   const parts = [
-    "# Submission Service Failure Update",
-    "",
+    '# Submission Service Failure Update',
+    '',
     `- Event ID: ${eventId}`,
     `- Title Slug: ${request.titleSlug}`,
-    "- This update supersedes any earlier companion diagnosis for the current failed run.",
+    '- This update supersedes any earlier companion diagnosis for the current failed run.',
   ];
 
   const status =
     request.judgeResult &&
-    typeof request.judgeResult === "object" &&
-    "status_msg" in request.judgeResult &&
-    typeof request.judgeResult.status_msg === "string"
+    typeof request.judgeResult === 'object' &&
+    'status_msg' in request.judgeResult &&
+    typeof request.judgeResult.status_msg === 'string'
       ? request.judgeResult.status_msg
-      : "";
+      : '';
 
   if (status) {
     parts.push(`- Judge Status: ${status}`);
   }
 
   if (request.testcase.trim().length > 0) {
-    parts.push("", "## Failed Testcase", "```text", request.testcase.trim(), "```");
+    parts.push('', '## Failed Testcase', '```text', request.testcase.trim(), '```');
   }
 
-  parts.push("", "## Static Analysis Summary", result.summary);
+  parts.push('', '## Static Analysis Summary', result.summary);
 
   if (result.annotations.length > 0) {
-    parts.push("", "## Static Analysis Annotations");
+    parts.push('', '## Static Analysis Annotations');
     for (const annotation of result.annotations) {
       parts.push(`- line ${annotation.line} [${annotation.severity}]: ${annotation.reason}`);
     }
   }
 
-  parts.push("", "## Raw Judge Result", "```json", JSON.stringify(request.judgeResult, null, 2), "```");
+  parts.push('', '## Raw Judge Result', '```json', JSON.stringify(request.judgeResult, null, 2), '```');
 
   return {
-    role: "user",
-    content: parts.join("\n"),
+    role: 'user',
+    content: parts.join('\n'),
   };
 }
 
@@ -248,10 +248,16 @@ export class ActiveSessionScopeManager {
   }
 
   clear(titleSlug: string): void {
+    this.take(titleSlug);
+  }
+
+  take(titleSlug: string): ActiveSessionScope | null {
+    const scope = this.scopes.get(titleSlug) ?? null;
     this.scopes.delete(titleSlug);
     if (this.activeTitleSlug === titleSlug) {
       this.activeTitleSlug = null;
     }
+    return scope;
   }
 
   getActiveScope(): ActiveSessionScope | null {
@@ -290,7 +296,7 @@ export class ActiveSessionScopeManager {
       messages: normalizeConversationMemory([
         ...existingMessages,
         {
-          role: "assistant",
+          role: 'assistant',
           content,
         },
       ]),
@@ -308,7 +314,11 @@ export class ActiveSessionScopeManager {
     return scope;
   }
 
-  recordFailureAnalysis(request: FailureAnalysisRequest, result: FailureAnalysisResult, eventId: string): ActiveSessionScope {
+  recordFailureAnalysis(
+    request: FailureAnalysisRequest,
+    result: FailureAnalysisResult,
+    eventId: string,
+  ): ActiveSessionScope {
     const scope = this.activate(request.titleSlug);
     scope.title = request.title || scope.title;
     scope.questionContent = request.questionContent || scope.questionContent;
@@ -329,10 +339,7 @@ export class ActiveSessionScopeManager {
       annotations: result.annotations,
       judgeResult: request.judgeResult,
     };
-    this.recordSessionMemory(
-      request.titleSlug,
-      buildFailureMemoryMessage(eventId, request, result),
-    );
+    this.recordSessionMemory(request.titleSlug, buildFailureMemoryMessage(eventId, request, result));
     return scope;
   }
 
@@ -349,7 +356,7 @@ export class ActiveSessionScopeManager {
 
     return [
       {
-        role: "user",
+        role: 'user',
         content: renderActiveSessionScope(scope),
       },
       ...(this.getActiveScope()?.sessionMemory?.messages ?? []),

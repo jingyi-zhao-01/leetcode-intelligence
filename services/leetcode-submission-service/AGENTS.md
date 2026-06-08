@@ -9,6 +9,7 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
 - newline-delimited JSON over TCP for `leetcode.nvim`
 - local OpenAI-compatible HTTP chat endpoint for `CodeCompanion`
 - one active in-memory timer/session at a time
+- Mem0 session snapshot persistence when a session ends
 - recent submission cache with write-through persistence behavior
 - durable submission persistence through Prisma
 - OpenRouter-backed failure analysis and companion chat
@@ -17,12 +18,14 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
 
 1. [../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md](../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
 2. [../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md](../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
-3. [ARCHITECTURE.md](./ARCHITECTURE.md)
-4. [src/server.ts](./src/server.ts)
-5. [src/session/scope.ts](./src/session/scope.ts)
-6. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
-7. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
-8. [src/core/companionChat.ts](./src/core/companionChat.ts)
+3. [../../docs/adrs/003-mem0-session-snapshot-persistence.md](../../docs/adrs/003-mem0-session-snapshot-persistence.md)
+4. [ARCHITECTURE.md](./ARCHITECTURE.md)
+5. [src/server.ts](./src/server.ts)
+6. [src/session/scope.ts](./src/session/scope.ts)
+7. [src/session/mem0.ts](./src/session/mem0.ts)
+8. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
+9. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
+10. [src/core/companionChat.ts](./src/core/companionChat.ts)
 
 ## File Map
 
@@ -34,6 +37,8 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
   Active solve-session timers and lifecycle.
 - `src/session/scope.ts`
   Shared in-memory session scope for companion memory, latest failure, and service-owned session memory.
+- `src/session/mem0.ts`
+  Session-end snapshot rendering and Mem0 persistence.
 - `src/cache.ts`
   Recent submission cache.
 - `src/action-middleware.ts`
@@ -67,6 +72,6 @@ From repo root:
 
 ## When To Update Docs
 
-- Update ADRs first when session scope, failure lifecycle, or companion/session contracts change.
+- Update ADRs first when session scope, failure lifecycle, companion/session contracts, or session persistence behavior change.
 - Update [ARCHITECTURE.md](./ARCHITECTURE.md) when actions, runtime boundaries, or persistence behavior change.
 - Update this file only when the navigation map or edit guardrails change.

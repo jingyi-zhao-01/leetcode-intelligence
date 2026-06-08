@@ -3,13 +3,13 @@
 This service is a local TCP server that accepts newline-delimited JSON requests from `leetcode.nvim`. Its responsibilities are intentionally narrow:
 
 - manage one active timer/session for a problem at a time
+- persist ended session snapshots to Mem0 when configured
 - accept and persist submission records
 - run static failure analysis using LLM on test on submit failure and send structured lines of problem to vim for rendering so i immediately get feedbacks on whats wrong :D
 - expose a local OpenAI-compatible HTTP endpoint so `CodeCompanion` can use this service as the owned LLM bridge
 
 - it can also use a sqlite for simplicity but remote database is chosen because I have a PC and personally travel a lot with Laptop,
-- my laptop and PC has been registered as data plane nodes on my own native home cloud platform so every new changes here will be target deployed and always available on whatever devices that are active with me:D 
-
+- my laptop and PC has been registered as data plane nodes on my own native home cloud platform so every new changes here will be target deployed and always available on whatever devices that are active with me:D
 
 The canonical component diagram lives in [architecture.d2](./architecture.d2).
 
@@ -23,7 +23,7 @@ The same runtime also opens a small local HTTP server for companion chat. That e
 
 - `GET /health`
 - `GET /v1/models`
-- `POST /v1/chat/completions` (non-streaming)
+- `POST /v1/chat/completions` (streaming and non-streaming)
 
 The supported actions are:
 
@@ -59,6 +59,25 @@ This file also contains the submission preparation helpers used before a submiss
 - starting a new timer can evict the previous active problem
 - stop/get operations report elapsed minutes
 - active sessions are derived directly from in-memory timer state
+
+### Session Scope And Mem0 Persistence
+
+[src/session/scope.ts](./src/session/scope.ts) holds the service-owned active session scope for:
+
+- problem metadata
+- current editor/submission code
+- latest failure snapshot
+- service session memory
+- companion conversation memory
+
+[src/session/mem0.ts](./src/session/mem0.ts) turns an ended scope into a bounded session snapshot and persists it to Mem0 when `MEM0_API_KEY` is configured.
+
+Important ownership rule:
+
+- active session truth stays in local memory
+- Mem0 only receives session-end snapshots
+
+That means Mem0 is currently an archive/retrieval surface, not the live context source for the running companion session.
 
 ### Cache and Action Middleware
 
@@ -132,6 +151,16 @@ The service persists:
 - extracted thought text
 - raw submission details payload
 
+If `MEM0_API_KEY` is configured, the service also persists an ended session snapshot to Mem0 with:
+
+- `user_id`
+- `agent_id`
+- `app_id`
+- session-scoped `run_id`
+- a raw bounded snapshot of failure/chat/session context
+
+Only `MEM0_API_KEY` needs to be configured by the operator. The other Mem0 ids are derived internally from stable service defaults and the current local username.
+
 ## Logging
 
 [src/logger.ts](./src/logger.ts) defines the shared Pino logger and child scopes. Current log streams include:
@@ -168,21 +197,34 @@ The service persists:
 3. The default analyzer delegates to the OpenRouter-backed static analyzer.
 4. OpenRouter returns structured JSON.
 5. The parser sanitizes summary and line annotations.
-6. The service returns the final summary and annotations to the client.
+6. The service writes the latest failure snapshot into the active session scope.
+7. The service returns the final summary and annotations to the client.
 
 ### Companion Chat
 
 1. `CodeCompanion` sends a non-streaming OpenAI-style request to the local HTTP endpoint.
-2. `SubmissionServer` sanitizes chat messages and applies the service-owned system prompt.
-3. OpenRouter generates the response.
-4. The service returns an OpenAI-compatible `chat.completion` payload to the editor.
+2. `SubmissionServer` validates that an active LeetCode session exists.
+3. The active session scope and failure/session memory are injected ahead of visible chat history.
+4. OpenRouter generates the response.
+5. The service appends the assistant reply back into the active session scope.
+6. The service returns an OpenAI-compatible chat completion or SSE stream to the editor.
+
+### Session End Persistence
+
+1. A session ends through `stop_timer`, `drop_timer`, accepted-solution restart, active-session eviction, or process shutdown.
+2. `SubmissionServer` takes the current in-memory scope out of the active session map.
+3. Local active memory is cleared immediately.
+4. If Mem0 is configured, a bounded snapshot is sent to `POST /v3/memories/add/`.
+5. Persistence failures are logged but do not block session cleanup.
 
 ## Current Boundaries
 
-This service is currently a single local runtime with ephemeral in-memory state for timers and recent submission cache. If the process restarts:
+This service is currently a single local runtime with ephemeral in-memory state for the active session, timers, and recent submission cache. If the process restarts:
 
 - active timers are lost
+- active session scope is lost
 - cache contents are lost
 - persisted submissions remain available through PostgreSQL
+- ended sessions that were already flushed to Mem0 remain available there
 
-That tradeoff matches the current use case: fast local UX for `leetcode.nvim`, with the database acting as the durable record.
+That tradeoff matches the current use case: fast local UX for `leetcode.nvim`, PostgreSQL as the durable submission record, and Mem0 as the durable session-memory archive.

@@ -33,6 +33,11 @@ local_runtime: {
     class: cache_store
   }
 
+  session_persistence: {
+    label: "session_persistence\nMem0 snapshot"
+    class: local_analysis
+  }
+
   ...@timer.runtime
   ...@static-analysis.runtime
   ...@storage.runtime

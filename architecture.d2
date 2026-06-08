@@ -17,6 +17,11 @@ llm_clients: {
   class: external_ai
 }
 
+mem0: {
+  label: "Mem0\nsession memory"
+  class: external_ai
+}
+
 local_runtime: {
   label: "Strict local"
   class: runtime_local
@@ -76,6 +81,7 @@ leetcode_api -> cloud_runtime.ingestor: "GraphQL"
 cloud_runtime.intelligence_svc -> discord: "Scheduled Prompt Submitted Question for Answering\n Scheduled Recommend Questions to Focus "
 
 local_runtime.submission_svc -> prisma_schema: "Prisma ORM"
+local_runtime.submission_svc -> mem0: "session snapshots"
 cloud_runtime.mcp_svc -> prisma_schema: "Prisma ORM"
 cloud_runtime.ingestor -> prisma_schema: "Prisma ORM"
 cloud_runtime.intelligence_svc -> prisma_schema: "Prisma ORM"

@@ -1,33 +1,44 @@
-import net from "node:net";
-import http, { type IncomingMessage, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
-import { OpenRouter } from "@openrouter/sdk";
-import { type Submission, PrismaClient } from "@prisma/client";
-import { withReadSubmissionCache, withWriteThroughSubmissionCache, type ActionContext, type ActionHandler } from "./action-middleware.ts";
-import { Cache, type SubmissionSummary } from "./cache.ts";
+import net from 'node:net';
+import http, { type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { OpenRouter } from '@openrouter/sdk';
+import { type Submission, PrismaClient } from '@prisma/client';
+import {
+  withReadSubmissionCache,
+  withWriteThroughSubmissionCache,
+  type ActionContext,
+  type ActionHandler,
+} from './action-middleware.ts';
+import { Cache, type SubmissionSummary } from './cache.ts';
 import {
   createDefaultCompanionChatService,
   sanitizeCompanionMessages,
   type CompanionChatRequest,
   type CompanionChatMessage,
   type CompanionChatStreamChunk,
-} from "./core/companionChat.ts";
-import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from "./core/failureAnalysis.ts";
-import { ActiveSessionScopeManager, extractCompanionSessionContext, TimerManager } from "./session/index.ts";
-import { extractThought, normalizeForEmbedding } from "./utils/codeCleaner.ts";
-import { getDatabaseDiagnostics, resolveDatabaseUrl } from "./database.ts";
-import { createLogger } from "./logger.ts";
+} from './core/companionChat.ts';
+import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from './core/failureAnalysis.ts';
+import {
+  ActiveSessionScopeManager,
+  createDefaultSessionRecordPersister,
+  extractCompanionSessionContext,
+  TimerManager,
+  type SessionEndReason,
+} from './session/index.ts';
+import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
+import { getDatabaseDiagnostics, resolveDatabaseUrl } from './database.ts';
+import { createLogger } from './logger.ts';
 
 enum ServerAction {
-  START_TIMER = "start_timer",
-  STOP_TIMER = "stop_timer",
-  DROP_TIMER = "drop_timer",
-  GET_ACTIVE_TIMERS = "get_active_timers",
-  GET_ACTIVE_SESSIONS = "get_active_sessions",
-  GET_PAST_SUBMISSIONS = "get_past_submissions",
-  SAVE_SUBMISSION = "save_submission",
-  ANALYZE_FAILURE = "analyze_failure",
+  START_TIMER = 'start_timer',
+  STOP_TIMER = 'stop_timer',
+  DROP_TIMER = 'drop_timer',
+  GET_ACTIVE_TIMERS = 'get_active_timers',
+  GET_ACTIVE_SESSIONS = 'get_active_sessions',
+  GET_PAST_SUBMISSIONS = 'get_past_submissions',
+  SAVE_SUBMISSION = 'save_submission',
+  ANALYZE_FAILURE = 'analyze_failure',
 }
 
 type JsonPrimitive = string | number | boolean | null;
@@ -50,18 +61,18 @@ type SubmissionActionHandlers = {
   [ServerAction.SAVE_SUBMISSION]: ActionHandler<[string, string, SubmissionItem], SubmissionActionResponse>;
 };
 
-const logger = createLogger("server");
+const logger = createLogger('server');
 
 function parseJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
 
-    req.on("data", (chunk) => {
+    req.on('data', (chunk) => {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
     });
 
-    req.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8").trim();
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks).toString('utf8').trim();
       if (raw.length === 0) {
         resolve({});
         return;
@@ -69,8 +80,8 @@ function parseJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
 
       try {
         const parsed = JSON.parse(raw) as unknown;
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          reject(new Error("JSON body must be an object."));
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          reject(new Error('JSON body must be an object.'));
           return;
         }
         resolve(parsed as Record<string, unknown>);
@@ -79,17 +90,19 @@ function parseJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
       }
     });
 
-    req.on("error", reject);
+    req.on('error', reject);
   });
 }
 
 function writeJson(res: ServerResponse, statusCode: number, body: Record<string, unknown>): void {
   res.statusCode = statusCode;
-  res.setHeader("Content-Type", "application/json");
+  res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
 }
 
-function toOpenAiUsage(usage?: CompanionChatStreamChunk["usage"]): Record<string, number | null | undefined> | undefined {
+function toOpenAiUsage(
+  usage?: CompanionChatStreamChunk['usage'],
+): Record<string, number | null | undefined> | undefined {
   if (!usage) {
     return undefined;
   }
@@ -104,7 +117,7 @@ function toOpenAiUsage(usage?: CompanionChatStreamChunk["usage"]): Record<string
 function toOpenAiStreamChunk(chunk: CompanionChatStreamChunk): Record<string, unknown> {
   return {
     id: chunk.id,
-    object: "chat.completion.chunk",
+    object: 'chat.completion.chunk',
     created: chunk.created,
     model: chunk.model,
     choices: chunk.choices.map((choice) => ({
@@ -138,57 +151,56 @@ function writeSseChunk(res: ServerResponse, body: Record<string, unknown>): void
 }
 
 function writeSseDone(res: ServerResponse): void {
-  res.write("data: [DONE]\n\n");
+  res.write('data: [DONE]\n\n');
   res.end();
 }
 
-function readString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
+function readString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
 }
 
 function readNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 export function formatPacificTimestamp(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: false,
-    timeZoneName: "short",
+    timeZoneName: 'short',
   }).formatToParts(date);
 
-  const part = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find((entry) => entry.type === type)?.value ?? "";
+  const part = (type: Intl.DateTimeFormatPartTypes): string => parts.find((entry) => entry.type === type)?.value ?? '';
 
-  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")} ${part("timeZoneName")}`;
+  return `${part('year')}-${part('month')}-${part('day')} ${part('hour')}:${part('minute')}:${part('second')} ${part('timeZoneName')}`;
 }
 
 function readSubmissionFlag(item: SubmissionItem, key: string): boolean | undefined {
   const value = item[key];
-  return typeof value === "boolean" ? value : undefined;
+  return typeof value === 'boolean' ? value : undefined;
 }
 
 export function inferIsTestSubmission(content: string, item: SubmissionItem): boolean {
-  const topLevelFlag = readSubmissionFlag(item, "lcnvim_is_test");
-  if (typeof topLevelFlag === "boolean") {
+  const topLevelFlag = readSubmissionFlag(item, 'lcnvim_is_test');
+  if (typeof topLevelFlag === 'boolean') {
     return topLevelFlag;
   }
 
   const metadata = item._;
-  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
-    const submissionFlag = readSubmissionFlag(metadata, "submission");
-    if (typeof submissionFlag === "boolean") {
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const submissionFlag = readSubmissionFlag(metadata, 'submission');
+    if (typeof submissionFlag === 'boolean') {
       return !submissionFlag;
     }
   }
 
-  return content.includes("#TEST#");
+  return content.includes('#TEST#');
 }
 
 function createSubmissionSummary(args: {
@@ -216,33 +228,33 @@ export class SubmissionServer {
   private readonly companionHttpPort: number;
   private readonly timerManager = new TimerManager();
   private readonly sessionScope = new ActiveSessionScopeManager();
+  private readonly sessionRecordPersister = createDefaultSessionRecordPersister();
   readonly logger = logger;
   readonly cache = new Cache();
   private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
     ? new OpenRouter({
         apiKey: process.env.OPEN_ROUTER_API_KEY,
-        httpReferer: "https://github.com/kawre/leetcode.nvim",
-        appTitle: "leetcode-submission-service",
+        httpReferer: 'https://github.com/kawre/leetcode.nvim',
+        appTitle: 'leetcode-submission-service',
       })
     : null;
-  private readonly companionOpenRouter = process.env.OPEN_ROUTER_API_KEY
-    ? process.env.OPEN_ROUTER_API_KEY
-    : null;
+  private readonly companionOpenRouter = process.env.OPEN_ROUTER_API_KEY ? process.env.OPEN_ROUTER_API_KEY : null;
   private readonly failureAnalyzer = this.openRouter
     ? createDefaultFailureAnalyzer(
         this.openRouter,
-        process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next",
+        process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
       )
     : null;
-  private readonly companionModel = process.env.LEETCODE_COMPANION_MODEL ?? process.env.MODEL ?? "qwen/qwen3-coder-next";
+  private readonly companionModel =
+    process.env.LEETCODE_COMPANION_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next';
   private readonly companionModels = (process.env.LEETCODE_COMPANION_MODELS ?? this.companionModel)
-    .split(",")
+    .split(',')
     .map((model) => model.trim())
     .filter((model) => model.length > 0);
   private readonly companionChat = this.companionOpenRouter
     ? createDefaultCompanionChatService(this.companionOpenRouter, this.companionModel, {
-        appTitle: "companion-service",
-        httpReferer: "https://github.com/kawre/leetcode.nvim",
+        appTitle: 'companion-service',
+        httpReferer: 'https://github.com/kawre/leetcode.nvim',
       })
     : null;
   private readonly actionContext: ActionContext = {
@@ -263,9 +275,14 @@ export class SubmissionServer {
         count: submissions.length,
       }),
     }),
-    [ServerAction.SAVE_SUBMISSION]: withWriteThroughSubmissionCache<[string, string, SubmissionItem], PendingSubmission, SubmissionActionResponse>({
+    [ServerAction.SAVE_SUBMISSION]: withWriteThroughSubmissionCache<
+      [string, string, SubmissionItem],
+      PendingSubmission,
+      SubmissionActionResponse
+    >({
       actionName: ServerAction.SAVE_SUBMISSION,
-      toPending: (titleSlug: string, content: string, item: SubmissionItem) => this.createPendingSubmission(titleSlug, content, item),
+      toPending: (titleSlug: string, content: string, item: SubmissionItem) =>
+        this.createPendingSubmission(titleSlug, content, item),
       cachePending: (context, pending: PendingSubmission) => {
         const cacheKey = context.cache.savePending(
           createSubmissionSummary({
@@ -287,7 +304,7 @@ export class SubmissionServer {
             isCheat: pending.isCheat,
             timeSpentMinutes: pending.timeSpentMinutes,
           },
-          "Submission cached successfully",
+          'Submission cached successfully',
         );
 
         return {
@@ -300,7 +317,8 @@ export class SubmissionServer {
           },
         };
       },
-      persist: (_context, pending: PendingSubmission, cacheKey: string) => this.persistPendingSubmission(pending, cacheKey),
+      persist: (_context, pending: PendingSubmission, cacheKey: string) =>
+        this.persistPendingSubmission(pending, cacheKey),
     }),
   };
   private readonly db = (() => {
@@ -318,7 +336,7 @@ export class SubmissionServer {
     });
   })();
 
-  constructor(host = process.env.SUBMISSION_HOST ?? "127.0.0.1", port = Number(process.env.SUBMISSION_PORT ?? 3000)) {
+  constructor(host = process.env.SUBMISSION_HOST ?? '127.0.0.1', port = Number(process.env.SUBMISSION_PORT ?? 3000)) {
     this.host = host;
     this.port = Number.isFinite(port) ? port : 3000;
     const companionPort = Number(process.env.SUBMISSION_COMPANION_PORT ?? 3001);
@@ -327,14 +345,57 @@ export class SubmissionServer {
 
   private startSession(titleSlug: string): { alreadyActive: boolean; evictedTitleSlugs: string[] } {
     const result = this.timerManager.start(titleSlug);
-    this.sessionScope.activate(titleSlug, result.evictedTitleSlugs);
-    return result;
+    for (const evictedTimer of result.evictedTimers) {
+      void this.persistEndedSession(evictedTimer.titleSlug, 'session_evicted', {
+        elapsedMinutes: evictedTimer.elapsedMinutes,
+        replacedByTitleSlug: titleSlug,
+      });
+    }
+    this.sessionScope.activate(titleSlug);
+    return {
+      alreadyActive: result.alreadyActive,
+      evictedTitleSlugs: result.evictedTimers.map((entry) => entry.titleSlug),
+    };
   }
 
-  private stopSession(titleSlug: string): number {
+  private stopSession(titleSlug: string, reason: SessionEndReason = 'stop_timer'): number {
     const minutes = this.timerManager.stop(titleSlug);
-    this.sessionScope.clear(titleSlug);
+    void this.persistEndedSession(titleSlug, reason, { elapsedMinutes: minutes });
     return minutes;
+  }
+
+  private async persistEndedSession(
+    titleSlug: string,
+    reason: SessionEndReason,
+    options: {
+      elapsedMinutes?: number | null;
+      replacedByTitleSlug?: string;
+    } = {},
+  ): Promise<void> {
+    const scope = this.sessionScope.take(titleSlug);
+    if (!scope) {
+      return;
+    }
+
+    try {
+      await this.sessionRecordPersister.persist(scope, {
+        reason,
+        endedAt: new Date().toISOString(),
+        elapsedMinutes: options.elapsedMinutes,
+        replacedByTitleSlug: options.replacedByTitleSlug,
+      });
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          titleSlug,
+          reason,
+          elapsedMinutes: options.elapsedMinutes,
+          replacedByTitleSlug: options.replacedByTitleSlug,
+        },
+        'Failed to persist ended session record',
+      );
+    }
   }
 
   private getActiveSessionTitleSlug(): string | null {
@@ -346,7 +407,7 @@ export class SubmissionServer {
     if (!activeTitleSlug) {
       return {
         ok: false,
-        error: "No active LeetCode session exists on submission-service. Start a session before using LLM flows.",
+        error: 'No active LeetCode session exists on submission-service. Start a session before using LLM flows.',
       };
     }
 
@@ -368,36 +429,36 @@ export class SubmissionServer {
       const timers = this.timerManager.getActiveTimers();
       const entries = Object.entries(timers);
       if (entries.length === 0) {
-        logger.info("No active sessions");
+        logger.info('No active sessions');
         return;
       }
-      logger.info({ count: entries.length }, "Active sessions");
+      logger.info({ count: entries.length }, 'Active sessions');
       for (const [slug, elapsed] of entries) {
-        logger.info({ titleSlug: slug, elapsedMinutes: elapsed }, "Active session");
+        logger.info({ titleSlug: slug, elapsedMinutes: elapsed }, 'Active session');
       }
     }, 5000);
   }
 
   private createPendingSubmission(titleSlug: string, content: string, item: SubmissionItem): PendingSubmission {
-    const status = readString(item.status_msg, "Unknown");
+    const status = readString(item.status_msg, 'Unknown');
     const isTest = inferIsTestSubmission(content, item);
-    const isCheat = content.includes("#CHEAT#");
+    const isCheat = content.includes('#CHEAT#');
 
     let timeSpentMinutes: number | null = null;
     if (this.timerManager.hasActiveTimer(titleSlug)) {
       timeSpentMinutes = this.timerManager.getElapsedTime(titleSlug);
-      this.logger.info({ titleSlug, timeSpentMinutes }, "Current elapsed time");
+      this.logger.info({ titleSlug, timeSpentMinutes }, 'Current elapsed time');
     }
 
     const submissionDetails = structuredClone(item);
     submissionDetails.lcnvim_is_test = isTest;
 
-    if (status === "Accepted" && !isTest) {
+    if (status === 'Accepted' && !isTest) {
       if (this.timerManager.hasActiveTimer(titleSlug)) {
-        this.stopSession(titleSlug);
+        this.stopSession(titleSlug, 'accepted_restart');
       }
       this.startSession(titleSlug);
-      this.logger.info({ titleSlug }, "Timer restarted for accepted solution");
+      this.logger.info({ titleSlug }, 'Timer restarted for accepted solution');
     }
 
     return {
@@ -458,7 +519,7 @@ export class SubmissionServer {
         isCheat: pending.isCheat,
         timeSpentMinutes: pending.timeSpentMinutes,
       },
-      "Submission persisted successfully",
+      'Submission persisted successfully',
     );
   }
 
@@ -466,13 +527,15 @@ export class SubmissionServer {
     const safeLimit = Math.max(1, Math.min(limit, 50));
     const persisted = await this.db.submission.findMany({
       where: { titleSlug },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: safeLimit,
     });
 
     return persisted.map((submission: Submission) => {
       const details =
-        submission.submissionDetails && typeof submission.submissionDetails === "object" && !Array.isArray(submission.submissionDetails)
+        submission.submissionDetails &&
+        typeof submission.submissionDetails === 'object' &&
+        !Array.isArray(submission.submissionDetails)
           ? (submission.submissionDetails as SubmissionItem)
           : {};
       const isTest = inferIsTestSubmission(submission.content, details);
@@ -488,10 +551,14 @@ export class SubmissionServer {
     });
   }
 
-  private async saveSubmission(titleSlug: string, content: string, item: SubmissionItem): Promise<Record<string, unknown>> {
+  private async saveSubmission(
+    titleSlug: string,
+    content: string,
+    item: SubmissionItem,
+  ): Promise<Record<string, unknown>> {
     const handler = this.actionHandlers[ServerAction.SAVE_SUBMISSION];
     if (!handler) {
-      throw new Error("save_submission handler not configured");
+      throw new Error('save_submission handler not configured');
     }
     return handler(this.actionContext, titleSlug, content, item);
   }
@@ -499,7 +566,7 @@ export class SubmissionServer {
   private async getPastSubmissions(titleSlug: string, limit = 10): Promise<Record<string, unknown>> {
     const handler = this.actionHandlers[ServerAction.GET_PAST_SUBMISSIONS];
     if (!handler) {
-      throw new Error("get_past_submissions handler not configured");
+      throw new Error('get_past_submissions handler not configured');
     }
     return handler(this.actionContext, titleSlug, limit);
   }
@@ -509,7 +576,7 @@ export class SubmissionServer {
       return {
         success: false,
         action: ServerAction.ANALYZE_FAILURE,
-        error: "Failure analyzer is not configured for submission failure analysis.",
+        error: 'Failure analyzer is not configured for submission failure analysis.',
       };
     }
 
@@ -520,15 +587,15 @@ export class SubmissionServer {
       editorContent: readString(request.editor_content),
       submissionContent: readString(request.submission_content),
       testcase: readString(request.testcase),
-      judgeResult: (request.item ?? {}) as FailureAnalysisRequest["judgeResult"],
-      filetype: readString(request.filetype, "text"),
+      judgeResult: (request.item ?? {}) as FailureAnalysisRequest['judgeResult'],
+      filetype: readString(request.filetype, 'text'),
     } satisfies FailureAnalysisRequest;
 
     if (!payload.titleSlug || !payload.editorContent) {
       return {
         success: false,
         action: ServerAction.ANALYZE_FAILURE,
-        error: "title_slug and editor_content are required.",
+        error: 'title_slug and editor_content are required.',
       };
     }
 
@@ -548,7 +615,7 @@ export class SubmissionServer {
         editorChars: payload.editorContent.length,
         testcaseChars: payload.testcase.length,
       },
-      "starting failure analysis",
+      'starting failure analysis',
     );
     const analysis = await this.failureAnalyzer.analyze(payload);
     const eventId = `failure_${randomUUID()}`;
@@ -560,7 +627,7 @@ export class SubmissionServer {
         eventId,
         annotationCount: analysis.annotations.length,
       },
-      "completed failure analysis",
+      'completed failure analysis',
     );
     return {
       success: true,
@@ -573,16 +640,16 @@ export class SubmissionServer {
     };
   }
 
-  private buildCompanionChatRequest(body: Record<string, unknown>):
-    | { ok: true; request: CompanionChatRequest; titleSlug: string }
-    | { ok: false; response: Record<string, unknown> } {
+  private buildCompanionChatRequest(
+    body: Record<string, unknown>,
+  ): { ok: true; request: CompanionChatRequest; titleSlug: string } | { ok: false; response: Record<string, unknown> } {
     if (!this.companionChat) {
       return {
         ok: false,
         response: {
           error: {
-            message: "Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.",
-            type: "configuration_error",
+            message: 'Companion chat is not configured because OPEN_ROUTER_API_KEY is missing.',
+            type: 'configuration_error',
           },
         },
       };
@@ -595,7 +662,7 @@ export class SubmissionServer {
         response: {
           error: {
             message: activeSession.error,
-            type: "invalid_request_error",
+            type: 'invalid_request_error',
           },
         },
       };
@@ -607,8 +674,8 @@ export class SubmissionServer {
         ok: false,
         response: {
           error: {
-            message: "messages must contain at least one non-empty chat message.",
-            type: "invalid_request_error",
+            message: 'messages must contain at least one non-empty chat message.',
+            type: 'invalid_request_error',
           },
         },
       };
@@ -621,7 +688,7 @@ export class SubmissionServer {
         response: {
           error: {
             message: `Companion chat context is bound to \`${companionContext.titleSlug}\`, but the active submission-service session is \`${activeSession.titleSlug}\`.`,
-            type: "invalid_request_error",
+            type: 'invalid_request_error',
           },
         },
       };
@@ -639,7 +706,7 @@ export class SubmissionServer {
       request: {
         messages: scopedMessages,
         model: readString(body.model, this.companionModel),
-        temperature: typeof body.temperature === "number" ? body.temperature : undefined,
+        temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
       } satisfies CompanionChatRequest,
     };
   }
@@ -657,7 +724,7 @@ export class SubmissionServer {
         stream: false,
         messageCount: prepared.request.messages.length,
       },
-      "Companion completion request accepted",
+      'Companion completion request accepted',
     );
 
     const result = await this.companionChat!.chat(prepared.request);
@@ -666,17 +733,17 @@ export class SubmissionServer {
 
     return {
       id: `chatcmpl_${randomUUID()}`,
-      object: "chat.completion",
+      object: 'chat.completion',
       created,
       model: result.model,
       choices: [
         {
           index: 0,
           message: {
-            role: "assistant",
+            role: 'assistant',
             content: result.content,
           },
-          finish_reason: result.finishReason ?? "stop",
+          finish_reason: result.finishReason ?? 'stop',
         },
       ],
       usage: result.usage,
@@ -697,19 +764,19 @@ export class SubmissionServer {
         stream: true,
         messageCount: prepared.request.messages.length,
       },
-      "Companion stream request accepted",
+      'Companion stream request accepted',
     );
 
     res.statusCode = 200;
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
 
     const stream = await this.companionChat!.stream(prepared.request);
-    let fullContent = "";
+    let fullContent = '';
     for await (const chunk of stream) {
       for (const choice of chunk.choices) {
-        fullContent += choice.delta.content ?? "";
+        fullContent += choice.delta.content ?? '';
       }
       writeSseChunk(res, toOpenAiStreamChunk(chunk));
     }
@@ -723,32 +790,32 @@ export class SubmissionServer {
 
   private startCompanionHttpServer(): void {
     const server = http.createServer(async (req, res) => {
-      const method = req.method ?? "GET";
-      const url = req.url ?? "/";
+      const method = req.method ?? 'GET';
+      const url = req.url ?? '/';
 
-      if (method === "GET" && url === "/health") {
+      if (method === 'GET' && url === '/health') {
         writeJson(res, 200, {
-          status: "ok",
-          service: "leetcode-submission-service-companion",
+          status: 'ok',
+          service: 'leetcode-submission-service-companion',
           port: this.companionHttpPort,
         });
         return;
       }
 
-      if (method === "GET" && url === "/v1/models") {
+      if (method === 'GET' && url === '/v1/models') {
         writeJson(res, 200, {
-          object: "list",
+          object: 'list',
           data: this.companionModels.map((model) => ({
             id: model,
-            object: "model",
+            object: 'model',
             created: 0,
-            owned_by: "leetcode-submission-service",
+            owned_by: 'leetcode-submission-service',
           })),
         });
         return;
       }
 
-      if (method === "POST" && url === "/v1/chat/completions") {
+      if (method === 'POST' && url === '/v1/chat/completions') {
         try {
           const body = await parseJsonBody(req);
           if (body.stream === true) {
@@ -759,11 +826,11 @@ export class SubmissionServer {
           const statusCode = response.error ? 400 : 200;
           writeJson(res, statusCode, response);
         } catch (error) {
-          logger.error({ err: error }, "Companion HTTP request failed");
+          logger.error({ err: error }, 'Companion HTTP request failed');
           writeJson(res, 500, {
             error: {
-              message: error instanceof Error ? error.message : "Unknown companion HTTP error",
-              type: "server_error",
+              message: error instanceof Error ? error.message : 'Unknown companion HTTP error',
+              type: 'server_error',
             },
           });
         }
@@ -773,19 +840,19 @@ export class SubmissionServer {
       writeJson(res, 404, {
         error: {
           message: `Unknown route: ${method} ${url}`,
-          type: "not_found",
+          type: 'not_found',
         },
       });
     });
 
     server.listen(this.companionHttpPort, this.host, () => {
-      logger.info({ host: this.host, port: this.companionHttpPort }, "Companion HTTP server listening");
+      logger.info({ host: this.host, port: this.companionHttpPort }, 'Companion HTTP server listening');
     });
   }
 
   private async handleRequest(request: Record<string, unknown>): Promise<Record<string, unknown>> {
     const action = readString(request.action);
-    logger.info({ action }, "Received request");
+    logger.info({ action }, 'Received request');
 
     switch (action) {
       case ServerAction.START_TIMER: {
@@ -813,7 +880,7 @@ export class SubmissionServer {
 
       case ServerAction.DROP_TIMER: {
         const titleSlug = readString(request.title_slug);
-        this.stopSession(titleSlug);
+        this.stopSession(titleSlug, 'drop_timer');
         return { success: true, action: ServerAction.DROP_TIMER, title_slug: titleSlug };
       }
 
@@ -830,7 +897,7 @@ export class SubmissionServer {
         const sessions = Object.entries(timers).map(([titleSlug, elapsedMinutes]) => ({
           title_slug: titleSlug,
           elapsed_minutes: elapsedMinutes,
-          status: "active",
+          status: 'active',
         }));
 
         return {
@@ -866,13 +933,16 @@ export class SubmissionServer {
     const database = getDatabaseDiagnostics();
     const connectStartedAt = Date.now();
 
-    logger.info({ database }, "Connecting to database");
+    logger.info({ database }, 'Connecting to database');
 
     try {
       await this.db.$connect();
-      logger.info({ database, connectMs: Date.now() - connectStartedAt }, "Database connection established");
+      logger.info({ database, connectMs: Date.now() - connectStartedAt }, 'Database connection established');
     } catch (error) {
-      logger.error({ err: error, database, connectMs: Date.now() - connectStartedAt }, "Database connection failed during startup");
+      logger.error(
+        { err: error, database, connectMs: Date.now() - connectStartedAt },
+        'Database connection failed during startup',
+      );
       throw error;
     }
 
@@ -880,15 +950,15 @@ export class SubmissionServer {
     this.startCompanionHttpServer();
 
     const server = net.createServer((socket) => {
-      const peer = `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`;
-      logger.info({ peer }, "Client connected");
+      const peer = `${socket.remoteAddress ?? 'unknown'}:${socket.remotePort ?? '?'}`;
+      logger.info({ peer }, 'Client connected');
 
-      let buffer = "";
+      let buffer = '';
 
-      socket.on("data", async (chunk) => {
-        buffer += chunk.toString("utf8");
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+      socket.on('data', async (chunk) => {
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
 
         for (const rawLine of lines) {
           const line = rawLine.trim();
@@ -907,25 +977,35 @@ export class SubmissionServer {
         }
       });
 
-      socket.on("close", () => {
-        logger.info({ peer }, "Client disconnected");
+      socket.on('close', () => {
+        logger.info({ peer }, 'Client disconnected');
       });
 
-      socket.on("error", (error) => {
-        logger.error({ err: error, peer }, "Client socket error");
+      socket.on('error', (error) => {
+        logger.error({ err: error, peer }, 'Client socket error');
       });
     });
 
     server.listen(this.port, this.host, () => {
-      logger.info({ host: this.host, port: this.port }, "Submission server started");
+      logger.info({ host: this.host, port: this.port }, 'Submission server started');
     });
 
-    process.on("SIGINT", async () => {
+    process.on('SIGINT', async () => {
+      const activeTitleSlug = this.getActiveSessionTitleSlug();
+      if (activeTitleSlug) {
+        const minutes = this.timerManager.stop(activeTitleSlug);
+        await this.persistEndedSession(activeTitleSlug, 'process_shutdown', { elapsedMinutes: minutes });
+      }
       await this.db.$disconnect().catch(() => undefined);
       server.close(() => process.exit(0));
     });
 
-    process.on("SIGTERM", async () => {
+    process.on('SIGTERM', async () => {
+      const activeTitleSlug = this.getActiveSessionTitleSlug();
+      if (activeTitleSlug) {
+        const minutes = this.timerManager.stop(activeTitleSlug);
+        await this.persistEndedSession(activeTitleSlug, 'process_shutdown', { elapsedMinutes: minutes });
+      }
       await this.db.$disconnect().catch(() => undefined);
       server.close(() => process.exit(0));
     });
@@ -937,7 +1017,7 @@ export async function main(): Promise<void> {
   try {
     await app.start();
   } catch (error) {
-    logger.fatal({ err: error }, "Unhandled startup error");
+    logger.fatal({ err: error }, 'Unhandled startup error');
     process.exit(1);
   }
 }
