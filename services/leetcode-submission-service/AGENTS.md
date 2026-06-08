@@ -2,7 +2,7 @@
 
 Agent map for `services/leetcode-submission-service`.
 
-Read this before editing the submission runtime, then use [ARCHITECTURE.md](./ARCHITECTURE.md) as the deeper source of truth.
+Read ADRs first when changing session behavior, companion behavior, or failure-analysis lifecycles. Use [ARCHITECTURE.md](./ARCHITECTURE.md) and code after that.
 
 ## What This Service Owns
 
@@ -15,19 +15,25 @@ Read this before editing the submission runtime, then use [ARCHITECTURE.md](./AR
 
 ## Start Here
 
-1. [ARCHITECTURE.md](./ARCHITECTURE.md)
-2. [src/server.ts](./src/server.ts)
-3. [src/action-middleware.ts](./src/action-middleware.ts)
-4. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
-5. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
-6. [src/core/companionChat.ts](./src/core/companionChat.ts)
+1. [../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md](../../docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
+2. [../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md](../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
+3. [ARCHITECTURE.md](./ARCHITECTURE.md)
+4. [src/server.ts](./src/server.ts)
+5. [src/session/scope.ts](./src/session/scope.ts)
+6. [src/core/failureAnalysis.ts](./src/core/failureAnalysis.ts)
+7. [src/core/staticAnalysis.ts](./src/core/staticAnalysis.ts)
+8. [src/core/companionChat.ts](./src/core/companionChat.ts)
 
 ## File Map
 
 - `src/server.ts`
   Top-level TCP server, action dispatch, Prisma wiring, submission shaping.
-- `src/timer.ts`
-  Active solve-session state.
+- `src/session/index.ts`
+  Session module exports.
+- `src/session/timer.ts`
+  Active solve-session timers and lifecycle.
+- `src/session/scope.ts`
+  Shared in-memory session scope for companion memory, latest failure, and service-owned session memory.
 - `src/cache.ts`
   Recent submission cache.
 - `src/action-middleware.ts`
@@ -61,5 +67,6 @@ From repo root:
 
 ## When To Update Docs
 
+- Update ADRs first when session scope, failure lifecycle, or companion/session contracts change.
 - Update [ARCHITECTURE.md](./ARCHITECTURE.md) when actions, runtime boundaries, or persistence behavior change.
 - Update this file only when the navigation map or edit guardrails change.

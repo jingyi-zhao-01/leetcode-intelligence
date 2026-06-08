@@ -50,6 +50,8 @@ If you are only touching one service, stop after the relevant service-local docu
 
 ### Submission Service
 
+- [docs/adrs/001-stateful-failure-analysis-session-aggregation.md](./docs/adrs/001-stateful-failure-analysis-session-aggregation.md)
+- [docs/adrs/002-session-bound-companion-memory-and-failure-events.md](./docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
 - [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
 - [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
 
@@ -72,6 +74,19 @@ If you are only touching one service, stop after the relevant service-local docu
 - Preserve the split between request handling, caching, persistence, and failure analysis when editing the submission service.
 - Keep MCP tool names and payload shapes stable unless the user explicitly asks for a contract change.
 - Prefer code-adjacent documentation over adding large top-level prose.
+
+## D2 Diagram Style Preference
+
+When adding or updating D2 diagrams, prefer the user's established high-level architecture style:
+
+- Treat D2 as a system overview first, not an implementation-detail dump.
+- Group nodes by runtime boundary before drawing flows, for example `Strict local` or `Can be cloud hosted`.
+- Clearly separate entry points, runtime surfaces, external systems, and data planes.
+- Prefer a left-to-right primary reading direction with straight main flows and minimal crossing lines.
+- Optimize for ownership and data flow clarity, not source-file completeness.
+- Use a small number of stable responsibility-oriented node labels rather than many file/module names.
+- Keep edge labels short and protocol/action-oriented, such as `JSON over TCP`, `Prisma ORM`, or `GraphQL`.
+- Preserve generous whitespace and a clean overview feel; prefer one readable system map plus optional focused sub-diagrams.
 
 ## Commands
 

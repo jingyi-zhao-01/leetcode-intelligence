@@ -18,6 +18,21 @@ local_runtime: {
     class: local_core
   }
 
+  companion_http: {
+    label: "companion_http\nOpenAI-compatible"
+    class: local_core
+  }
+
+  companion_chat: {
+    label: "companion_chat"
+    class: local_analysis
+  }
+
+  session_scope: {
+    label: "session_scope\nactive in-memory"
+    class: cache_store
+  }
+
   ...@timer.runtime
   ...@static-analysis.runtime
   ...@storage.runtime
