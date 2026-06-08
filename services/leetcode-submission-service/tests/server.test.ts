@@ -491,6 +491,7 @@ describe('submission server helpers', () => {
     assert.match(rendered, /LeetCode Session Record/);
     assert.match(rendered, /Title Slug: two-sum/);
     assert.match(rendered, /End Reason: stop_timer/);
+    assert.doesNotMatch(rendered, /## Problem Description/);
     assert.match(rendered, /Latest LeetCode Failure/);
     assert.match(rendered, /Wrong Answer/);
     assert.match(rendered, /Companion Conversation/);

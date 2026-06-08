@@ -241,8 +241,6 @@ export function renderPersistedSessionRecord(scope: ActiveSessionScope, event: S
     parts.push(`- Language: ${scope.lang}`);
   }
 
-  pushTextSection(parts, 'Problem Description', scope.questionContent);
-
   if (scope.testcase?.trim()) {
     parts.push('', '## Active Testcase', '```text', truncate(scope.testcase, MAX_TEXT_SECTION_CHARS), '```');
   }
