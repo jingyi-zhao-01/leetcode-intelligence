@@ -315,7 +315,19 @@ describe('submission server helpers', () => {
         records: [
           {
             id: 'mem_1',
-            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            memory: [
+              '# LeetCode Session Record',
+              '',
+              '- Title Slug: palindrome-number',
+              '- End Reason: drop_timer',
+              '',
+              '## Last Submitted Code',
+              '```python',
+              'class Solution:',
+              '    def isPalindrome(self, x: int) -> bool:',
+              '        return str(x) == str(x)[::-1]',
+              '```',
+            ].join('\n'),
             createdAt: '2026-06-08T01:33:16.332Z',
             metadata: {
               activated_at: '2026-06-08T01:33:16.332Z',
@@ -326,7 +338,18 @@ describe('submission server helpers', () => {
           },
           {
             id: 'mem_2',
-            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            memory: [
+              '# LeetCode Session Record',
+              '',
+              '- Title Slug: palindrome-number',
+              '- End Reason: drop_timer',
+              '',
+              '## Final Editor Code',
+              '```python',
+              'class Solution:',
+              '    pass',
+              '```',
+            ].join('\n'),
             createdAt: '2026-06-08T01:38:40.881Z',
             metadata: {
               activated_at: '2026-06-08T01:38:40.881Z',
@@ -362,6 +385,10 @@ describe('submission server helpers', () => {
     assert.equal(messages[1]?.role, 'user');
     assert.match(messages[1]?.content ?? '', /Submission Service Mem0 Recall/);
     assert.match(messages[1]?.content ?? '', /Recalled Session Count: 2/);
+    assert.match(messages[1]?.content ?? '', /Treat these as historical summaries only/);
+    assert.doesNotMatch(messages[1]?.content ?? '', /### Session Snapshot/);
+    assert.match(messages[1]?.content ?? '', /### Recalled Code Excerpt/);
+    assert.match(messages[1]?.content ?? '', /return str\(x\) == str\(x\)\[::-1\]/);
     assert.equal(messages[2]?.role, 'user');
     assert.match(messages[2]?.content ?? '', /Submission Service Failure Update/);
     assert.deepEqual(messages.slice(3), [{ role: 'user', content: '我这题之前发生过什么' }]);
@@ -592,7 +619,19 @@ describe('submission server helpers', () => {
         records: [
           {
             id: 'mem_1',
-            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: accepted_restart',
+            memory: [
+              '# LeetCode Session Record',
+              '',
+              '- Title Slug: palindrome-number',
+              '- End Reason: accepted_restart',
+              '',
+              '## Last Submitted Code',
+              '```python3',
+              'class Solution:',
+              '    def isPalindrome(self, x: int) -> bool:',
+              '        return str(x) == str(x)[::-1]',
+              '```',
+            ].join('\n'),
             createdAt: '2026-06-08T01:33:16.332Z',
             metadata: {
               activated_at: '2026-06-08T01:33:16.332Z',
@@ -603,7 +642,18 @@ describe('submission server helpers', () => {
           },
           {
             id: 'mem_2',
-            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            memory: [
+              '# LeetCode Session Record',
+              '',
+              '- Title Slug: palindrome-number',
+              '- End Reason: drop_timer',
+              '',
+              '## Final Editor Code',
+              '```python3',
+              'class Solution:',
+              '    pass',
+              '```',
+            ].join('\n'),
             createdAt: '2026-06-08T01:38:40.881Z',
             metadata: {
               activated_at: '2026-06-08T01:38:40.881Z',
@@ -660,6 +710,11 @@ describe('submission server helpers', () => {
     assert.match(prepared.request.messages[1]?.content ?? '', /Submission Service Mem0 Recall/);
     assert.match(prepared.request.messages[1]?.content ?? '', /Recalled Session Count: 2/);
     assert.match(prepared.request.messages[1]?.content ?? '', /accepted_restart/);
+    assert.doesNotMatch(prepared.request.messages[1]?.content ?? '', /\[truncated \d+ chars\]/);
+    assert.doesNotMatch(prepared.request.messages[1]?.content ?? '', /## Problem Description/);
+    assert.doesNotMatch(prepared.request.messages[1]?.content ?? '', /## Current Code/);
+    assert.match(prepared.request.messages[1]?.content ?? '', /### Recalled Code Excerpt/);
+    assert.match(prepared.request.messages[1]?.content ?? '', /return str\(x\) == str\(x\)\[::-1\]/);
     assert.match(prepared.request.messages[2]?.content ?? '', /帮我回忆一下这题之前都发生了什么/);
     assert.equal((server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope()?.mem0Recall?.recordCount, 2);
   });

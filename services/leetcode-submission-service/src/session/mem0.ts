@@ -14,7 +14,7 @@ const MAX_MESSAGE_CHARS = 1_200;
 const MAX_COMPANION_TURNS = 12;
 const MAX_SERVICE_UPDATES = 8;
 const MAX_RECALLED_SESSION_RECORDS = 12;
-const MAX_RECALLED_RECORD_CHARS = 1_800;
+const MAX_RECALLED_CODE_CHARS = 600;
 const DEFAULT_MEM0_BASE_URL = 'https://api.mem0.ai';
 
 export type SessionEndReason =
@@ -152,6 +152,21 @@ const readMetadataNumber = (metadata: Record<string, unknown>, ...keys: string[]
   return null;
 };
 
+const hasMarkdownSection = (content: string, heading: string): boolean =>
+  new RegExp(`(^|\\n)## ${heading}(\\n|$)`).test(content);
+
+const readMarkdownSection = (content: string, heading: string): string | undefined => {
+  const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = content.match(new RegExp(`(?:^|\\n)## ${escapedHeading}\\n([\\s\\S]*?)(?=\\n## |$)`));
+  const section = match?.[1]?.trim();
+  return section && section.length > 0 ? section : undefined;
+};
+
+const stripCodeFence = (content: string): string => {
+  const fenced = content.match(/^```[^\n]*\n([\s\S]*?)\n```$/);
+  return fenced?.[1]?.trim() ?? content.trim();
+};
+
 const pushTextSection = (parts: string[], heading: string, content?: string): void => {
   if (!content || content.trim().length === 0) {
     return;
@@ -285,6 +300,7 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
     `- Title Slug: ${result.titleSlug}`,
     `- Recalled Session Count: ${records.length}`,
     '- These are ended-session records recalled from Mem0 for this exact LeetCode problem.',
+    '- Treat these as historical summaries only; do not assume omitted code or truncated snapshots are ground truth.',
   ];
 
   if (omittedCount > 0) {
@@ -300,6 +316,13 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
     const difficulty = readMetadataString(metadata, 'difficulty');
     const latestFailureStatus = readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus');
     const elapsedMinutes = readMetadataNumber(metadata, 'elapsed_minutes', 'elapsedMinutes');
+    const hasEditorCode = hasMarkdownSection(record.memory, 'Final Editor Code');
+    const hasSubmittedCode = hasMarkdownSection(record.memory, 'Last Submitted Code');
+    const hasFailureSnapshot = hasMarkdownSection(record.memory, 'Latest LeetCode Failure');
+    const hasFailureAnalysis = hasMarkdownSection(record.memory, 'Latest Failure Analysis');
+    const hasCompanionConversation = hasMarkdownSection(record.memory, 'Companion Conversation');
+    const submittedCode = readMarkdownSection(record.memory, 'Last Submitted Code');
+    const editorCode = readMarkdownSection(record.memory, 'Final Editor Code');
 
     parts.push('', `## Session ${index + 1}`);
 
@@ -331,7 +354,39 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
       parts.push(`- Latest Failure Status: ${latestFailureStatus}`);
     }
 
-    parts.push('', '### Session Snapshot', truncate(record.memory, MAX_RECALLED_RECORD_CHARS));
+    const observed: string[] = [];
+    if (hasEditorCode) {
+      observed.push('editor_code');
+    }
+    if (hasSubmittedCode) {
+      observed.push('submitted_code');
+    }
+    if (hasFailureSnapshot) {
+      observed.push('failure_snapshot');
+    }
+    if (hasFailureAnalysis) {
+      observed.push('failure_analysis');
+    }
+    if (hasCompanionConversation) {
+      observed.push('companion_conversation');
+    }
+
+    if (observed.length > 0) {
+      parts.push(`- Observed Artifacts: ${observed.join(', ')}`);
+    } else {
+      parts.push('- Observed Artifacts: metadata_only');
+    }
+
+    const preferredCode = submittedCode ?? editorCode;
+    if (preferredCode) {
+      parts.push(
+        '',
+        '### Recalled Code Excerpt',
+        '```text',
+        truncate(stripCodeFence(preferredCode), MAX_RECALLED_CODE_CHARS),
+        '```',
+      );
+    }
   });
 
   return {
