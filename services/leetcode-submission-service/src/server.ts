@@ -10,7 +10,7 @@ import {
   type ActionContext,
   type ActionHandler,
 } from './action-middleware.ts';
-import { Cache, type SubmissionSummary } from './cache.ts';
+import { Cache, TimedCache, type SubmissionSummary } from './cache.ts';
 import {
   createDefaultCompanionChatService,
   sanitizeCompanionMessages,
@@ -21,6 +21,7 @@ import {
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from './core/failureAnalysis.ts';
 import {
   ActiveSessionScopeManager,
+  buildSyntheticRecalledSessionRecord,
   createDefaultSessionRecordRecaller,
   createDefaultSessionRecordPersister,
   extractCompanionSessionContext,
@@ -30,6 +31,7 @@ import {
   TimerManager,
   type RecalledMountSessionSummary,
   type SessionEndReason,
+  type SessionRecordPersister,
   type SessionRecordRecallResult,
 } from './session/index.ts';
 import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
@@ -67,6 +69,7 @@ type SubmissionActionHandlers = {
   [ServerAction.GET_PAST_SUBMISSIONS]: ActionHandler<[string, number?], SubmissionActionResponse>;
   [ServerAction.SAVE_SUBMISSION]: ActionHandler<[string, string, SubmissionItem], SubmissionActionResponse>;
 };
+const DEFAULT_MEM0_RECALL_CACHE_TTL_MS = 15 * 60 * 1000;
 
 const logger = createLogger('server');
 
@@ -237,7 +240,8 @@ export class SubmissionServer {
   private readonly sessionScope = new ActiveSessionScopeManager();
   private readonly sessionRecordPersister = createDefaultSessionRecordPersister();
   private readonly sessionRecordRecaller = createDefaultSessionRecordRecaller();
-  private readonly pendingMem0Recall = new Map<string, Promise<void>>();
+  private readonly pendingMem0Recall = new Map<string, Promise<SessionRecordRecallResult>>();
+  private readonly mem0RecallCache = new TimedCache<string, SessionRecordRecallResult>();
   readonly logger = logger;
   readonly cache = new Cache();
   private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
@@ -352,6 +356,57 @@ export class SubmissionServer {
     this.companionHttpPort = Number.isFinite(companionPort) ? companionPort : 3001;
   }
 
+  private getMem0RecallCacheTtlMs(): number {
+    const configured = Number(process.env.MEM0_RECALL_CACHE_TTL_MS ?? DEFAULT_MEM0_RECALL_CACHE_TTL_MS);
+    return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_MEM0_RECALL_CACHE_TTL_MS;
+  }
+
+  private readMem0RecallCache(titleSlug: string): SessionRecordRecallResult | null {
+    return this.mem0RecallCache.get(titleSlug);
+  }
+
+  private writeMem0RecallCache(recalled: SessionRecordRecallResult): SessionRecordRecallResult {
+    return this.mem0RecallCache.set(recalled.titleSlug, recalled, this.getMem0RecallCacheTtlMs());
+  }
+
+  private mergeMem0RecallCacheRecord(titleSlug: string, record: NonNullable<SessionRecordRecallResult['records'][number]>): void {
+    const cached = this.readMem0RecallCache(titleSlug);
+    if (!cached) {
+      return;
+    }
+
+    const deduped = cached.records.filter((existing) => existing.id !== record.id);
+    const recalled: SessionRecordRecallResult = {
+      titleSlug,
+      records: [record, ...deduped].sort((left, right) =>
+        (right.createdAt ?? right.updatedAt ?? '').localeCompare(left.createdAt ?? left.updatedAt ?? ''),
+      ),
+    };
+    this.writeMem0RecallCache(recalled);
+  }
+
+  private async recallMem0History(titleSlug: string): Promise<SessionRecordRecallResult> {
+    const cached = this.readMem0RecallCache(titleSlug);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = this.pendingMem0Recall.get(titleSlug);
+    if (pending) {
+      return pending;
+    }
+
+    const recall = this.sessionRecordRecaller
+      .recallByTitleSlug(titleSlug)
+      .then((recalled) => this.writeMem0RecallCache(recalled))
+      .finally(() => {
+        this.pendingMem0Recall.delete(titleSlug);
+      });
+
+    this.pendingMem0Recall.set(titleSlug, recall);
+    return recall;
+  }
+
   private startSession(titleSlug: string): { alreadyActive: boolean; evictedTitleSlugs: string[] } {
     const result = this.timerManager.start(titleSlug);
     for (const evictedTimer of result.evictedTimers) {
@@ -388,14 +443,17 @@ export class SubmissionServer {
       return;
     }
 
+    const event = {
+      reason,
+      endedAt: new Date().toISOString(),
+      elapsedMinutes: options.elapsedMinutes,
+      replacedByTitleSlug: options.replacedByTitleSlug,
+      forcePersist: options.forcePersist,
+    } satisfies Parameters<SessionRecordPersister['persist']>[1];
+
     try {
-      await this.sessionRecordPersister.persist(scope, {
-        reason,
-        endedAt: new Date().toISOString(),
-        elapsedMinutes: options.elapsedMinutes,
-        replacedByTitleSlug: options.replacedByTitleSlug,
-        forcePersist: options.forcePersist,
-      });
+      await this.sessionRecordPersister.persist(scope, event);
+      this.mergeMem0RecallCacheRecord(titleSlug, buildSyntheticRecalledSessionRecord(scope, event));
     } catch (error) {
       logger.error(
         {
@@ -425,14 +483,17 @@ export class SubmissionServer {
       return;
     }
 
+    const event = {
+      reason,
+      endedAt: new Date().toISOString(),
+      elapsedMinutes: options.elapsedMinutes,
+      replacedByTitleSlug: options.replacedByTitleSlug,
+      forcePersist: options.forcePersist,
+    } satisfies Parameters<SessionRecordPersister['persist']>[1];
+
     try {
-      await this.sessionRecordPersister.persist(scope, {
-        reason,
-        endedAt: new Date().toISOString(),
-        elapsedMinutes: options.elapsedMinutes,
-        replacedByTitleSlug: options.replacedByTitleSlug,
-        forcePersist: options.forcePersist,
-      });
+      await this.sessionRecordPersister.persist(scope, event);
+      this.mergeMem0RecallCacheRecord(titleSlug, buildSyntheticRecalledSessionRecord(scope, event));
     } catch (error) {
       logger.error(
         {
@@ -456,25 +517,13 @@ export class SubmissionServer {
       return;
     }
 
-    const pending = this.pendingMem0Recall.get(titleSlug);
-    if (pending) {
-      await pending;
-      return;
-    }
-
-    const hydrate = this.hydrateMem0RecallInternal(titleSlug);
-    this.pendingMem0Recall.set(titleSlug, hydrate);
-    try {
-      await hydrate;
-    } finally {
-      this.pendingMem0Recall.delete(titleSlug);
-    }
+    await this.hydrateMem0RecallInternal(titleSlug);
   }
 
   private async hydrateMem0RecallInternal(titleSlug: string): Promise<void> {
     let recalled: SessionRecordRecallResult;
     try {
-      recalled = await this.sessionRecordRecaller.recallByTitleSlug(titleSlug);
+      recalled = await this.recallMem0History(titleSlug);
     } catch (error) {
       logger.error(
         {
@@ -689,7 +738,7 @@ export class SubmissionServer {
 
     let recalled: SessionRecordRecallResult;
     try {
-      recalled = await this.sessionRecordRecaller.recallByTitleSlug(titleSlug);
+      recalled = await this.recallMem0History(titleSlug);
     } catch (error) {
       logger.error(
         {

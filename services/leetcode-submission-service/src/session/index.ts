@@ -1,6 +1,8 @@
 export { TimerManager } from './timer.ts';
 export { ActiveSessionScopeManager, extractCompanionSessionContext, renderActiveSessionScope } from './scope.ts';
 export {
+  buildPersistedSessionRecordMetadata,
+  buildSyntheticRecalledSessionRecord,
   buildMem0RunId,
   countSessionInteractions,
   createDefaultSessionRecordRecaller,

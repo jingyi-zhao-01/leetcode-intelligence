@@ -77,6 +77,9 @@ If you are only touching one service, stop after the relevant service-local docu
 - When touching submission-session behavior, Mem0 persistence/recall, or companion context hydration, read the submission-service ADRs before editing code.
 - Keep MCP tool names and payload shapes stable unless the user explicitly asks for a contract change.
 - Prefer code-adjacent documentation over adding large top-level prose.
+- Default to source files under 500 lines.
+  New files should stay under 500 lines.
+  If an existing file is already over the limit, split the portion you are changing into smaller modules instead of extending the large file further.
 
 ## D2 Diagram Style Preference
 

@@ -18,8 +18,44 @@ type CachedSubmission = {
   summary: SubmissionSummary;
 };
 
+type TimedCacheEntry<Value> = {
+  expiresAt: number;
+  value: Value;
+};
+
 const MAX_CACHE_ENTRIES_PER_SLUG = 100;
 const logger = createLogger("cache");
+
+export class TimedCache<Key, Value> {
+  private readonly entries = new Map<Key, TimedCacheEntry<Value>>();
+
+  get(key: Key): Value | null {
+    const entry = this.entries.get(key);
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt < Date.now()) {
+      this.entries.delete(key);
+      return null;
+    }
+
+    return entry.value;
+  }
+
+  set(key: Key, value: Value, ttlMs: number): Value {
+    const normalizedTtlMs = Number.isFinite(ttlMs) && ttlMs >= 0 ? ttlMs : 0;
+    this.entries.set(key, {
+      expiresAt: Date.now() + normalizedTtlMs,
+      value,
+    });
+    return value;
+  }
+
+  delete(key: Key): void {
+    this.entries.delete(key);
+  }
+}
 
 export class Cache {
   private readonly entriesBySlug = new Map<string, CachedSubmission[]>();

@@ -977,6 +977,113 @@ describe('submission server helpers', () => {
     assert.match(String(response.summary ?? ''), /Failure reason: The loop updated profit but not max_profit/);
   });
 
+  it('reuses the process-level Mem0 recall cache across session scopes and merges new failure snapshots', async () => {
+    const server = new SubmissionServer();
+    let recallCount = 0;
+
+    (
+      server as {
+        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+      }
+    ).sessionRecordRecaller = {
+      recallByTitleSlug: async (titleSlug) => {
+        recallCount += 1;
+        return {
+          titleSlug,
+          records: [
+            {
+              id: 'mem_hist_1',
+              memory: [
+                '# LeetCode Session Record',
+                '',
+                '## Latest Failure Analysis',
+                '- Summary: Historic failure summary.',
+                '',
+                '## Companion Conversation',
+                '- user: 我之前是不是漏了 max_profit',
+              ].join('\n'),
+              createdAt: '2026-06-08T01:33:16.332Z',
+              metadata: {
+                ended_at: '2026-06-08T01:38:40.878Z',
+                end_reason: 'failure_analysis',
+                latest_failure_status: 'Wrong Answer',
+              },
+            },
+          ],
+        };
+      },
+    };
+
+    (
+      server as {
+        failureAnalyzer: {
+          analyze: (request: FailureAnalysisRequest) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
+        };
+      }
+    ).failureAnalyzer = {
+      analyze: async () => ({
+        summary: 'The running max profit was never updated.',
+        annotations: [{ line: 4, reason: 'assign into max_profit', severity: 'error' }],
+      }),
+    };
+
+    (
+      server as {
+        sessionRecordPersister: {
+          persist: (
+            scope: { titleSlug: string; latestFailure?: { eventId: string } | undefined },
+            event: { reason: string; forcePersist?: boolean },
+          ) => Promise<void>;
+        };
+      }
+    ).sessionRecordPersister = {
+      persist: async () => {},
+    };
+
+    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start('best-time-to-buy-and-sell-stock');
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
+
+    const firstSummary = await (
+      server as {
+        getMem0RecallSummary: (titleSlug: string) => Promise<Record<string, unknown>>;
+      }
+    ).getMem0RecallSummary('best-time-to-buy-and-sell-stock');
+
+    assert.equal(firstSummary.success, true);
+    assert.equal(firstSummary.record_count, 1);
+    assert.equal(recallCount, 1);
+
+    await (
+      server as {
+        analyzeFailure: (request: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      }
+    ).analyzeFailure({
+      title_slug: 'best-time-to-buy-and-sell-stock',
+      title: 'Best Time to Buy and Sell Stock',
+      question_content: 'Find the maximum profit.',
+      editor_content: 'class Solution:\n    pass',
+      submission_content: 'class Solution:\n    pass',
+      testcase: '[7,1,5,3,6,4]',
+      item: { status_msg: 'Wrong Answer' },
+      filetype: 'python',
+    });
+
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.clear('best-time-to-buy-and-sell-stock');
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
+
+    const secondSummary = await (
+      server as {
+        getMem0RecallSummary: (titleSlug: string) => Promise<Record<string, unknown>>;
+      }
+    ).getMem0RecallSummary('best-time-to-buy-and-sell-stock');
+
+    assert.equal(secondSummary.success, true);
+    assert.equal(secondSummary.record_count, 2);
+    assert.equal(recallCount, 1);
+    assert.match(String(secondSummary.summary ?? ''), /Historic failure summary/);
+    assert.match(String(secondSummary.summary ?? ''), /The running max profit was never updated/);
+  });
+
   it('persists a session snapshot when the server stops an active session', async () => {
     const server = new SubmissionServer();
     const persisted: Array<{ titleSlug: string; reason: string }> = [];

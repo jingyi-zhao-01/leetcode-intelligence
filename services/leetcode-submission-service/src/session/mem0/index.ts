@@ -3,7 +3,7 @@ export {
   createDefaultSessionRecordPersister,
   Mem0SessionRecordRecaller,
   Mem0SessionRecordPersister,
-} from './mem0/index.ts';
+} from './adapters.ts';
 export {
   buildMem0RunId,
   buildPersistedSessionRecordMetadata,
@@ -13,7 +13,7 @@ export {
   renderRecalledMountSummary,
   renderRecalledSessionRecords,
   summarizeRecalledSessionsForMount,
-} from './mem0/index.ts';
+} from './render.ts';
 export type {
   Mem0SessionRecordPersisterOptions,
   Mem0SessionRecordRecallerOptions,
@@ -24,4 +24,4 @@ export type {
   SessionRecordPersister,
   SessionRecordRecallResult,
   SessionRecordRecaller,
-} from './mem0/index.ts';
+} from './types.ts';

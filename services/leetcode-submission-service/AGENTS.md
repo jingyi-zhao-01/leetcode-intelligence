@@ -62,6 +62,9 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
 - Do not silently move durable state into memory-only paths.
 - Keep timer/cache behavior cheap and synchronous on the request path.
 - Keep failure-analysis output bounded and structured for editor rendering.
+- Keep source files small and composable.
+  New files should stay under 500 lines.
+  When touching an existing file that is already over 500 lines, prefer splitting the changed area into adjacent modules instead of growing the file further.
 
 ## Run And Verify
 
