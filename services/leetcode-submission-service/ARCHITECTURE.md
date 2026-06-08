@@ -106,6 +106,7 @@ Before persistence, [src/server.ts](./src/server.ts) derives extra metadata from
 - `#CHEAT#` marker detection
 - elapsed timer minutes
 - normalized content for storage/embedding
+- LLM-derived canonical time/space complexity labels
 - extracted thought text from the submission body
 
 [src/codeCleaner.ts](./src/codeCleaner.ts) supplies the normalization helpers used in this step.
@@ -150,6 +151,7 @@ The service persists:
 - status
 - cheat/test metadata
 - elapsed time
+- canonical `timeComplexity` / `spaceComplexity` labels inferred by OpenRouter
 - extracted thought text
 - raw submission details payload
 

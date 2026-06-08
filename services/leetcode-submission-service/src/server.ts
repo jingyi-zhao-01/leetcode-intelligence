@@ -20,6 +20,10 @@ import {
 } from './core/companionChat.ts';
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from './core/failureAnalysis.ts';
 import {
+  createDefaultSubmissionComplexityAnalyzer,
+  type SubmissionComplexityAnalysisResult,
+} from './core/submissionComplexity.ts';
+import {
   ActiveSessionScopeManager,
   buildSyntheticRecalledSessionRecord,
   countNormalizedRecalledSessions,
@@ -66,6 +70,7 @@ type PendingSubmission = {
   timeSpentMinutes: number | null;
   createdAt: Date;
   cleanedContent: string;
+  filetype: string | null;
   thought: string | null;
   submissionDetails: SubmissionItem;
 };
@@ -189,6 +194,15 @@ function readStringArray(value: unknown): string[] {
   });
 }
 
+function readOptionalString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function formatPacificTimestamp(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
@@ -227,6 +241,28 @@ export function inferIsTestSubmission(content: string, item: SubmissionItem): bo
   }
 
   return content.includes('#TEST#');
+}
+
+function inferSubmissionFiletype(item: SubmissionItem): string | null {
+  const directCandidates = ['lang', 'language', 'lang_name', 'filetype'];
+  for (const key of directCandidates) {
+    const direct = readOptionalString(item[key]);
+    if (direct) {
+      return direct;
+    }
+  }
+
+  const metadata = item._;
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    for (const key of directCandidates) {
+      const nested = readOptionalString((metadata as SubmissionItem)[key]);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
 }
 
 function createSubmissionSummary(args: {
@@ -274,6 +310,12 @@ export class SubmissionServer {
     ? createDefaultFailureAnalyzer(
         this.openRouter,
         process.env.FAILURE_ANALYSIS_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
+      )
+    : null;
+  private readonly submissionComplexityAnalyzer = this.openRouter
+    ? createDefaultSubmissionComplexityAnalyzer(
+        this.openRouter,
+        process.env.SUBMISSION_COMPLEXITY_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
       )
     : null;
   private readonly companionModel =
@@ -737,9 +779,44 @@ export class SubmissionServer {
       timeSpentMinutes,
       createdAt: new Date(),
       cleanedContent: normalizeForEmbedding(content),
+      filetype: inferSubmissionFiletype(item),
       thought: extractThought(content),
       submissionDetails,
     };
+  }
+
+  private async analyzeSubmissionComplexity(args: {
+    titleSlug: string;
+    content: string;
+    filetype: string | null;
+  }): Promise<SubmissionComplexityAnalysisResult> {
+    if (!this.submissionComplexityAnalyzer) {
+      return {
+        timeComplexity: null,
+        spaceComplexity: null,
+      };
+    }
+
+    try {
+      return await this.submissionComplexityAnalyzer.analyze({
+        titleSlug: args.titleSlug,
+        submissionContent: args.content,
+        filetype: args.filetype ?? undefined,
+      });
+    } catch (error) {
+      this.logger.info(
+        {
+          titleSlug: args.titleSlug,
+          filetype: args.filetype,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Submission complexity analysis failed; persisting without complexity metadata',
+      );
+      return {
+        timeComplexity: null,
+        spaceComplexity: null,
+      };
+    }
   }
 
   private async persistSubmission(args: {
@@ -748,9 +825,16 @@ export class SubmissionServer {
     status: string;
     isCheat: boolean;
     timeSpentMinutes: number | null;
+    filetype: string | null;
     thought: string | null;
     submissionDetails: SubmissionItem;
   }): Promise<string> {
+    const complexity = await this.analyzeSubmissionComplexity({
+      titleSlug: args.titleSlug,
+      content: args.content,
+      filetype: args.filetype,
+    });
+
     const submission = await this.db.submission.create({
       data: {
         titleSlug: args.titleSlug,
@@ -758,6 +842,8 @@ export class SubmissionServer {
         status: args.status,
         isCheat: args.isCheat,
         timeSpentMinutes: args.timeSpentMinutes,
+        timeComplexity: complexity.timeComplexity,
+        spaceComplexity: complexity.spaceComplexity,
         thought: args.thought,
         submissionDetails: args.submissionDetails,
       },
@@ -773,6 +859,7 @@ export class SubmissionServer {
       status: pending.status,
       isCheat: pending.isCheat,
       timeSpentMinutes: pending.timeSpentMinutes,
+      filetype: pending.filetype,
       thought: pending.thought,
       submissionDetails: pending.submissionDetails,
     });

@@ -17,6 +17,7 @@ import {
   renderRecalledSessionRecords,
   summarizeRecalledSessionsForMount,
 } from '../src/session/index.ts';
+import { parseSubmissionComplexity } from '../src/core/submissionComplexity.ts';
 import { parseFailureAnalysis } from '../src/utils/failureAnalysisParser.ts';
 import { formatPacificTimestamp, inferIsTestSubmission } from '../src/server.ts';
 
@@ -150,6 +151,32 @@ describe('submission server helpers', () => {
         column: undefined,
       },
     ]);
+  });
+
+  it('parses canonical submission complexity values and drops non-canonical output', () => {
+    const parsed = parseSubmissionComplexity(
+      JSON.stringify({
+        time_complexity: 'O(n log n)',
+        space_complexity: 'O(1)',
+      }),
+    );
+
+    assert.deepEqual(parsed, {
+      timeComplexity: 'O(n log n)',
+      spaceComplexity: 'O(1)',
+    });
+
+    const invalid = parseSubmissionComplexity(
+      JSON.stringify({
+        time_complexity: 'linear',
+        space_complexity: 'constant',
+      }),
+    );
+
+    assert.deepEqual(invalid, {
+      timeComplexity: null,
+      spaceComplexity: null,
+    });
   });
 
   it('sanitizes companion messages and drops invalid entries', () => {
@@ -1430,5 +1457,130 @@ describe('submission server helpers', () => {
     assert.ok(activeScope);
     assert.equal(activeScope?.titleSlug, 'best-time-to-buy-and-sell-stock');
     assert.match(activeScope?.lastFailureAnalysis?.summary ?? '', /never updated/);
+  });
+
+  it('persists canonical submission complexity metadata with each saved submission', async () => {
+    const server = new SubmissionServer();
+    let createdData: Record<string, unknown> | undefined;
+
+    (
+      server as {
+        submissionComplexityAnalyzer: {
+          analyze: () => Promise<{ timeComplexity: string | null; spaceComplexity: string | null }>;
+        };
+      }
+    ).submissionComplexityAnalyzer = {
+      analyze: async () => ({
+        timeComplexity: 'O(n)',
+        spaceComplexity: 'O(1)',
+      }),
+    };
+
+    (
+      server as {
+        db: {
+          submission: {
+            create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
+          };
+        };
+      }
+    ).db = {
+      submission: {
+        create: async ({ data }) => {
+          createdData = data;
+          return { id: 'submission_1' };
+        },
+      },
+    };
+
+    const submissionId = await (
+      server as {
+        persistSubmission: (args: {
+          titleSlug: string;
+          content: string;
+          status: string;
+          isCheat: boolean;
+          timeSpentMinutes: number | null;
+          filetype: string | null;
+          thought: string | null;
+          submissionDetails: Record<string, unknown>;
+        }) => Promise<string>;
+      }
+    ).persistSubmission({
+      titleSlug: 'two-sum',
+      content: 'class Solution:\n    pass',
+      status: 'Accepted',
+      isCheat: false,
+      timeSpentMinutes: 8,
+      filetype: 'python3',
+      thought: null,
+      submissionDetails: { status_msg: 'Accepted' },
+    });
+
+    assert.equal(submissionId, 'submission_1');
+    assert.equal(createdData?.timeComplexity, 'O(n)');
+    assert.equal(createdData?.spaceComplexity, 'O(1)');
+  });
+
+  it('falls back to null complexity metadata when analysis fails during persistence', async () => {
+    const server = new SubmissionServer();
+    let createdData: Record<string, unknown> | undefined;
+
+    (
+      server as {
+        submissionComplexityAnalyzer: {
+          analyze: () => Promise<never>;
+        };
+      }
+    ).submissionComplexityAnalyzer = {
+      analyze: async () => {
+        throw new Error('llm unavailable');
+      },
+    };
+
+    (
+      server as {
+        db: {
+          submission: {
+            create: (args: { data: Record<string, unknown> }) => Promise<{ id: string }>;
+          };
+        };
+      }
+    ).db = {
+      submission: {
+        create: async ({ data }) => {
+          createdData = data;
+          return { id: 'submission_2' };
+        },
+      },
+    };
+
+    const submissionId = await (
+      server as {
+        persistSubmission: (args: {
+          titleSlug: string;
+          content: string;
+          status: string;
+          isCheat: boolean;
+          timeSpentMinutes: number | null;
+          filetype: string | null;
+          thought: string | null;
+          submissionDetails: Record<string, unknown>;
+        }) => Promise<string>;
+      }
+    ).persistSubmission({
+      titleSlug: 'two-sum',
+      content: 'class Solution:\n    pass',
+      status: 'Wrong Answer',
+      isCheat: false,
+      timeSpentMinutes: null,
+      filetype: 'python3',
+      thought: null,
+      submissionDetails: { status_msg: 'Wrong Answer' },
+    });
+
+    assert.equal(submissionId, 'submission_2');
+    assert.equal(createdData?.timeComplexity, null);
+    assert.equal(createdData?.spaceComplexity, null);
   });
 });

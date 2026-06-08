@@ -33,10 +33,15 @@ model Submission {
   submissionDetails Json?
   isCheat           Boolean    @default(false)
   timeSpentMinutes  Int?
+  timeComplexity    String?
+  spaceComplexity   String?
   thought           String?
   mistake           String?
   FollowUp          FollowUp[]
   IntelligencePromptEvent IntelligencePromptEvent[]
+
+  @@index([timeComplexity])
+  @@index([spaceComplexity])
 }
 
 model FollowUp {
