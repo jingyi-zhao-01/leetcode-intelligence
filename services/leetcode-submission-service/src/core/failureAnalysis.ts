@@ -7,6 +7,8 @@ export type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue
 export type FailureAnalysisRequest = {
   titleSlug: string;
   title: string;
+  difficulty?: string;
+  topicTags?: string[];
   questionContent: string;
   editorContent: string;
   submissionContent: string;

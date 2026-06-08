@@ -56,6 +56,25 @@ export const readMetadataString = (metadata: Record<string, unknown>, ...keys: s
   return undefined;
 };
 
+export const readMetadataStringArray = (metadata: Record<string, unknown>, ...keys: string[]): string[] => {
+  for (const key of keys) {
+    const value = metadata[key];
+    if (!Array.isArray(value)) {
+      continue;
+    }
+
+    const normalized = value.flatMap((entry) => {
+      const item = readStringValue(entry);
+      return item ? [item] : [];
+    });
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return [];
+};
+
 export const readMetadataNumber = (metadata: Record<string, unknown>, ...keys: string[]): number | null => {
   for (const key of keys) {
     const value = metadata[key];

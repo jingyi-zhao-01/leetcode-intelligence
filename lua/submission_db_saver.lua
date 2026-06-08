@@ -157,6 +157,23 @@ local function analysis_filetype(question)
   return "text"
 end
 
+local function question_topic_tags(question)
+  local tags = {}
+  local topic_tags = question and question.q and question.q.topic_tags or {}
+  if type(topic_tags) ~= "table" then
+    return tags
+  end
+
+  for _, tag in ipairs(topic_tags) do
+    local value = (type(tag) == "table" and (tag.name or tag.slug)) or tag
+    if type(value) == "string" and value ~= "" then
+      table.insert(tags, value)
+    end
+  end
+
+  return tags
+end
+
 function M.save_submission(question, buffer, item)
   -- Save submission to database via TCP server.
   -- 
@@ -403,6 +420,7 @@ end
 local function format_mem0_recall_lines(response)
   local lines = {}
   local sessions = type(response.sessions) == "table" and response.sessions or {}
+  local similar_matches = type(response.similar_matches) == "table" and response.similar_matches or {}
 
   table.insert(lines, string.format("之前做过这道题，找到了 %d 条历史记录。", tonumber(response.record_count) or #sessions))
 
@@ -426,6 +444,30 @@ local function format_mem0_recall_lines(response)
     end
   end
 
+  if #similar_matches > 0 then
+    table.insert(lines, "")
+    table.insert(lines, string.format("还找到 %d 道类似题。", tonumber(response.similar_match_count) or #similar_matches))
+    for index, match in ipairs(similar_matches) do
+      local header = string.format("%d. %s", index, match.titleSlug or "unknown")
+      if match.score and match.score ~= vim.NIL then
+        header = header .. " | score=" .. tostring(match.score)
+      end
+      table.insert(lines, header)
+
+      if match.profile and match.profile.problemSummary and match.profile.problemSummary ~= "" then
+        table.insert(lines, "  为什么像: " .. match.profile.problemSummary)
+      end
+
+      if type(match.failureSummaries) == "table" and #match.failureSummaries > 0 then
+        table.insert(lines, "  历史 failure: " .. table.concat(match.failureSummaries, " | "))
+      end
+
+      if type(match.stuckPoints) == "table" and #match.stuckPoints > 0 then
+        table.insert(lines, "  当时卡点: " .. table.concat(match.stuckPoints, " | "))
+      end
+    end
+  end
+
   return lines
 end
 
@@ -436,6 +478,10 @@ function M.get_mem0_recall_summary(question, callback)
   local request = json_request({
     action = "get_mem0_recall_summary",
     title_slug = title_slug,
+    title = question.q and question.q.title or "",
+    difficulty = question.q and question.q.difficulty or "",
+    question_content = question_description_text(question),
+    topic_tags = question_topic_tags(question),
   })
 
   send_request(request, {
@@ -493,7 +539,7 @@ function M.show_mem0_recall_summary(question, opts)
       return
     end
 
-    if not response.has_history then
+    if not response.has_history and (tonumber(response.similar_match_count) or 0) == 0 then
       return
     end
 
@@ -519,6 +565,8 @@ function M.analyze_failure(question, buffer, item, callback)
     action = "analyze_failure",
     title_slug = title_slug,
     title = question.q and question.q.title or "",
+    difficulty = question.q and question.q.difficulty or "",
+    topic_tags = question_topic_tags(question),
     question_content = question_description_text(question),
     editor_content = content,
     submission_content = content,

@@ -34,6 +34,50 @@ export type SessionRecordRecallResult = {
   records: RecalledSessionRecord[];
 };
 
+export type SimilarityProfile = {
+  patternTags: string[];
+  stateTraits: string[];
+  errorTags: string[];
+  domainTags: string[];
+  problemSummary?: string;
+};
+
+export type SimilarProblemRecallQuery = {
+  titleSlug: string;
+  title?: string;
+  difficulty?: string;
+  questionContent?: string;
+  topicTags?: string[];
+};
+
+export type SimilarProblemMatch = {
+  titleSlug: string;
+  title?: string;
+  difficulty?: string;
+  score: number;
+  overlap: {
+    patternTags: string[];
+    stateTraits: string[];
+    errorTags: string[];
+    domainTags: string[];
+  };
+  profile: SimilarityProfile;
+  runId?: string;
+  endedAt?: string;
+  endReason?: string;
+  latestFailureStatus?: string;
+  failureSummary?: string;
+  failureSummaries: string[];
+  stuckPoints: string[];
+  thoughtProcess: string[];
+};
+
+export type SimilarProblemRecallResult = {
+  titleSlug: string;
+  queryProfile: SimilarityProfile;
+  matches: SimilarProblemMatch[];
+};
+
 export type RecalledMountSessionSummary = {
   runId?: string;
   endedAt?: string;
@@ -48,6 +92,7 @@ export type RecalledMountSessionSummary = {
 
 export type SessionRecordRecaller = {
   recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult>;
+  recallSimilarByQuery(query: SimilarProblemRecallQuery): Promise<SimilarProblemRecallResult>;
 };
 
 export type Mem0AddResponse = {

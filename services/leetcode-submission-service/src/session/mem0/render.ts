@@ -1,4 +1,5 @@
 import type { ActiveSessionScope } from '../scope.ts';
+import { buildSimilarityMetadata } from './similarity.ts';
 import {
   MAX_COMPANION_TURNS,
   MAX_MOUNT_SUMMARY_CHARS,
@@ -72,6 +73,7 @@ export function buildPersistedSessionRecordMetadata(
   const interactionCount = countSessionInteractions(scope);
   const latestFailureStatus = readJudgeStatus(scope.latestFailure?.judgeResult);
   const runId = buildMem0RunId(scope);
+  const similarityMetadata = buildSimilarityMetadata(scope);
 
   return {
     source: 'leetcode-submission-service',
@@ -97,6 +99,7 @@ export function buildPersistedSessionRecordMetadata(
     interaction_count: interactionCount,
     latest_failure_status: latestFailureStatus,
     replaced_by_title_slug: event.replacedByTitleSlug ?? null,
+    ...similarityMetadata,
   };
 }
 

@@ -7,12 +7,18 @@ export {
 export {
   buildMem0RunId,
   buildPersistedSessionRecordMetadata,
+  buildSimilarityMetadata,
+  buildSimilarityProfileForQuery,
+  buildSimilarityProfileForScope,
   buildSyntheticRecalledSessionRecord,
   countNormalizedRecalledSessions,
   countSessionInteractions,
   renderPersistedSessionRecord,
   renderRecalledMountSummary,
   renderRecalledSessionRecords,
+  renderSimilarProblemMountSummary,
+  renderSimilarProblemRecall,
+  summarizeSimilarProblemRecall,
   summarizeRecalledSessionsForMount,
 } from './mem0/index.ts';
 export type {
@@ -25,4 +31,8 @@ export type {
   SessionRecordPersister,
   SessionRecordRecallResult,
   SessionRecordRecaller,
+  SimilarityProfile,
+  SimilarProblemMatch,
+  SimilarProblemRecallQuery,
+  SimilarProblemRecallResult,
 } from './mem0/index.ts';

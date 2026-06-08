@@ -203,6 +203,7 @@ describe('submission server helpers', () => {
       titleSlug: 'two-sum',
       difficulty: 'Easy',
       lang: 'python3',
+      tags: [],
       description: 'Find two numbers.',
       testcase: '[2,7,11,15]',
       code: 'class Solution:\n    pass',
@@ -761,6 +762,7 @@ describe('submission server helpers', () => {
     assert.equal(requestOptions?.runId, 'leetcode-session:two-sum:2026-06-08T00:00:00.000Z');
     assert.equal(requestOptions?.infer, false);
     assert.equal((requestOptions?.metadata as Record<string, unknown> | undefined)?.interactionCount, 5);
+    assert.ok(Array.isArray((requestOptions?.metadata as Record<string, unknown> | undefined)?.domain_tags));
     assert.equal(Array.isArray(requestMessages), true);
     assert.match(String(requestMessages?.[0]?.content ?? ''), /Title Slug: two-sum/);
   });
@@ -856,6 +858,7 @@ describe('submission server helpers', () => {
 
     assert.equal(addCalls, 1);
     assert.equal((requestOptions?.metadata as Record<string, unknown> | undefined)?.endReason, 'failure_analysis');
+    assert.ok(Array.isArray((requestOptions?.metadata as Record<string, unknown> | undefined)?.pattern_tags));
   });
 
   it('recalls all ended session records for a title slug from Mem0', async () => {
@@ -918,6 +921,60 @@ describe('submission server helpers', () => {
     assert.equal(recalled.records[0]?.metadata?.end_reason, 'accepted_restart');
   });
 
+  it('recalls similar solved problems by persisted similarity metadata', async () => {
+    const recaller = new Mem0SessionRecordRecaller({
+      apiKey: 'mem0-test-key',
+      userId: 'jingyi',
+      agentId: 'leetcode-submission-service',
+      appId: 'leetcode-qa',
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                id: 'mem_stock',
+                memory: '# LeetCode Session Record\n\n- Title Slug: best-time-to-buy-and-sell-stock',
+                created_at: '2026-06-08T01:33:16.332Z',
+                metadata: {
+                  title_slug: 'best-time-to-buy-and-sell-stock',
+                  title: 'Best Time to Buy and Sell Stock',
+                  record_type: 'leetcode_session_record',
+                  pattern_tags: ['greedy'],
+                  state_traits: ['buy-sell-spread'],
+                  domain_tags: ['array'],
+                  problem_summary: 'shared greedy + array',
+                },
+              },
+              {
+                id: 'mem_tree',
+                memory: '# LeetCode Session Record\n\n- Title Slug: binary-tree-level-order-traversal',
+                created_at: '2026-06-08T01:33:16.332Z',
+                metadata: {
+                  title_slug: 'binary-tree-level-order-traversal',
+                  record_type: 'leetcode_session_record',
+                  pattern_tags: ['bfs'],
+                  domain_tags: ['tree'],
+                },
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    });
+
+    const recalled = await recaller.recallSimilarByQuery({
+      titleSlug: 'best-time-to-buy-and-sell-stock-ii',
+      title: 'Best Time to Buy and Sell Stock II',
+      difficulty: 'Medium',
+      questionContent: 'Find the maximum profit from multiple transactions in an array of prices.',
+      topicTags: ['Array', 'Greedy'],
+    });
+
+    assert.equal(recalled.matches.length, 1);
+    assert.equal(recalled.matches[0]?.titleSlug, 'best-time-to-buy-and-sell-stock');
+    assert.ok((recalled.matches[0]?.score ?? 0) > 0);
+  });
+
   it('hydrates recalled title-slug history into companion context before the first chat turn', async () => {
     const server = new SubmissionServer();
     (
@@ -938,7 +995,10 @@ describe('submission server helpers', () => {
 
     (
       server as {
-        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+        sessionRecordRecaller: {
+          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+        };
       }
     ).sessionRecordRecaller = {
       recallByTitleSlug: async (titleSlug) => ({
@@ -989,6 +1049,16 @@ describe('submission server helpers', () => {
             },
           },
         ],
+      }),
+      recallSimilarByQuery: async (query) => ({
+        titleSlug: query.titleSlug,
+        queryProfile: {
+          patternTags: [],
+          stateTraits: [],
+          errorTags: [],
+          domainTags: [],
+        },
+        matches: [],
       }),
     };
 
@@ -1051,7 +1121,10 @@ describe('submission server helpers', () => {
 
     (
       server as {
-        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+        sessionRecordRecaller: {
+          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+        };
       }
     ).sessionRecordRecaller = {
       recallByTitleSlug: async (titleSlug) => ({
@@ -1079,20 +1152,61 @@ describe('submission server helpers', () => {
           },
         ],
       }),
+      recallSimilarByQuery: async (query) => ({
+        titleSlug: query.titleSlug,
+        queryProfile: {
+          patternTags: ['greedy'],
+          stateTraits: ['buy-sell-spread'],
+          errorTags: [],
+          domainTags: ['array'],
+        },
+        matches: [
+          {
+            titleSlug: 'maximum-subarray',
+            score: 7,
+            overlap: {
+              patternTags: ['greedy'],
+              stateTraits: ['buy-sell-spread'],
+              errorTags: [],
+              domainTags: ['array'],
+            },
+            profile: {
+              patternTags: ['greedy'],
+              stateTraits: ['buy-sell-spread'],
+              errorTags: [],
+              domainTags: ['array'],
+              problemSummary: 'shared greedy + array',
+            },
+            failureSummaries: ['Missed the running minimum.'],
+            stuckPoints: ['Did not track min price first.'],
+            thoughtProcess: ['我是不是应该先维护最低买入价'],
+          },
+        ],
+      }),
     };
 
     (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
 
     const response = await (
       server as {
-        getMem0RecallSummary: (titleSlug: string) => Promise<Record<string, unknown>>;
+        getMem0RecallSummary: (
+          titleSlug: string,
+          options?: Record<string, unknown>,
+        ) => Promise<Record<string, unknown>>;
       }
-    ).getMem0RecallSummary('best-time-to-buy-and-sell-stock');
+    ).getMem0RecallSummary('best-time-to-buy-and-sell-stock', {
+      title: 'Best Time to Buy and Sell Stock',
+      difficulty: 'Easy',
+      questionContent: 'Find the maximum profit by choosing a single buy day and a later sell day.',
+      topicTags: ['Array', 'Greedy'],
+    });
 
     assert.equal(response.success, true);
     assert.equal(response.record_count, 1);
     assert.equal(response.has_history, true);
     assert.match(String(response.summary ?? ''), /Failure reason: The loop updated profit but not max_profit/);
+    assert.equal(response.similar_match_count, 1);
+    assert.match(String(response.similar_summary ?? ''), /similar LeetCode problems/i);
   });
 
   it('reuses the process-level Mem0 recall cache across session scopes and merges new failure snapshots', async () => {
@@ -1101,7 +1215,10 @@ describe('submission server helpers', () => {
 
     (
       server as {
-        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+        sessionRecordRecaller: {
+          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+        };
       }
     ).sessionRecordRecaller = {
       recallByTitleSlug: async (titleSlug) => {
@@ -1130,6 +1247,16 @@ describe('submission server helpers', () => {
           ],
         };
       },
+      recallSimilarByQuery: async (query) => ({
+        titleSlug: query.titleSlug,
+        queryProfile: {
+          patternTags: ['greedy'],
+          stateTraits: ['buy-sell-spread'],
+          errorTags: [],
+          domainTags: ['array'],
+        },
+        matches: [],
+      }),
     };
 
     (

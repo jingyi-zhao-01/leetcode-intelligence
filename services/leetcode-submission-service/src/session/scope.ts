@@ -1,12 +1,14 @@
 import type { CompanionChatMessage } from '../core/companionChat.ts';
 import type { FailureAnalysisRequest, FailureAnalysisResult } from '../core/failureAnalysis.ts';
 import type { RecalledMountSessionSummary } from './mem0.ts';
+import type { SimilarProblemMatch } from './mem0.ts';
 
 export type CompanionSessionContext = {
   title?: string;
   titleSlug: string;
   difficulty?: string;
   lang?: string;
+  tags?: string[];
   description?: string;
   testcase?: string;
   code?: string;
@@ -18,6 +20,7 @@ export type ActiveSessionScope = {
   title?: string;
   difficulty?: string;
   lang?: string;
+  topicTags?: string[];
   questionContent?: string;
   editorContent?: string;
   submissionContent?: string;
@@ -33,6 +36,13 @@ export type ActiveSessionScope = {
     message?: CompanionChatMessage;
     mountSummary?: string;
     mountSessions?: RecalledMountSessionSummary[];
+  };
+  similarRecall?: {
+    hydratedAt: string;
+    matchCount: number;
+    message?: CompanionChatMessage;
+    mountSummary?: string;
+    matches?: SimilarProblemMatch[];
   };
   sessionMemory?: {
     updatedAt: string;
@@ -61,6 +71,18 @@ const lineValue = (content: string, label: string): string => {
   return match?.[1]?.trim() ?? '';
 };
 
+const stringListValue = (content: string, label: string): string[] => {
+  const raw = lineValue(content, label);
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
 const markdownSection = (content: string, heading: string): string => {
   const match = content.match(new RegExp(`## ${heading}\\n([\\s\\S]*?)(?:\\n## |$)`));
   return match?.[1]?.trim() ?? '';
@@ -87,6 +109,7 @@ export function extractCompanionSessionContext(messages: CompanionChatMessage[])
       titleSlug,
       difficulty: lineValue(message.content, 'Difficulty') || undefined,
       lang: lineValue(message.content, 'Language') || undefined,
+      tags: stringListValue(message.content, 'Tags'),
       description: markdownSection(message.content, 'Problem Description') || undefined,
       testcase: stripCodeFence(markdownSection(message.content, 'Active Testcase')) || undefined,
       code: stripCodeFence(markdownSection(message.content, 'Current Code')) || undefined,
@@ -109,6 +132,10 @@ export function renderActiveSessionScope(scope: ActiveSessionScope): string {
 
   if (scope.lang) {
     parts.push(`- Language: ${scope.lang}`);
+  }
+
+  if (scope.topicTags && scope.topicTags.length > 0) {
+    parts.push(`- Tags: ${scope.topicTags.join(', ')}`);
   }
 
   if (scope.questionContent) {
@@ -166,7 +193,10 @@ function isHiddenCompanionContext(message: CompanionChatMessage): boolean {
 }
 
 function isMem0RecallMessage(message: CompanionChatMessage): boolean {
-  return message.content.includes('# Submission Service Mem0 Recall');
+  return (
+    message.content.includes('# Submission Service Mem0 Recall') ||
+    message.content.includes('# Submission Service Similar Problem Recall')
+  );
 }
 
 function normalizeConversationMemory(messages: CompanionChatMessage[]): CompanionChatMessage[] {
@@ -289,6 +319,7 @@ export class ActiveSessionScopeManager {
     scope.title = context.title ?? scope.title;
     scope.difficulty = context.difficulty ?? scope.difficulty;
     scope.lang = context.lang ?? scope.lang;
+    scope.topicTags = context.tags ?? scope.topicTags;
     scope.questionContent = context.description ?? scope.questionContent;
     scope.editorContent = context.code ?? scope.editorContent;
     scope.testcase = context.testcase ?? scope.testcase;
@@ -334,6 +365,10 @@ export class ActiveSessionScopeManager {
     return !!this.scopes.get(titleSlug)?.mem0Recall;
   }
 
+  hasSimilarRecall(titleSlug: string): boolean {
+    return !!this.scopes.get(titleSlug)?.similarRecall;
+  }
+
   recordMem0Recall(
     titleSlug: string,
     recordCount: number,
@@ -362,6 +397,24 @@ export class ActiveSessionScopeManager {
     return scope;
   }
 
+  recordSimilarRecall(
+    titleSlug: string,
+    matchCount: number,
+    message?: CompanionChatMessage,
+    mountSummary?: string,
+    matches?: SimilarProblemMatch[],
+  ): ActiveSessionScope {
+    const scope = this.activate(titleSlug);
+    scope.similarRecall = {
+      hydratedAt: new Date().toISOString(),
+      matchCount,
+      message,
+      mountSummary,
+      matches,
+    };
+    return scope;
+  }
+
   recordFailureAnalysis(
     request: FailureAnalysisRequest,
     result: FailureAnalysisResult,
@@ -369,6 +422,8 @@ export class ActiveSessionScopeManager {
   ): ActiveSessionScope {
     const scope = this.activate(request.titleSlug);
     scope.title = request.title || scope.title;
+    scope.difficulty = request.difficulty || scope.difficulty;
+    scope.topicTags = request.topicTags || scope.topicTags;
     scope.questionContent = request.questionContent || scope.questionContent;
     scope.editorContent = request.editorContent || scope.editorContent;
     scope.submissionContent = request.submissionContent || scope.submissionContent;
@@ -413,6 +468,7 @@ export class ActiveSessionScopeManager {
         content: renderActiveSessionScope(refreshedScope),
       },
       ...(refreshedScope.mem0Recall?.message ? [refreshedScope.mem0Recall.message] : []),
+      ...(refreshedScope.similarRecall?.message ? [refreshedScope.similarRecall.message] : []),
       ...(refreshedScope.sessionMemory?.messages ?? []),
       ...(refreshedScope.companionMemory?.messages ?? []),
     ];

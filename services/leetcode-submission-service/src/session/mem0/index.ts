@@ -15,6 +15,14 @@ export {
   renderRecalledSessionRecords,
   summarizeRecalledSessionsForMount,
 } from './render.ts';
+export {
+  buildSimilarityMetadata,
+  buildSimilarityProfileForQuery,
+  buildSimilarityProfileForScope,
+  renderSimilarProblemMountSummary,
+  renderSimilarProblemRecall,
+  summarizeSimilarProblemRecall,
+} from './similarity.ts';
 export type {
   Mem0SessionRecordPersisterOptions,
   Mem0SessionRecordRecallerOptions,
@@ -25,4 +33,8 @@ export type {
   SessionRecordPersister,
   SessionRecordRecallResult,
   SessionRecordRecaller,
+  SimilarityProfile,
+  SimilarProblemMatch,
+  SimilarProblemRecallQuery,
+  SimilarProblemRecallResult,
 } from './types.ts';

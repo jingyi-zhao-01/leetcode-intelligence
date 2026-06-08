@@ -13,6 +13,7 @@ import {
   countSessionInteractions,
   renderPersistedSessionRecord,
 } from './render.ts';
+import { summarizeSimilarProblemRecall } from './similarity.ts';
 import { readMetadataRecord, readStringValue } from './shared.ts';
 import type {
   Mem0AddResponse,
@@ -25,6 +26,8 @@ import type {
   SessionRecordPersister,
   SessionRecordRecallResult,
   SessionRecordRecaller,
+  SimilarProblemRecallQuery,
+  SimilarProblemRecallResult,
 } from './types.ts';
 import type { ActiveSessionScope } from '../scope.ts';
 import type { SessionEndEvent } from './types.ts';
@@ -39,6 +42,16 @@ class NoopSessionRecordRecaller implements SessionRecordRecaller {
       titleSlug,
       records: [],
     };
+  }
+
+  async recallSimilarByQuery(query: SimilarProblemRecallQuery): Promise<SimilarProblemRecallResult> {
+    return summarizeSimilarProblemRecall(
+      {
+        titleSlug: query.titleSlug,
+        records: [],
+      },
+      query,
+    );
   }
 }
 
@@ -151,16 +164,7 @@ export class Mem0SessionRecordRecaller implements SessionRecordRecaller {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult> {
-    const filters = {
-      AND: [
-        { user_id: this.options.userId },
-        { agent_id: this.agentId },
-        { app_id: this.appId },
-        { metadata: { record_type: 'leetcode_session_record' } },
-        { metadata: { title_slug: titleSlug } },
-      ],
-    };
+  private async fetchRecords(filters: Record<string, unknown>): Promise<RecalledSessionRecord[]> {
     const records: RecalledSessionRecord[] = [];
     let page = 1;
     let hasNextPage = true;
@@ -186,6 +190,21 @@ export class Mem0SessionRecordRecaller implements SessionRecordRecaller {
       page += 1;
     }
 
+    return records;
+  }
+
+  async recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult> {
+    const filters = {
+      AND: [
+        { user_id: this.options.userId },
+        { agent_id: this.agentId },
+        { app_id: this.appId },
+        { metadata: { record_type: 'leetcode_session_record' } },
+        { metadata: { title_slug: titleSlug } },
+      ],
+    };
+    const records = await this.fetchRecords(filters);
+
     logger.info(
       {
         titleSlug,
@@ -197,6 +216,35 @@ export class Mem0SessionRecordRecaller implements SessionRecordRecaller {
       titleSlug,
       records,
     };
+  }
+
+  async recallSimilarByQuery(query: SimilarProblemRecallQuery): Promise<SimilarProblemRecallResult> {
+    const filters = {
+      AND: [
+        { user_id: this.options.userId },
+        { agent_id: this.agentId },
+        { app_id: this.appId },
+        { metadata: { record_type: 'leetcode_session_record' } },
+      ],
+    };
+    const records = await this.fetchRecords(filters);
+    const result = summarizeSimilarProblemRecall(
+      {
+        titleSlug: query.titleSlug,
+        records,
+      },
+      query,
+    );
+
+    logger.info(
+      {
+        titleSlug: query.titleSlug,
+        similarMatchCount: result.matches.length,
+      },
+      'Recalled similar LeetCode session records from Mem0',
+    );
+
+    return result;
   }
 }
 

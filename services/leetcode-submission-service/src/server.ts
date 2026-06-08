@@ -26,14 +26,18 @@ import {
   createDefaultSessionRecordRecaller,
   createDefaultSessionRecordPersister,
   extractCompanionSessionContext,
-  renderRecalledSessionRecords,
   renderRecalledMountSummary,
+  renderRecalledSessionRecords,
+  renderSimilarProblemMountSummary,
+  renderSimilarProblemRecall,
   summarizeRecalledSessionsForMount,
   TimerManager,
   type RecalledMountSessionSummary,
   type SessionEndReason,
   type SessionRecordPersister,
   type SessionRecordRecallResult,
+  type SimilarProblemRecallQuery,
+  type SimilarProblemRecallResult,
 } from './session/index.ts';
 import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from './database.ts';
@@ -174,6 +178,17 @@ function readNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const normalized = readString(entry).trim();
+    return normalized.length > 0 ? [normalized] : [];
+  });
+}
+
 export function formatPacificTimestamp(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
@@ -243,6 +258,8 @@ export class SubmissionServer {
   private readonly sessionRecordRecaller = createDefaultSessionRecordRecaller();
   private readonly pendingMem0Recall = new Map<string, Promise<SessionRecordRecallResult>>();
   private readonly mem0RecallCache = new TimedCache<string, SessionRecordRecallResult>();
+  private readonly pendingSimilarRecall = new Map<string, Promise<SimilarProblemRecallResult>>();
+  private readonly similarRecallCache = new TimedCache<string, SimilarProblemRecallResult>();
   readonly logger = logger;
   readonly cache = new Cache();
   private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
@@ -370,6 +387,14 @@ export class SubmissionServer {
     return this.mem0RecallCache.set(recalled.titleSlug, recalled, this.getMem0RecallCacheTtlMs());
   }
 
+  private readSimilarRecallCache(titleSlug: string): SimilarProblemRecallResult | null {
+    return this.similarRecallCache.get(titleSlug);
+  }
+
+  private writeSimilarRecallCache(recalled: SimilarProblemRecallResult): SimilarProblemRecallResult {
+    return this.similarRecallCache.set(recalled.titleSlug, recalled, this.getMem0RecallCacheTtlMs());
+  }
+
   private mergeMem0RecallCacheRecord(titleSlug: string, record: NonNullable<SessionRecordRecallResult['records'][number]>): void {
     const cached = this.readMem0RecallCache(titleSlug);
     if (!cached) {
@@ -405,6 +430,43 @@ export class SubmissionServer {
       });
 
     this.pendingMem0Recall.set(titleSlug, recall);
+    return recall;
+  }
+
+  private buildSimilarRecallQuery(
+    titleSlug: string,
+    overrides: Partial<Omit<SimilarProblemRecallQuery, 'titleSlug'>> = {},
+  ): SimilarProblemRecallQuery {
+    const scope = this.sessionScope.getScope(titleSlug);
+
+    return {
+      titleSlug,
+      title: overrides.title ?? scope?.title,
+      difficulty: overrides.difficulty ?? scope?.difficulty,
+      questionContent: overrides.questionContent ?? scope?.questionContent,
+      topicTags: overrides.topicTags ?? scope?.topicTags,
+    };
+  }
+
+  private async recallSimilarHistory(query: SimilarProblemRecallQuery): Promise<SimilarProblemRecallResult> {
+    const cached = this.readSimilarRecallCache(query.titleSlug);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = this.pendingSimilarRecall.get(query.titleSlug);
+    if (pending) {
+      return pending;
+    }
+
+    const recall = this.sessionRecordRecaller
+      .recallSimilarByQuery(query)
+      .then((recalled) => this.writeSimilarRecallCache(recalled))
+      .finally(() => {
+        this.pendingSimilarRecall.delete(query.titleSlug);
+      });
+
+    this.pendingSimilarRecall.set(query.titleSlug, recall);
     return recall;
   }
 
@@ -455,6 +517,7 @@ export class SubmissionServer {
     try {
       await this.sessionRecordPersister.persist(scope, event);
       this.mergeMem0RecallCacheRecord(titleSlug, buildSyntheticRecalledSessionRecord(scope, event));
+      this.similarRecallCache.delete(titleSlug);
     } catch (error) {
       logger.error(
         {
@@ -495,6 +558,7 @@ export class SubmissionServer {
     try {
       await this.sessionRecordPersister.persist(scope, event);
       this.mergeMem0RecallCacheRecord(titleSlug, buildSyntheticRecalledSessionRecord(scope, event));
+      this.similarRecallCache.delete(titleSlug);
     } catch (error) {
       logger.error(
         {
@@ -558,6 +622,52 @@ export class SubmissionServer {
       'Hydrated Mem0 recall summary into active session',
     );
     this.sessionScope.recordMem0Recall(titleSlug, normalizedRecordCount, message, mountSummary, mountSessions);
+  }
+
+  private async hydrateSimilarRecall(
+    titleSlug: string,
+    overrides: Partial<Omit<SimilarProblemRecallQuery, 'titleSlug'>> = {},
+  ): Promise<void> {
+    if (this.sessionScope.hasSimilarRecall(titleSlug)) {
+      return;
+    }
+
+    const query = this.buildSimilarRecallQuery(titleSlug, overrides);
+    if (!query.title && !query.questionContent && (!query.topicTags || query.topicTags.length === 0)) {
+      this.sessionScope.recordSimilarRecall(titleSlug, 0);
+      return;
+    }
+
+    let recalled: SimilarProblemRecallResult;
+    try {
+      recalled = await this.recallSimilarHistory(query);
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          titleSlug,
+        },
+        'Failed to recall similar LeetCode session history from Mem0',
+      );
+      this.sessionScope.recordSimilarRecall(titleSlug, 0);
+      return;
+    }
+
+    const message = recalled.matches.length > 0 ? renderSimilarProblemRecall(recalled) : undefined;
+    const mountSummary = recalled.matches.length > 0 ? renderSimilarProblemMountSummary(recalled) : undefined;
+    logger.info(
+      {
+        titleSlug,
+        similarMatchCount: recalled.matches.length,
+        matches: recalled.matches.map((match) => ({
+          titleSlug: match.titleSlug,
+          score: match.score,
+          overlap: match.overlap,
+        })),
+      },
+      'Hydrated similar-problem recall summary into active session',
+    );
+    this.sessionScope.recordSimilarRecall(titleSlug, recalled.matches.length, message, mountSummary, recalled.matches);
   }
 
   private ensureActiveSession(titleSlug?: string): { ok: true; titleSlug: string } | { ok: false; error: string } {
@@ -729,7 +839,10 @@ export class SubmissionServer {
     return handler(this.actionContext, titleSlug, limit);
   }
 
-  private async getMem0RecallSummary(titleSlug: string): Promise<Record<string, unknown>> {
+  private async getMem0RecallSummary(
+    titleSlug: string,
+    options: Partial<Omit<SimilarProblemRecallQuery, 'titleSlug'>> = {},
+  ): Promise<Record<string, unknown>> {
     if (!titleSlug) {
       return {
         success: false,
@@ -739,6 +852,7 @@ export class SubmissionServer {
     }
 
     await this.hydrateMem0Recall(titleSlug);
+    await this.hydrateSimilarRecall(titleSlug, options);
 
     const scope = this.sessionScope.getScope(titleSlug);
     if (scope?.mem0Recall) {
@@ -750,6 +864,9 @@ export class SubmissionServer {
         has_history: scope.mem0Recall.recordCount > 0,
         summary: scope.mem0Recall.mountSummary,
         sessions: scope.mem0Recall.mountSessions ?? [],
+        similar_match_count: scope.similarRecall?.matchCount ?? 0,
+        similar_summary: scope.similarRecall?.mountSummary,
+        similar_matches: scope.similarRecall?.matches ?? [],
       };
     }
 
@@ -782,6 +899,9 @@ export class SubmissionServer {
       has_history: normalizedRecordCount > 0,
       summary: renderRecalledMountSummary(recalled),
       sessions: summarizeRecalledSessionsForMount(recalled),
+      similar_match_count: 0,
+      similar_summary: undefined,
+      similar_matches: [],
     };
   }
 
@@ -797,6 +917,8 @@ export class SubmissionServer {
     const payload = {
       titleSlug: readString(request.title_slug),
       title: readString(request.title),
+      difficulty: readString(request.difficulty),
+      topicTags: readStringArray(request.topic_tags),
       questionContent: readString(request.question_content),
       editorContent: readString(request.editor_content),
       submissionContent: readString(request.submission_content),
@@ -919,6 +1041,7 @@ export class SubmissionServer {
     }
 
     await this.hydrateMem0Recall(activeSession.titleSlug);
+    await this.hydrateSimilarRecall(activeSession.titleSlug);
 
     const scopedMessages: CompanionChatMessage[] = this.sessionScope.buildCompanionMessages(messages);
 
@@ -1138,7 +1261,12 @@ export class SubmissionServer {
 
       case ServerAction.GET_MEM0_RECALL_SUMMARY: {
         const titleSlug = readString(request.title_slug);
-        return this.getMem0RecallSummary(titleSlug);
+        return this.getMem0RecallSummary(titleSlug, {
+          title: readString(request.title),
+          difficulty: readString(request.difficulty),
+          questionContent: readString(request.question_content),
+          topicTags: readStringArray(request.topic_tags),
+        });
       }
 
       case ServerAction.SAVE_SUBMISSION: {
