@@ -15,6 +15,8 @@ const MAX_COMPANION_TURNS = 12;
 const MAX_SERVICE_UPDATES = 8;
 const MAX_RECALLED_SESSION_RECORDS = 12;
 const MAX_RECALLED_CODE_CHARS = 600;
+const MAX_RECALLED_ANALYSIS_CHARS = 1_200;
+const MAX_RECALLED_FAILURE_CHARS = 900;
 const DEFAULT_MEM0_BASE_URL = 'https://api.mem0.ai';
 const MIN_INTERACTIONS_TO_PERSIST = 5;
 
@@ -23,13 +25,15 @@ export type SessionEndReason =
   | 'drop_timer'
   | 'session_evicted'
   | 'accepted_restart'
-  | 'process_shutdown';
+  | 'process_shutdown'
+  | 'failure_analysis';
 
 export type SessionEndEvent = {
   reason: SessionEndReason;
   endedAt: string;
   elapsedMinutes?: number | null;
   replacedByTitleSlug?: string;
+  forcePersist?: boolean;
 };
 
 export type SessionRecordPersister = {
@@ -304,7 +308,8 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
     '',
     `- Title Slug: ${result.titleSlug}`,
     `- Recalled Session Count: ${records.length}`,
-    '- These are ended-session records recalled from Mem0 for this exact LeetCode problem.',
+    '- These are historical session records recalled from Mem0 for this exact LeetCode problem.',
+    '- Records may include ended-session snapshots and failure-analysis-triggered snapshots.',
     '- Treat these as historical summaries only; do not assume omitted code or truncated snapshots are ground truth.',
   ];
 
@@ -328,6 +333,8 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
     const hasCompanionConversation = hasMarkdownSection(record.memory, 'Companion Conversation');
     const submittedCode = readMarkdownSection(record.memory, 'Last Submitted Code');
     const editorCode = readMarkdownSection(record.memory, 'Final Editor Code');
+    const failureSnapshot = readMarkdownSection(record.memory, 'Latest LeetCode Failure');
+    const failureAnalysis = readMarkdownSection(record.memory, 'Latest Failure Analysis');
 
     parts.push('', `## Session ${index + 1}`);
 
@@ -392,6 +399,14 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult):
         '```',
       );
     }
+
+    if (failureSnapshot) {
+      parts.push('', '### Recalled Failure Snapshot', truncate(failureSnapshot, MAX_RECALLED_FAILURE_CHARS));
+    }
+
+    if (failureAnalysis) {
+      parts.push('', '### Recalled Failure Analysis', truncate(failureAnalysis, MAX_RECALLED_ANALYSIS_CHARS));
+    }
   });
 
   return {
@@ -432,7 +447,7 @@ export class Mem0SessionRecordPersister implements SessionRecordPersister {
 
   async persist(scope: ActiveSessionScope, event: SessionEndEvent): Promise<void> {
     const interactionCount = countSessionInteractions(scope);
-    if (interactionCount < MIN_INTERACTIONS_TO_PERSIST) {
+    if (interactionCount < MIN_INTERACTIONS_TO_PERSIST && !event.forcePersist) {
       logger.info(
         {
           titleSlug: scope.titleSlug,

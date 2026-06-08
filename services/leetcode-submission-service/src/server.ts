@@ -370,12 +370,50 @@ export class SubmissionServer {
     return minutes;
   }
 
+  private async persistActiveSessionSnapshot(
+    titleSlug: string,
+    reason: SessionEndReason,
+    options: {
+      elapsedMinutes?: number | null;
+      replacedByTitleSlug?: string;
+      forcePersist?: boolean;
+    } = {},
+  ): Promise<void> {
+    const scope = this.sessionScope.getScope(titleSlug);
+    if (!scope) {
+      return;
+    }
+
+    try {
+      await this.sessionRecordPersister.persist(scope, {
+        reason,
+        endedAt: new Date().toISOString(),
+        elapsedMinutes: options.elapsedMinutes,
+        replacedByTitleSlug: options.replacedByTitleSlug,
+        forcePersist: options.forcePersist,
+      });
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          titleSlug,
+          reason,
+          elapsedMinutes: options.elapsedMinutes,
+          replacedByTitleSlug: options.replacedByTitleSlug,
+          forcePersist: options.forcePersist,
+        },
+        'Failed to persist active session snapshot',
+      );
+    }
+  }
+
   private async persistEndedSession(
     titleSlug: string,
     reason: SessionEndReason,
     options: {
       elapsedMinutes?: number | null;
       replacedByTitleSlug?: string;
+      forcePersist?: boolean;
     } = {},
   ): Promise<void> {
     const scope = this.sessionScope.take(titleSlug);
@@ -389,6 +427,7 @@ export class SubmissionServer {
         endedAt: new Date().toISOString(),
         elapsedMinutes: options.elapsedMinutes,
         replacedByTitleSlug: options.replacedByTitleSlug,
+        forcePersist: options.forcePersist,
       });
     } catch (error) {
       logger.error(
@@ -666,6 +705,12 @@ export class SubmissionServer {
     const analysis = await this.failureAnalyzer.analyze(payload);
     const eventId = `failure_${randomUUID()}`;
     this.sessionScope.recordFailureAnalysis(payload, analysis, eventId);
+    void this.persistActiveSessionSnapshot(payload.titleSlug, 'failure_analysis', {
+      elapsedMinutes: this.timerManager.hasActiveTimer(payload.titleSlug)
+        ? this.timerManager.getElapsedTime(payload.titleSlug)
+        : null,
+      forcePersist: true,
+    });
     logger.info(
       {
         action: ServerAction.ANALYZE_FAILURE,

@@ -322,6 +322,11 @@ describe('submission server helpers', () => {
               '- Title Slug: palindrome-number',
               '- End Reason: drop_timer',
               '',
+              '## Latest Failure Analysis',
+              '- Summary: Negative numbers were treated as palindromes.',
+              '- Annotations:',
+              '  - line 2 [error]: forgot to reject x < 0',
+              '',
               '## Last Submitted Code',
               '```python',
               'class Solution:',
@@ -344,6 +349,11 @@ describe('submission server helpers', () => {
               '',
               '- Title Slug: palindrome-number',
               '- End Reason: drop_timer',
+              '',
+              '## Latest Failure Analysis',
+              '- Summary: The half-reversal logic dropped the middle digit handling.',
+              '- Annotations:',
+              '  - line 6 [error]: compare x == reverted // 10 for odd length values',
               '',
               '## Final Editor Code',
               '```python',
@@ -389,6 +399,9 @@ describe('submission server helpers', () => {
     assert.match(messages[1]?.content ?? '', /Treat these as historical summaries only/);
     assert.doesNotMatch(messages[1]?.content ?? '', /### Session Snapshot/);
     assert.match(messages[1]?.content ?? '', /### Recalled Code Excerpt/);
+    assert.match(messages[1]?.content ?? '', /### Recalled Failure Analysis/);
+    assert.match(messages[1]?.content ?? '', /Negative numbers were treated as palindromes/);
+    assert.match(messages[1]?.content ?? '', /half-reversal logic dropped the middle digit handling/);
     assert.match(messages[1]?.content ?? '', /return str\(x\) == str\(x\)\[::-1\]/);
     assert.equal(messages[2]?.role, 'user');
     assert.match(messages[2]?.content ?? '', /Submission Service Failure Update/);
@@ -616,6 +629,51 @@ describe('submission server helpers', () => {
     assert.equal(addCalls, 0);
   });
 
+  it('persists a Mem0 session snapshot when forcePersist is enabled for failure analysis', async () => {
+    let addCalls = 0;
+    let requestOptions: Record<string, unknown> | undefined;
+
+    const persister = new Mem0SessionRecordPersister({
+      apiKey: 'mem0-test-key',
+      userId: 'jingyi',
+      client: {
+        add: async (_messages, options) => {
+          addCalls += 1;
+          requestOptions = options;
+          return {
+            status: 'PENDING',
+            eventId: 'evt_mem0_force',
+          };
+        },
+      },
+    });
+
+    await persister.persist(
+      {
+        titleSlug: 'two-sum',
+        activatedAt: '2026-06-08T00:00:00.000Z',
+        sessionMemory: {
+          updatedAt: '2026-06-08T00:01:01.000Z',
+          messages: [
+            {
+              role: 'user',
+              content: '# Submission Service Failure Update\n\n- Event ID: failure_test_force',
+            },
+          ],
+        },
+      },
+      {
+        reason: 'failure_analysis',
+        endedAt: '2026-06-08T00:02:00.000Z',
+        elapsedMinutes: 2,
+        forcePersist: true,
+      },
+    );
+
+    assert.equal(addCalls, 1);
+    assert.equal((requestOptions?.metadata as Record<string, unknown> | undefined)?.endReason, 'failure_analysis');
+  });
+
   it('recalls all ended session records for a title slug from Mem0', async () => {
     let fetchedUrl = '';
     let fetchedOptions: RequestInit | undefined;
@@ -835,5 +893,75 @@ describe('submission server helpers', () => {
 
     assert.equal((server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope(), null);
     assert.deepEqual(persisted, [{ titleSlug: 'two-sum', reason: 'stop_timer' }]);
+  });
+
+  it('persists an active session snapshot immediately after failure analysis without clearing the session', async () => {
+    const server = new SubmissionServer();
+    const persisted: Array<{ titleSlug: string; reason: string; forcePersist?: boolean }> = [];
+
+    (
+      server as {
+        failureAnalyzer: {
+          analyze: (request: FailureAnalysisRequest) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
+        };
+      }
+    ).failureAnalyzer = {
+      analyze: async () => ({
+        summary: 'The running max profit was never updated.',
+        annotations: [{ line: 4, reason: 'assign into max_profit', severity: 'error' }],
+      }),
+    };
+
+    (
+      server as {
+        sessionRecordPersister: {
+          persist: (
+            scope: { titleSlug: string; latestFailure?: { eventId: string } | undefined },
+            event: { reason: string; forcePersist?: boolean },
+          ) => Promise<void>;
+        };
+      }
+    ).sessionRecordPersister = {
+      persist: async (scope, event) => {
+        persisted.push({
+          titleSlug: scope.titleSlug,
+          reason: event.reason,
+          forcePersist: event.forcePersist,
+        });
+      },
+    };
+
+    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start('best-time-to-buy-and-sell-stock');
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
+
+    const response = await (
+      server as {
+        analyzeFailure: (request: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      }
+    ).analyzeFailure({
+      title_slug: 'best-time-to-buy-and-sell-stock',
+      title: 'Best Time to Buy and Sell Stock',
+      question_content: 'Find the maximum profit.',
+      editor_content: 'class Solution:\n    pass',
+      submission_content: 'class Solution:\n    pass',
+      testcase: '[7,1,5,3,6,4]',
+      item: { status_msg: 'Wrong Answer' },
+      filetype: 'python',
+    });
+
+    await Promise.resolve();
+
+    assert.equal(response.success, true);
+    assert.equal(response.action, 'analyze_failure');
+    assert.equal(persisted.length, 1);
+    assert.deepEqual(persisted[0], {
+      titleSlug: 'best-time-to-buy-and-sell-stock',
+      reason: 'failure_analysis',
+      forcePersist: true,
+    });
+    const activeScope = (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope();
+    assert.ok(activeScope);
+    assert.equal(activeScope?.titleSlug, 'best-time-to-buy-and-sell-stock');
+    assert.match(activeScope?.lastFailureAnalysis?.summary ?? '', /never updated/);
   });
 });

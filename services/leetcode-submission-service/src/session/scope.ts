@@ -277,6 +277,10 @@ export class ActiveSessionScopeManager {
     return this.scopes.get(this.activeTitleSlug) ?? null;
   }
 
+  getScope(titleSlug: string): ActiveSessionScope | null {
+    return this.scopes.get(titleSlug) ?? null;
+  }
+
   recordCompanionContext(context: CompanionSessionContext): ActiveSessionScope {
     const scope = this.activate(context.titleSlug);
     scope.title = context.title ?? scope.title;
