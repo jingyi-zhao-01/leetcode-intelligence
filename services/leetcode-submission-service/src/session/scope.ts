@@ -26,6 +26,11 @@ export type ActiveSessionScope = {
     updatedAt: string;
     messages: CompanionChatMessage[];
   };
+  mem0Recall?: {
+    hydratedAt: string;
+    recordCount: number;
+    message?: CompanionChatMessage;
+  };
   sessionMemory?: {
     updatedAt: string;
     messages: CompanionChatMessage[];
@@ -155,6 +160,10 @@ function isHiddenCompanionContext(message: CompanionChatMessage): boolean {
     message.content.includes('# LeetCode Problem Context') ||
     message.content.includes('# Submission Service Active Session')
   );
+}
+
+function isMem0RecallMessage(message: CompanionChatMessage): boolean {
+  return message.content.includes('# Submission Service Mem0 Recall');
 }
 
 function normalizeConversationMemory(messages: CompanionChatMessage[]): CompanionChatMessage[] {
@@ -314,6 +323,30 @@ export class ActiveSessionScopeManager {
     return scope;
   }
 
+  hasMem0Recall(titleSlug: string): boolean {
+    return !!this.scopes.get(titleSlug)?.mem0Recall;
+  }
+
+  recordMem0Recall(titleSlug: string, recordCount: number, message?: CompanionChatMessage): ActiveSessionScope {
+    const scope = this.activate(titleSlug);
+    scope.mem0Recall = {
+      hydratedAt: new Date().toISOString(),
+      recordCount,
+      message,
+    };
+
+    if (!message) {
+      return scope;
+    }
+
+    const existingMessages = (scope.sessionMemory?.messages ?? []).filter((entry) => !isMem0RecallMessage(entry));
+    scope.sessionMemory = {
+      updatedAt: new Date().toISOString(),
+      messages: normalizeServiceMemory(existingMessages),
+    };
+    return scope;
+  }
+
   recordFailureAnalysis(
     request: FailureAnalysisRequest,
     result: FailureAnalysisResult,
@@ -354,13 +387,19 @@ export class ActiveSessionScopeManager {
       this.recordCompanionMessages(scope.titleSlug, visibleMessages);
     }
 
+    const refreshedScope = this.getActiveScope();
+    if (!refreshedScope) {
+      return messages;
+    }
+
     return [
       {
         role: 'user',
-        content: renderActiveSessionScope(scope),
+        content: renderActiveSessionScope(refreshedScope),
       },
-      ...(this.getActiveScope()?.sessionMemory?.messages ?? []),
-      ...(this.getActiveScope()?.companionMemory?.messages ?? []),
+      ...(refreshedScope.mem0Recall?.message ? [refreshedScope.mem0Recall.message] : []),
+      ...(refreshedScope.sessionMemory?.messages ?? []),
+      ...(refreshedScope.companionMemory?.messages ?? []),
     ];
   }
 }

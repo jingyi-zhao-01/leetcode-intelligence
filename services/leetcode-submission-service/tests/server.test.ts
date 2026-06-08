@@ -6,10 +6,12 @@ import { Cache } from '../src/cache.ts';
 import { SubmissionServer } from '../src/server.ts';
 import {
   ActiveSessionScopeManager,
+  Mem0SessionRecordRecaller,
   extractCompanionSessionContext,
   Mem0SessionRecordPersister,
   renderActiveSessionScope,
   renderPersistedSessionRecord,
+  renderRecalledSessionRecords,
 } from '../src/session/index.ts';
 import { parseFailureAnalysis } from '../src/utils/failureAnalysisParser.ts';
 import { formatPacificTimestamp, inferIsTestSubmission } from '../src/server.ts';
@@ -302,6 +304,69 @@ describe('submission server helpers', () => {
     assert.deepEqual(messages.slice(2), [{ role: 'user', content: '我刚刚犯了什么错误' }]);
   });
 
+  it('injects recalled Mem0 session history before live session memory and companion history', () => {
+    const manager = new ActiveSessionScopeManager();
+    manager.activate('palindrome-number');
+    manager.recordMem0Recall(
+      'palindrome-number',
+      2,
+      renderRecalledSessionRecords({
+        titleSlug: 'palindrome-number',
+        records: [
+          {
+            id: 'mem_1',
+            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            createdAt: '2026-06-08T01:33:16.332Z',
+            metadata: {
+              activatedAt: '2026-06-08T01:33:16.332Z',
+              endedAt: '2026-06-08T01:38:40.878Z',
+              endReason: 'accepted_restart',
+              latestFailureStatus: 'Runtime Error',
+            },
+          },
+          {
+            id: 'mem_2',
+            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            createdAt: '2026-06-08T01:38:40.881Z',
+            metadata: {
+              activatedAt: '2026-06-08T01:38:40.881Z',
+              endedAt: '2026-06-08T01:38:40.913Z',
+              endReason: 'drop_timer',
+              latestFailureStatus: null,
+            },
+          },
+        ],
+      }),
+    );
+    manager.recordFailureAnalysis(
+      {
+        titleSlug: 'palindrome-number',
+        title: 'Palindrome Number',
+        questionContent: 'Determine whether an integer is a palindrome.',
+        editorContent: 'class Solution:\n    pass',
+        submissionContent: 'class Solution:\n    pass',
+        testcase: '121',
+        judgeResult: { status_msg: 'Wrong Answer' },
+        filetype: 'python',
+      },
+      {
+        summary: 'The implementation is still empty.',
+        annotations: [{ line: 2, reason: 'missing return logic', severity: 'error' }],
+      },
+      'failure_mem0_1',
+    );
+    manager.recordCompanionMessages('palindrome-number', [{ role: 'user', content: '我这题之前发生过什么' }]);
+
+    const messages = manager.buildCompanionMessages([{ role: 'user', content: '我这题之前发生过什么' }]);
+
+    assert.equal(messages[1]?.role, 'user');
+    assert.match(messages[1]?.content ?? '', /Submission Service Mem0 Recall/);
+    assert.match(messages[1]?.content ?? '', /Recalled Session Count: 2/);
+    assert.equal(messages[2]?.role, 'user');
+    assert.match(messages[2]?.content ?? '', /Submission Service Failure Update/);
+    assert.deepEqual(messages.slice(3), [{ role: 'user', content: '我这题之前发生过什么' }]);
+  });
+
   it('clears agent memory when the active session ends', () => {
     const manager = new ActiveSessionScopeManager();
     manager.activate('two-sum');
@@ -452,6 +517,151 @@ describe('submission server helpers', () => {
     assert.equal(requestOptions?.infer, false);
     assert.equal(Array.isArray(requestMessages), true);
     assert.match(String(requestMessages?.[0]?.content ?? ''), /Title Slug: two-sum/);
+  });
+
+  it('recalls all ended session records for a title slug from Mem0', async () => {
+    let fetchedUrl = '';
+    let fetchedOptions: RequestInit | undefined;
+
+    const recaller = new Mem0SessionRecordRecaller({
+      apiKey: 'mem0-test-key',
+      userId: 'jingyi',
+      agentId: 'leetcode-submission-service',
+      appId: 'leetcode-qa',
+      fetchImpl: async (input, init) => {
+        fetchedUrl = String(input);
+        fetchedOptions = init;
+        return new Response(
+          JSON.stringify({
+            count: 2,
+            results: [
+              {
+                id: 'mem_1',
+                memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number',
+                created_at: '2026-06-08T01:33:16.332Z',
+                metadata: {
+                  titleSlug: 'palindrome-number',
+                  recordType: 'leetcode_session_record',
+                  endReason: 'accepted_restart',
+                },
+              },
+              {
+                id: 'mem_2',
+                memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number',
+                created_at: '2026-06-08T01:38:40.881Z',
+                metadata: {
+                  titleSlug: 'palindrome-number',
+                  recordType: 'leetcode_session_record',
+                  endReason: 'drop_timer',
+                },
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+      },
+    });
+
+    const recalled = await recaller.recallByTitleSlug('palindrome-number');
+
+    assert.match(fetchedUrl, /v3\/memories\/\?page=1&page_size=200/);
+    assert.equal(fetchedOptions?.method, 'POST');
+    assert.equal((fetchedOptions?.headers as Record<string, string>)?.Authorization, 'Token mem0-test-key');
+    assert.match(String(fetchedOptions?.body ?? ''), /"titleSlug":"palindrome-number"/);
+    assert.match(String(fetchedOptions?.body ?? ''), /"recordType":"leetcode_session_record"/);
+    assert.equal(recalled.titleSlug, 'palindrome-number');
+    assert.equal(recalled.records.length, 2);
+    assert.equal(recalled.records[0]?.metadata?.endReason, 'accepted_restart');
+  });
+
+  it('hydrates recalled title-slug history into companion context before the first chat turn', async () => {
+    const server = new SubmissionServer();
+
+    (
+      server as {
+        sessionRecordRecaller: { recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }> };
+      }
+    ).sessionRecordRecaller = {
+      recallByTitleSlug: async (titleSlug) => ({
+        titleSlug,
+        records: [
+          {
+            id: 'mem_1',
+            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: accepted_restart',
+            createdAt: '2026-06-08T01:33:16.332Z',
+            metadata: {
+              activatedAt: '2026-06-08T01:33:16.332Z',
+              endedAt: '2026-06-08T01:38:40.878Z',
+              endReason: 'accepted_restart',
+              latestFailureStatus: 'Runtime Error',
+            },
+          },
+          {
+            id: 'mem_2',
+            memory: '# LeetCode Session Record\n\n- Title Slug: palindrome-number\n- End Reason: drop_timer',
+            createdAt: '2026-06-08T01:38:40.881Z',
+            metadata: {
+              activatedAt: '2026-06-08T01:38:40.881Z',
+              endedAt: '2026-06-08T01:38:40.913Z',
+              endReason: 'drop_timer',
+            },
+          },
+        ],
+      }),
+    };
+
+    (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('palindrome-number');
+
+    const prepared = await (
+      server as {
+        buildCompanionChatRequest: (
+          body: Record<string, unknown>,
+        ) => Promise<{ ok: true; request: { messages: Array<{ role: string; content: string }> } } | { ok: false }>;
+      }
+    ).buildCompanionChatRequest({
+      messages: [
+        {
+          role: 'user',
+          content: [
+            '# LeetCode Problem Context',
+            '',
+            '- Title: Palindrome Number',
+            '- Title Slug: palindrome-number',
+            '- Difficulty: Easy',
+            '- Language: python3',
+            '',
+            '## Problem Description',
+            'Determine whether an integer is a palindrome.',
+            '',
+            '## Current Code',
+            '```python3',
+            'class Solution:',
+            '    pass',
+            '```',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: '帮我回忆一下这题之前都发生了什么',
+        },
+      ],
+    });
+
+    assert.equal(prepared.ok, true);
+    if (!prepared.ok) {
+      return;
+    }
+
+    assert.match(prepared.request.messages[1]?.content ?? '', /Submission Service Mem0 Recall/);
+    assert.match(prepared.request.messages[1]?.content ?? '', /Recalled Session Count: 2/);
+    assert.match(prepared.request.messages[1]?.content ?? '', /accepted_restart/);
+    assert.match(prepared.request.messages[2]?.content ?? '', /帮我回忆一下这题之前都发生了什么/);
+    assert.equal((server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope()?.mem0Recall?.recordCount, 2);
   });
 
   it('persists a session snapshot when the server stops an active session', async () => {

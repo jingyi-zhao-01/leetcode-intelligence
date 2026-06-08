@@ -148,14 +148,31 @@ snapshot 至少包含:
    - session 结束后异步归档
    - 供未来 recall / audit / cross-session intelligence 使用
 
+### 6. companion 打开当前题目时，按 `title_slug` recall 这道题的历史 session records
+
+当新的 active session 建立，或者 companion 第一次绑定到当前题目时，服务端可以按 `title_slug` 从 Mem0 取回这道题之前结束过的 session records。
+
+这里的 retrieval 约束是:
+
+- retrieval 仍然是服务端行为，不下放到 `leetcode.nvim`
+- 只把 recall 结果当成补充上下文，不替代当前 active session scope
+- recall 范围按当前用户 + service ids + `title_slug` 过滤，避免混入别的题目
+
+这样 companion 在刚打开一题时，就能先看到:
+
+- 之前这道题经历过哪些 session
+- 每次 session 大致如何结束
+- 之前出现过哪些 failure/status
+- 这道题之前积累过哪些有价值的 solve context
+
 ## 当前边界
 
-- 当前只做“写入 Mem0”，还没有把 Mem0 search/recall 接回 companion runtime
+- 当前 recall 只按 `title_slug` 拉 session-level records，还不是更细粒度的 event replay
 - 当前 snapshot 是按 session end 粒度写入，不是 event sourcing
 - 当前仍然没有本地持久化的 session replay 表
 
 ## 后续约束
 
 - 新增外部 memory/retrieval 时，不能破坏“active session scope 仍然在 submission server 内存里”这个前提
-- 如果以后接入 Mem0 recall，应作为补充上下文，而不是替代当前 session scope
+- Mem0 recall 必须作为补充上下文，而不是替代当前 session scope
 - 如果以后需要更细粒度事件流，再单独设计 event persistence，不要偷偷改变 session snapshot 的职责

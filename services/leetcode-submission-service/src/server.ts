@@ -21,10 +21,13 @@ import {
 import { createDefaultFailureAnalyzer, type FailureAnalysisRequest } from './core/failureAnalysis.ts';
 import {
   ActiveSessionScopeManager,
+  createDefaultSessionRecordRecaller,
   createDefaultSessionRecordPersister,
   extractCompanionSessionContext,
+  renderRecalledSessionRecords,
   TimerManager,
   type SessionEndReason,
+  type SessionRecordRecallResult,
 } from './session/index.ts';
 import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from './database.ts';
@@ -229,6 +232,8 @@ export class SubmissionServer {
   private readonly timerManager = new TimerManager();
   private readonly sessionScope = new ActiveSessionScopeManager();
   private readonly sessionRecordPersister = createDefaultSessionRecordPersister();
+  private readonly sessionRecordRecaller = createDefaultSessionRecordRecaller();
+  private readonly pendingMem0Recall = new Map<string, Promise<void>>();
   readonly logger = logger;
   readonly cache = new Cache();
   private readonly openRouter = process.env.OPEN_ROUTER_API_KEY
@@ -352,6 +357,7 @@ export class SubmissionServer {
       });
     }
     this.sessionScope.activate(titleSlug);
+    void this.hydrateMem0Recall(titleSlug);
     return {
       alreadyActive: result.alreadyActive,
       evictedTitleSlugs: result.evictedTimers.map((entry) => entry.titleSlug),
@@ -400,6 +406,46 @@ export class SubmissionServer {
 
   private getActiveSessionTitleSlug(): string | null {
     return this.sessionScope.getActiveScope()?.titleSlug ?? null;
+  }
+
+  private async hydrateMem0Recall(titleSlug: string): Promise<void> {
+    if (this.sessionScope.hasMem0Recall(titleSlug)) {
+      return;
+    }
+
+    const pending = this.pendingMem0Recall.get(titleSlug);
+    if (pending) {
+      await pending;
+      return;
+    }
+
+    const hydrate = this.hydrateMem0RecallInternal(titleSlug);
+    this.pendingMem0Recall.set(titleSlug, hydrate);
+    try {
+      await hydrate;
+    } finally {
+      this.pendingMem0Recall.delete(titleSlug);
+    }
+  }
+
+  private async hydrateMem0RecallInternal(titleSlug: string): Promise<void> {
+    let recalled: SessionRecordRecallResult;
+    try {
+      recalled = await this.sessionRecordRecaller.recallByTitleSlug(titleSlug);
+    } catch (error) {
+      logger.error(
+        {
+          err: error,
+          titleSlug,
+        },
+        'Failed to recall LeetCode session history from Mem0',
+      );
+      this.sessionScope.recordMem0Recall(titleSlug, 0);
+      return;
+    }
+
+    const message = recalled.records.length > 0 ? renderRecalledSessionRecords(recalled) : undefined;
+    this.sessionScope.recordMem0Recall(titleSlug, recalled.records.length, message);
   }
 
   private ensureActiveSession(titleSlug?: string): { ok: true; titleSlug: string } | { ok: false; error: string } {
@@ -640,9 +686,9 @@ export class SubmissionServer {
     };
   }
 
-  private buildCompanionChatRequest(
+  private async buildCompanionChatRequest(
     body: Record<string, unknown>,
-  ): { ok: true; request: CompanionChatRequest; titleSlug: string } | { ok: false; response: Record<string, unknown> } {
+  ): Promise<{ ok: true; request: CompanionChatRequest; titleSlug: string } | { ok: false; response: Record<string, unknown> }> {
     if (!this.companionChat) {
       return {
         ok: false,
@@ -698,6 +744,8 @@ export class SubmissionServer {
       this.sessionScope.recordCompanionContext(companionContext);
     }
 
+    await this.hydrateMem0Recall(activeSession.titleSlug);
+
     const scopedMessages: CompanionChatMessage[] = this.sessionScope.buildCompanionMessages(messages);
 
     return {
@@ -712,7 +760,7 @@ export class SubmissionServer {
   }
 
   private async createCompanionChatCompletion(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const prepared = this.buildCompanionChatRequest(body);
+    const prepared = await this.buildCompanionChatRequest(body);
     if (!prepared.ok) {
       return prepared.response;
     }
@@ -751,7 +799,7 @@ export class SubmissionServer {
   }
 
   private async streamCompanionChatCompletion(body: Record<string, unknown>, res: ServerResponse): Promise<void> {
-    const prepared = this.buildCompanionChatRequest(body);
+    const prepared = await this.buildCompanionChatRequest(body);
     if (!prepared.ok) {
       writeJson(res, 400, prepared.response);
       return;

@@ -13,6 +13,9 @@ const MAX_JSON_SECTION_CHARS = 4_000;
 const MAX_MESSAGE_CHARS = 1_200;
 const MAX_COMPANION_TURNS = 12;
 const MAX_SERVICE_UPDATES = 8;
+const MAX_RECALLED_SESSION_RECORDS = 12;
+const MAX_RECALLED_RECORD_CHARS = 1_800;
+const DEFAULT_MEM0_BASE_URL = 'https://api.mem0.ai';
 
 export type SessionEndReason =
   | 'stop_timer'
@@ -30,6 +33,23 @@ export type SessionEndEvent = {
 
 export type SessionRecordPersister = {
   persist(scope: ActiveSessionScope, event: SessionEndEvent): Promise<void>;
+};
+
+export type RecalledSessionRecord = {
+  id: string;
+  memory: string;
+  createdAt?: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type SessionRecordRecallResult = {
+  titleSlug: string;
+  records: RecalledSessionRecord[];
+};
+
+export type SessionRecordRecaller = {
+  recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult>;
 };
 
 type Mem0AddResponse = {
@@ -54,6 +74,20 @@ type Mem0SessionRecordPersisterOptions = {
   appId?: string;
   host?: string;
   client?: MemoryClientLike;
+};
+
+type Mem0GetAllResponse = {
+  next?: string | null;
+  results?: unknown;
+};
+
+type Mem0SessionRecordRecallerOptions = {
+  apiKey: string;
+  userId: string;
+  agentId?: string;
+  appId?: string;
+  host?: string;
+  fetchImpl?: typeof fetch;
 };
 
 const readJudgeStatus = (judgeResult: unknown): string | null => {
@@ -81,6 +115,19 @@ const truncateJson = (value: unknown): string => {
   } catch {
     return '"[unserializable judge result]"';
   }
+};
+
+const readStringValue = (value: unknown): string | undefined => {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+const readMetadataRecord = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value as Record<string, unknown>;
 };
 
 const pushTextSection = (parts: string[], heading: string, content?: string): void => {
@@ -204,8 +251,84 @@ export function renderPersistedSessionRecord(scope: ActiveSessionScope, event: S
   return parts.join('\n');
 }
 
+export function renderRecalledSessionRecords(result: SessionRecordRecallResult): CompanionChatMessage {
+  const records = [...result.records].sort((left, right) =>
+    (left.createdAt ?? left.updatedAt ?? '').localeCompare(right.createdAt ?? right.updatedAt ?? ''),
+  );
+  const visibleRecords = records.slice(-MAX_RECALLED_SESSION_RECORDS);
+  const omittedCount = records.length - visibleRecords.length;
+  const parts = [
+    '# Submission Service Mem0 Recall',
+    '',
+    `- Title Slug: ${result.titleSlug}`,
+    `- Recalled Session Count: ${records.length}`,
+    '- These are ended-session records recalled from Mem0 for this exact LeetCode problem.',
+  ];
+
+  if (omittedCount > 0) {
+    parts.push(`- Omitted Older Session Count: ${omittedCount}`);
+  }
+
+  visibleRecords.forEach((record, index) => {
+    const metadata = record.metadata ?? {};
+    const activatedAt = readStringValue(metadata.activatedAt);
+    const endedAt = readStringValue(metadata.endedAt);
+    const endReason = readStringValue(metadata.endReason);
+    const language = readStringValue(metadata.language);
+    const difficulty = readStringValue(metadata.difficulty);
+    const latestFailureStatus = readStringValue(metadata.latestFailureStatus);
+    const elapsedMinutes = typeof metadata.elapsedMinutes === 'number' ? metadata.elapsedMinutes : null;
+
+    parts.push('', `## Session ${index + 1}`);
+
+    if (activatedAt) {
+      parts.push(`- Activated At: ${activatedAt}`);
+    }
+
+    if (endedAt) {
+      parts.push(`- Ended At: ${endedAt}`);
+    }
+
+    if (endReason) {
+      parts.push(`- End Reason: ${endReason}`);
+    }
+
+    if (typeof elapsedMinutes === 'number' && Number.isFinite(elapsedMinutes)) {
+      parts.push(`- Elapsed Minutes: ${elapsedMinutes}`);
+    }
+
+    if (difficulty) {
+      parts.push(`- Difficulty: ${difficulty}`);
+    }
+
+    if (language) {
+      parts.push(`- Language: ${language}`);
+    }
+
+    if (latestFailureStatus) {
+      parts.push(`- Latest Failure Status: ${latestFailureStatus}`);
+    }
+
+    parts.push('', '### Session Snapshot', truncate(record.memory, MAX_RECALLED_RECORD_CHARS));
+  });
+
+  return {
+    role: 'user',
+    content: parts.join('\n'),
+  };
+}
+
 class NoopSessionRecordPersister implements SessionRecordPersister {
   async persist(): Promise<void> {}
+}
+
+class NoopSessionRecordRecaller implements SessionRecordRecaller {
+  async recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult> {
+    return {
+      titleSlug,
+      records: [],
+    };
+  }
 }
 
 export class Mem0SessionRecordPersister implements SessionRecordPersister {
@@ -268,6 +391,101 @@ export class Mem0SessionRecordPersister implements SessionRecordPersister {
   }
 }
 
+function resolveMem0BaseUrl(host?: string): string {
+  const base = host?.trim() || DEFAULT_MEM0_BASE_URL;
+  return base.endsWith('/') ? base : `${base}/`;
+}
+
+function parseRecalledSessionRecords(payload: unknown): RecalledSessionRecord[] {
+  const envelope = payload as Mem0GetAllResponse | undefined;
+  const results = Array.isArray(envelope?.results) ? envelope.results : [];
+
+  return results.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return [];
+    }
+
+    const record = entry as Record<string, unknown>;
+    const id = readStringValue(record.id);
+    const memory = readStringValue(record.memory);
+    if (!id || !memory) {
+      return [];
+    }
+
+    return [
+      {
+        id,
+        memory,
+        createdAt: readStringValue(record.created_at),
+        updatedAt: readStringValue(record.updated_at),
+        metadata: readMetadataRecord(record.metadata),
+      } satisfies RecalledSessionRecord,
+    ];
+  });
+}
+
+export class Mem0SessionRecordRecaller implements SessionRecordRecaller {
+  private readonly agentId: string;
+  private readonly appId: string;
+  private readonly baseUrl: string;
+  private readonly fetchImpl: typeof fetch;
+
+  constructor(private readonly options: Mem0SessionRecordRecallerOptions) {
+    this.agentId = options.agentId?.trim() || DEFAULT_MEM0_AGENT_ID;
+    this.appId = options.appId?.trim() || DEFAULT_MEM0_APP_ID;
+    this.baseUrl = resolveMem0BaseUrl(options.host);
+    this.fetchImpl = options.fetchImpl ?? fetch;
+  }
+
+  async recallByTitleSlug(titleSlug: string): Promise<SessionRecordRecallResult> {
+    const filters = {
+      AND: [
+        { user_id: this.options.userId },
+        { agent_id: this.agentId },
+        { app_id: this.appId },
+        { metadata: { recordType: 'leetcode_session_record' } },
+        { metadata: { titleSlug } },
+      ],
+    };
+    const records: RecalledSessionRecord[] = [];
+    let page = 1;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const url = new URL(`v3/memories/?page=${page}&page_size=200`, this.baseUrl);
+      const response = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${this.options.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filters }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Mem0 recall failed with ${response.status} ${response.statusText}`);
+      }
+
+      const payload = (await response.json()) as Mem0GetAllResponse;
+      records.push(...parseRecalledSessionRecords(payload));
+      hasNextPage = typeof payload.next === 'string' && payload.next.trim().length > 0;
+      page += 1;
+    }
+
+    logger.info(
+      {
+        titleSlug,
+        recalledCount: records.length,
+      },
+      'Recalled LeetCode session records from Mem0',
+    );
+    return {
+      titleSlug,
+      records,
+    };
+  }
+}
+
 function resolveDefaultMem0UserId(): string {
   const explicit = process.env.MEM0_USER_ID?.trim();
   if (explicit) {
@@ -293,6 +511,21 @@ export function createDefaultSessionRecordPersister(): SessionRecordPersister {
   }
 
   return new Mem0SessionRecordPersister({
+    apiKey,
+    userId: resolveDefaultMem0UserId(),
+    agentId: process.env.MEM0_AGENT_ID?.trim(),
+    appId: process.env.MEM0_APP_ID?.trim(),
+    host: process.env.MEM0_BASE_URL?.trim(),
+  });
+}
+
+export function createDefaultSessionRecordRecaller(): SessionRecordRecaller {
+  const apiKey = process.env.MEM0_API_KEY?.trim();
+  if (!apiKey) {
+    return new NoopSessionRecordRecaller();
+  }
+
+  return new Mem0SessionRecordRecaller({
     apiKey,
     userId: resolveDefaultMem0UserId(),
     agentId: process.env.MEM0_AGENT_ID?.trim(),

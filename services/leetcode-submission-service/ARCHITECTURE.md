@@ -65,6 +65,7 @@ This file also contains the submission preparation helpers used before a submiss
 [src/session/scope.ts](./src/session/scope.ts) holds the service-owned active session scope for:
 
 - problem metadata
+- recalled Mem0 history for the current `title_slug`
 - current editor/submission code
 - latest failure snapshot
 - service session memory
@@ -75,9 +76,9 @@ This file also contains the submission preparation helpers used before a submiss
 Important ownership rule:
 
 - active session truth stays in local memory
-- Mem0 only receives session-end snapshots
+- Mem0 receives session-end snapshots and can later feed title-scoped recall back into the active scope
 
-That means Mem0 is currently an archive/retrieval surface, not the live context source for the running companion session.
+That means Mem0 is a retrieval supplement, not the live context source for the running companion session.
 
 ### Cache and Action Middleware
 
@@ -131,6 +132,7 @@ Current behavior:
 - the service owns the system prompt
 - upstream `system` messages from the client are ignored
 - normal `user` / `assistant` history is preserved
+- when a problem is opened, the service can hydrate prior ended-session records for the same `title_slug` from Mem0
 - responses are returned in OpenAI chat-completion shape for local adapter compatibility
 
 ## Persistence Layer
@@ -204,10 +206,11 @@ Only `MEM0_API_KEY` needs to be configured by the operator. The other Mem0 ids a
 
 1. `CodeCompanion` sends a non-streaming OpenAI-style request to the local HTTP endpoint.
 2. `SubmissionServer` validates that an active LeetCode session exists.
-3. The active session scope and failure/session memory are injected ahead of visible chat history.
-4. OpenRouter generates the response.
-5. The service appends the assistant reply back into the active session scope.
-6. The service returns an OpenAI-compatible chat completion or SSE stream to the editor.
+3. The service recalls ended-session history for the same `title_slug` from Mem0 if it has not already hydrated this active scope.
+4. The active session scope and failure/session memory are injected ahead of visible chat history.
+5. OpenRouter generates the response.
+6. The service appends the assistant reply back into the active session scope.
+7. The service returns an OpenAI-compatible chat completion or SSE stream to the editor.
 
 ### Session End Persistence
 
