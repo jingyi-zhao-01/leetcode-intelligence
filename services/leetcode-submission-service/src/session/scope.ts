@@ -22,6 +22,16 @@ export type ActiveSessionScope = {
   submissionContent?: string;
   testcase?: string;
   filetype?: string;
+  companionMemory?: {
+    updatedAt: string;
+    messages: CompanionChatMessage[];
+  };
+  latestFailure?: {
+    recordedAt: string;
+    judgeResult: FailureAnalysisRequest["judgeResult"];
+    submissionContent?: string;
+    testcase?: string;
+  };
   lastFailureAnalysis?: {
     analyzedAt: string;
     summary: string;
@@ -29,6 +39,8 @@ export type ActiveSessionScope = {
     judgeResult: FailureAnalysisRequest["judgeResult"];
   };
 };
+
+const SESSION_MEMORY_LIMIT = 24;
 
 const lineValue = (content: string, label: string): string => {
   const match = content.match(new RegExp(`^- ${label}:\\s*(.+)$`, "m"));
@@ -101,6 +113,26 @@ export function renderActiveSessionScope(scope: ActiveSessionScope): string {
     parts.push("", "## Current Code", `\`\`\`${scope.filetype ?? scope.lang ?? "text"}`, scope.editorContent, "```");
   }
 
+  if (scope.latestFailure) {
+    parts.push("", "## Latest LeetCode Failure");
+
+    const status =
+      scope.latestFailure.judgeResult &&
+      typeof scope.latestFailure.judgeResult === "object" &&
+      "status_msg" in scope.latestFailure.judgeResult &&
+      typeof scope.latestFailure.judgeResult.status_msg === "string"
+        ? scope.latestFailure.judgeResult.status_msg
+        : "";
+
+    if (status) {
+      parts.push(`- Judge Status: ${status}`);
+    }
+
+    parts.push("```json");
+    parts.push(JSON.stringify(scope.latestFailure.judgeResult, null, 2));
+    parts.push("```");
+  }
+
   if (scope.lastFailureAnalysis) {
     parts.push("", "## Latest Failure Analysis", `- Summary: ${scope.lastFailureAnalysis.summary}`);
 
@@ -113,6 +145,22 @@ export function renderActiveSessionScope(scope: ActiveSessionScope): string {
   }
 
   return parts.join("\n");
+}
+
+function isHiddenCompanionContext(message: CompanionChatMessage): boolean {
+  return (
+    message.content.includes("# LeetCode Problem Context") ||
+    message.content.includes("# Submission Service Active Session")
+  );
+}
+
+function normalizeConversationMemory(messages: CompanionChatMessage[]): CompanionChatMessage[] {
+  const visibleMessages = messages.filter((message) => !isHiddenCompanionContext(message) && message.role !== "system");
+  if (visibleMessages.length <= SESSION_MEMORY_LIMIT) {
+    return visibleMessages;
+  }
+
+  return visibleMessages.slice(visibleMessages.length - SESSION_MEMORY_LIMIT);
 }
 
 export class ActiveSessionScopeManager {
@@ -168,6 +216,31 @@ export class ActiveSessionScopeManager {
     return scope;
   }
 
+  recordCompanionMessages(titleSlug: string, messages: CompanionChatMessage[]): ActiveSessionScope {
+    const scope = this.activate(titleSlug);
+    scope.companionMemory = {
+      updatedAt: new Date().toISOString(),
+      messages: normalizeConversationMemory(messages),
+    };
+    return scope;
+  }
+
+  appendCompanionReply(titleSlug: string, content: string): ActiveSessionScope {
+    const scope = this.activate(titleSlug);
+    const existingMessages = scope.companionMemory?.messages ?? [];
+    scope.companionMemory = {
+      updatedAt: new Date().toISOString(),
+      messages: normalizeConversationMemory([
+        ...existingMessages,
+        {
+          role: "assistant",
+          content,
+        },
+      ]),
+    };
+    return scope;
+  }
+
   recordFailureAnalysis(request: FailureAnalysisRequest, result: FailureAnalysisResult): ActiveSessionScope {
     const scope = this.activate(request.titleSlug);
     scope.title = request.title || scope.title;
@@ -176,6 +249,12 @@ export class ActiveSessionScopeManager {
     scope.submissionContent = request.submissionContent || scope.submissionContent;
     scope.testcase = request.testcase || scope.testcase;
     scope.filetype = request.filetype || scope.filetype;
+    scope.latestFailure = {
+      recordedAt: new Date().toISOString(),
+      judgeResult: request.judgeResult,
+      submissionContent: request.submissionContent || scope.submissionContent,
+      testcase: request.testcase || scope.testcase,
+    };
     scope.lastFailureAnalysis = {
       analyzedAt: new Date().toISOString(),
       summary: result.summary,
@@ -191,12 +270,17 @@ export class ActiveSessionScopeManager {
       return messages;
     }
 
+    const visibleMessages = normalizeConversationMemory(messages);
+    if (visibleMessages.length > 0) {
+      this.recordCompanionMessages(scope.titleSlug, visibleMessages);
+    }
+
     return [
       {
         role: "user",
         content: renderActiveSessionScope(scope),
       },
-      ...messages,
+      ...(this.getActiveScope()?.companionMemory?.messages ?? []),
     ];
   }
 }

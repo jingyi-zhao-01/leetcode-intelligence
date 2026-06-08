@@ -226,11 +226,7 @@ export class SubmissionServer {
       })
     : null;
   private readonly companionOpenRouter = process.env.OPEN_ROUTER_API_KEY
-    ? new OpenRouter({
-        apiKey: process.env.OPEN_ROUTER_API_KEY,
-        httpReferer: "https://github.com/kawre/leetcode.nvim",
-        appTitle: "companion-service",
-      })
+    ? process.env.OPEN_ROUTER_API_KEY
     : null;
   private readonly failureAnalyzer = this.openRouter
     ? createDefaultFailureAnalyzer(
@@ -244,7 +240,10 @@ export class SubmissionServer {
     .map((model) => model.trim())
     .filter((model) => model.length > 0);
   private readonly companionChat = this.companionOpenRouter
-    ? createDefaultCompanionChatService(this.companionOpenRouter, this.companionModel)
+    ? createDefaultCompanionChatService(this.companionOpenRouter, this.companionModel, {
+        appTitle: "companion-service",
+        httpReferer: "https://github.com/kawre/leetcode.nvim",
+      })
     : null;
   private readonly actionContext: ActionContext = {
     cache: this.cache,
@@ -572,7 +571,7 @@ export class SubmissionServer {
   }
 
   private buildCompanionChatRequest(body: Record<string, unknown>):
-    | { ok: true; request: CompanionChatRequest }
+    | { ok: true; request: CompanionChatRequest; titleSlug: string }
     | { ok: false; response: Record<string, unknown> } {
     if (!this.companionChat) {
       return {
@@ -633,6 +632,7 @@ export class SubmissionServer {
 
     return {
       ok: true,
+      titleSlug: activeSession.titleSlug,
       request: {
         messages: scopedMessages,
         model: readString(body.model, this.companionModel),
@@ -648,6 +648,7 @@ export class SubmissionServer {
     }
 
     const result = await this.companionChat!.chat(prepared.request);
+    this.sessionScope.appendCompanionReply(prepared.titleSlug, result.content);
     const created = Math.floor(Date.now() / 1000);
 
     return {
@@ -682,8 +683,16 @@ export class SubmissionServer {
     res.setHeader("Connection", "keep-alive");
 
     const stream = await this.companionChat!.stream(prepared.request);
+    let fullContent = "";
     for await (const chunk of stream) {
+      for (const choice of chunk.choices) {
+        fullContent += choice.delta.content ?? "";
+      }
       writeSseChunk(res, toOpenAiStreamChunk(chunk));
+    }
+
+    if (fullContent.trim().length > 0) {
+      this.sessionScope.appendCompanionReply(prepared.titleSlug, fullContent);
     }
 
     writeSseDone(res);

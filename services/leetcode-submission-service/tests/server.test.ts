@@ -186,6 +186,10 @@ describe("submission server helpers", () => {
       testcase: "[2,7,11,15]",
       code: "class Solution:\n    pass",
     });
+    manager.recordCompanionMessages("two-sum", [
+      { role: "user", content: "为什么我的哈希表做法不对？" },
+    ]);
+    manager.appendCompanionReply("two-sum", "因为你先插入再查找，会错过配对。");
     manager.recordFailureAnalysis(
       {
         titleSlug: "two-sum",
@@ -206,11 +210,45 @@ describe("submission server helpers", () => {
     const scope = manager.getActiveScope();
     assert.ok(scope);
     assert.equal(scope.titleSlug, "two-sum");
+    assert.equal(scope.companionMemory?.messages.length, 2);
+    assert.equal(scope.latestFailure?.judgeResult && typeof scope.latestFailure.judgeResult === "object" ? scope.latestFailure.judgeResult.status_msg : "", "Wrong Answer");
     assert.equal(scope.lastFailureAnalysis?.summary, "The hash map lookup happens after the insert.");
 
     const rendered = renderActiveSessionScope(scope);
     assert.match(rendered, /Title Slug: two-sum/);
+    assert.match(rendered, /Latest LeetCode Failure/);
+    assert.match(rendered, /Wrong Answer/);
     assert.match(rendered, /Latest Failure Analysis/);
     assert.match(rendered, /order is wrong/);
+  });
+
+  it("stores companion turns as session memory while stripping hidden context messages", () => {
+    const manager = new ActiveSessionScopeManager();
+    manager.activate("two-sum");
+    manager.recordCompanionContext({
+      titleSlug: "two-sum",
+      title: "Two Sum",
+      description: "Find two numbers.",
+      code: "class Solution:\n    pass",
+    });
+
+    const messages = manager.buildCompanionMessages([
+      {
+        role: "user",
+        content: [
+          "# LeetCode Problem Context",
+          "",
+          "- Title: Two Sum",
+          "- Title Slug: two-sum",
+        ].join("\n"),
+      },
+      { role: "user", content: "帮我看下为什么 test 过不了" },
+    ]);
+
+    assert.equal(messages[0]?.role, "user");
+    assert.match(messages[0]?.content ?? "", /Submission Service Active Session/);
+    assert.deepEqual(manager.getActiveScope()?.companionMemory?.messages, [
+      { role: "user", content: "帮我看下为什么 test 过不了" },
+    ]);
   });
 });
