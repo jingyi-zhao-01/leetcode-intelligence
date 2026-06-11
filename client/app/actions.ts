@@ -3,6 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { prisma } from '../lib/prisma';
 import { analyzeSubmissionTemplates } from '../lib/template-analyzer';
+import {
+  createGeneratedTemplate as createGeneratedTemplateRecord,
+  generateTemplateDraft as generateTemplateDraftFromLlm,
+  type GeneratedTemplateDraft,
+} from '../lib/template-generator';
 
 type PatternTagWriter = Pick<typeof prisma, 'submissionPatternTag'>;
 
@@ -41,4 +46,19 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
 
 export async function benchmarkSubmissionTemplates(submissionId: string, excludedGroupKeys: string[] = []) {
   return analyzeSubmissionTemplates(submissionId, excludedGroupKeys);
+}
+
+export async function generateTemplateDraft(input: {
+  groupKey: string;
+  submissionId: string;
+  prompt: string;
+  model?: string;
+}) {
+  return generateTemplateDraftFromLlm(input);
+}
+
+export async function createGeneratedTemplate(groupKey: string, draft: GeneratedTemplateDraft) {
+  const template = await createGeneratedTemplateRecord(groupKey, draft);
+  revalidatePath('/');
+  return template;
 }

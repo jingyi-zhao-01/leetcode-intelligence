@@ -2,14 +2,73 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { benchmarkSubmissionTemplates, saveSubmissionTags } from './actions';
+import {
+  benchmarkSubmissionTemplates,
+  createGeneratedTemplate,
+  generateTemplateDraft,
+  saveSubmissionTags,
+} from './actions';
 import type { PatternTagOption, SubmissionRow } from '../lib/data';
 import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from '../lib/template-analyzer';
+import type { GeneratedTemplateDraft } from '../lib/template-generator';
 
 type Props = {
   submissions: SubmissionRow[];
   tags: PatternTagOption[];
 };
+
+type TemplateForm = {
+  key: string;
+  label: string;
+  description: string;
+  classicProblems: string;
+  whenToUse: string;
+  whenNotToUse: string;
+  signals: string;
+  pseudocode: string;
+  invariants: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  relatedDataStructures: string;
+  similarTemplates: string;
+};
+
+type TemplateGeneratorModal = {
+  groupKey: string;
+  groupLabel: string;
+  prompt: string;
+  model: string;
+  form: TemplateForm;
+  error?: string;
+};
+
+const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
+const TEMPLATE_GENERATOR_MODELS = [
+  'qwen/qwen3-coder-next',
+  'deepseek/deepseek-chat-v3-0324',
+  'openai/gpt-4.1-mini',
+];
+
+const TEMPLATE_FORM_ROWS: Array<{
+  field: keyof TemplateForm;
+  label: string;
+  multiline?: boolean;
+  placeholder?: string;
+}> = [
+  { field: 'key', label: 'Key', placeholder: 'canonical-template-key' },
+  { field: 'label', label: 'Label', placeholder: 'Canonical Template Name' },
+  { field: 'description', label: 'Description', multiline: true },
+  { field: 'classicProblems', label: 'Classic Problems', multiline: true, placeholder: 'One item per line' },
+  { field: 'whenToUse', label: 'When To Use', multiline: true, placeholder: 'One item per line' },
+  { field: 'whenNotToUse', label: 'When Not To Use', multiline: true, placeholder: 'One item per line' },
+  { field: 'signals', label: 'Signals', multiline: true, placeholder: 'One item per line' },
+  { field: 'pseudocode', label: 'Pseudocode', multiline: true, placeholder: 'One line per pseudocode step' },
+  { field: 'invariants', label: 'Invariants', multiline: true, placeholder: 'One item per line' },
+  { field: 'timeComplexity', label: 'Time Complexity', placeholder: 'O(n)' },
+  { field: 'spaceComplexity', label: 'Space Complexity', placeholder: 'O(1)' },
+  { field: 'relatedDataStructures', label: 'Data Structures', multiline: true, placeholder: 'One item per line' },
+  { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line' },
+];
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('en', {
@@ -45,6 +104,80 @@ function sourceLabel(source: PatternTagOption['source']) {
   return source.replaceAll('_', ' ');
 }
 
+function emptyTemplateForm(): TemplateForm {
+  return {
+    key: '',
+    label: '',
+    description: '',
+    classicProblems: '',
+    whenToUse: '',
+    whenNotToUse: '',
+    signals: '',
+    pseudocode: '',
+    invariants: '',
+    timeComplexity: '',
+    spaceComplexity: '',
+    relatedDataStructures: '',
+    similarTemplates: '',
+  };
+}
+
+function lines(value: string) {
+  return value
+    .split('\n')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function formFromDraft(draft: GeneratedTemplateDraft): TemplateForm {
+  return {
+    key: draft.key,
+    label: draft.label,
+    description: draft.description,
+    classicProblems: draft.metadata.classicProblems.join('\n'),
+    whenToUse: draft.metadata.whenToUse.join('\n'),
+    whenNotToUse: draft.metadata.whenNotToUse.join('\n'),
+    signals: draft.metadata.signals.join('\n'),
+    pseudocode: draft.metadata.pseudocode.join('\n'),
+    invariants: draft.metadata.invariants.join('\n'),
+    timeComplexity: draft.metadata.defaultComplexity.time ?? '',
+    spaceComplexity: draft.metadata.defaultComplexity.space ?? '',
+    relatedDataStructures: draft.metadata.relatedDataStructures.join('\n'),
+    similarTemplates: draft.metadata.similarTemplates.join('\n'),
+  };
+}
+
+function draftFromForm(form: TemplateForm): GeneratedTemplateDraft {
+  return {
+    key: form.key.trim(),
+    label: form.label.trim(),
+    description: form.description.trim(),
+    metadata: {
+      classicProblems: lines(form.classicProblems),
+      whenToUse: lines(form.whenToUse),
+      whenNotToUse: lines(form.whenNotToUse),
+      signals: lines(form.signals),
+      pseudocode: lines(form.pseudocode),
+      invariants: lines(form.invariants),
+      defaultComplexity: {
+        time: form.timeComplexity.trim(),
+        space: form.spaceComplexity.trim(),
+      },
+      relatedDataStructures: lines(form.relatedDataStructures),
+      similarTemplates: lines(form.similarTemplates),
+    },
+  };
+}
+
+function isTemplateFormComplete(form: TemplateForm) {
+  return TEMPLATE_FORM_ROWS.every((row) => form[row.field].trim().length > 0);
+}
+
+function valueFromDraftField(draft: GeneratedTemplateDraft, field: keyof TemplateForm) {
+  const form = formFromDraft(draft);
+  return form[field];
+}
+
 export function TagWorkbench({ submissions, tags }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -64,6 +197,8 @@ export function TagWorkbench({ submissions, tags }: Props) {
   const [benchmarkError, setBenchmarkError] = useState('');
   const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>({});
   const [excludedBenchmarkGroupKeys, setExcludedBenchmarkGroupKeys] = useState<Set<string>>(() => new Set());
+  const [isTemplateGenerationPending, startTemplateGenerationTransition] = useTransition();
+  const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? submissions[0] ?? null;
   const selectedTags = tags.filter((tag) => draftTagIds.has(tag.id));
@@ -177,6 +312,103 @@ export function TagWorkbench({ submissions, tags }: Props) {
         }));
       } catch (error) {
         setBenchmarkError(error instanceof Error ? error.message : 'Template benchmark failed.');
+      }
+    });
+  }
+
+  function openTemplateGenerator(group: { key: string; label: string }) {
+    setTemplateGeneratorModal({
+      groupKey: group.key,
+      groupLabel: group.label,
+      prompt: '',
+      model: DEFAULT_TEMPLATE_GENERATOR_MODEL,
+      form: emptyTemplateForm(),
+    });
+  }
+
+  function updateTemplateGeneratorModal(patch: Partial<TemplateGeneratorModal>) {
+    setTemplateGeneratorModal((current) => (current ? { ...current, ...patch } : current));
+  }
+
+  function updateTemplateForm(field: keyof TemplateForm, value: string) {
+    setTemplateGeneratorModal((current) =>
+      current
+        ? {
+            ...current,
+            form: {
+              ...current.form,
+              [field]: value,
+            },
+          }
+        : current,
+    );
+  }
+
+  function runTemplateGenerator() {
+    if (!selectedSubmission || !templateGeneratorModal) return;
+    const modal = templateGeneratorModal;
+
+    updateTemplateGeneratorModal({ error: undefined });
+    startTemplateGenerationTransition(async () => {
+      try {
+        const result = await generateTemplateDraft({
+          groupKey: modal.groupKey,
+          submissionId: selectedSubmission.id,
+          prompt: modal.prompt || `Generate one missing canonical template for ${modal.groupLabel}.`,
+          model: modal.model || DEFAULT_TEMPLATE_GENERATOR_MODEL,
+        });
+        updateTemplateGeneratorModal({
+          form: formFromDraft(result.draft),
+          model: result.model,
+          error: undefined,
+        });
+      } catch (error) {
+        updateTemplateGeneratorModal({
+          error: error instanceof Error ? error.message : 'Template generation failed.',
+        });
+      }
+    });
+  }
+
+  function assistTemplateRow(field: keyof TemplateForm, label: string) {
+    if (!selectedSubmission || !templateGeneratorModal) return;
+    const modal = templateGeneratorModal;
+
+    startTemplateGenerationTransition(async () => {
+      try {
+        const result = await generateTemplateDraft({
+          groupKey: modal.groupKey,
+          submissionId: selectedSubmission.id,
+          prompt:
+            modal.prompt ||
+            `Fill the ${label} field for a new canonical template in ${modal.groupLabel}. Preserve the user's existing form intent when possible.`,
+          model: modal.model || DEFAULT_TEMPLATE_GENERATOR_MODEL,
+        });
+        updateTemplateForm(field, valueFromDraftField(result.draft, field));
+        updateTemplateGeneratorModal({ model: result.model, error: undefined });
+      } catch (error) {
+        updateTemplateGeneratorModal({
+          error: error instanceof Error ? error.message : 'Template row assist failed.',
+        });
+      }
+    });
+  }
+
+  function createTemplateFromModal() {
+    if (!templateGeneratorModal || !isTemplateFormComplete(templateGeneratorModal.form)) return;
+    const modal = templateGeneratorModal;
+
+    startTemplateGenerationTransition(async () => {
+      try {
+        const template = await createGeneratedTemplate(modal.groupKey, draftFromForm(modal.form));
+        setTemplateGeneratorModal(null);
+        setSelectedTemplateId(template.id);
+        setMessage(`Created LLM generated template: ${template.key}.`);
+        router.refresh();
+      } catch (error) {
+        updateTemplateGeneratorModal({
+          error: error instanceof Error ? error.message : 'Template creation failed.',
+        });
       }
     });
   }
@@ -325,6 +557,11 @@ export function TagWorkbench({ submissions, tags }: Props) {
                           </button>
                         );
                       })}
+                      <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
+                        <span>+</span>
+                        <strong>Generate template</strong>
+                        <small>{group.label}</small>
+                      </button>
                     </div>
                   </section>
                 ))}
@@ -334,6 +571,20 @@ export function TagWorkbench({ submissions, tags }: Props) {
                 <TemplateControlPlane template={selectedTemplate} tags={tags} benchmarkScore={selectedTemplateScore} />
               ) : null}
             </div>
+
+            {templateGeneratorModal ? (
+              <TemplateGeneratorModal
+                modal={templateGeneratorModal}
+                isPending={isTemplateGenerationPending}
+                isComplete={isTemplateFormComplete(templateGeneratorModal.form)}
+                onClose={() => setTemplateGeneratorModal(null)}
+                onChange={updateTemplateGeneratorModal}
+                onChangeField={updateTemplateForm}
+                onAssistAll={runTemplateGenerator}
+                onAssistField={assistTemplateRow}
+                onCreate={createTemplateFromModal}
+              />
+            ) : null}
 
             <div className="actions">
               <button className="primary" onClick={saveSelectedSubmission} disabled={isPending}>
@@ -353,6 +604,116 @@ export function TagWorkbench({ submissions, tags }: Props) {
         )}
       </section>
     </main>
+  );
+}
+
+function TemplateGeneratorModal({
+  modal,
+  isPending,
+  isComplete,
+  onClose,
+  onChange,
+  onChangeField,
+  onAssistAll,
+  onAssistField,
+  onCreate,
+}: {
+  modal: TemplateGeneratorModal;
+  isPending: boolean;
+  isComplete: boolean;
+  onClose: () => void;
+  onChange: (patch: Partial<TemplateGeneratorModal>) => void;
+  onChangeField: (field: keyof TemplateForm, value: string) => void;
+  onAssistAll: () => void;
+  onAssistField: (field: keyof TemplateForm, label: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="template-generator-modal" role="dialog" aria-modal="true" aria-labelledby="template-generator-title">
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">Generate Template</p>
+            <h2 id="template-generator-title">New canonical template</h2>
+            <p>Group: {modal.groupLabel}</p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close template generator">
+            ×
+          </button>
+        </div>
+
+        <div className="modal-assist-bar">
+          <label>
+            <span>Model</span>
+            <input
+              list="template-generator-models"
+              value={modal.model}
+              onChange={(event) => onChange({ model: event.target.value })}
+              placeholder={DEFAULT_TEMPLATE_GENERATOR_MODEL}
+            />
+          </label>
+          <label>
+            <span>Brief</span>
+            <input
+              value={modal.prompt}
+              onChange={(event) => onChange({ prompt: event.target.value })}
+              placeholder="e.g. generalize this submission into a reusable canonical template"
+            />
+          </label>
+          <button type="button" onClick={onAssistAll} disabled={isPending}>
+            {isPending ? 'Assisting...' : 'LLM assist all'}
+          </button>
+        </div>
+        <datalist id="template-generator-models">
+          {TEMPLATE_GENERATOR_MODELS.map((model) => (
+            <option value={model} key={model} />
+          ))}
+        </datalist>
+
+        <div className="template-form-grid">
+          {TEMPLATE_FORM_ROWS.map((row) => (
+            <div className={row.multiline ? 'template-form-row tall' : 'template-form-row'} key={row.field}>
+              <label>
+                <span>{row.label}</span>
+                {row.multiline ? (
+                  <textarea
+                    value={modal.form[row.field]}
+                    onChange={(event) => onChangeField(row.field, event.target.value)}
+                    placeholder={row.placeholder}
+                    rows={4}
+                    required
+                  />
+                ) : (
+                  <input
+                    value={modal.form[row.field]}
+                    onChange={(event) => onChangeField(row.field, event.target.value)}
+                    placeholder={row.placeholder}
+                    required
+                  />
+                )}
+              </label>
+              <button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending}>
+                LLM assist
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {modal.error ? <p className="generator-error">{modal.error}</p> : null}
+
+        <div className="modal-footer">
+          <p>{isComplete ? 'Ready to create.' : 'Fill every row before creating this template.'}</p>
+          <div>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="button" className="primary" onClick={onCreate} disabled={isPending || !isComplete}>
+              Create template
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }
 
