@@ -352,7 +352,13 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [isPending, startTransition] = useTransition();
   const [isBenchmarkPending, startBenchmarkTransition] = useTransition();
   const [benchmarkError, setBenchmarkError] = useState('');
-  const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>({});
+  const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>(() =>
+    Object.fromEntries(
+      submissions
+        .filter((submission) => submission.templateBenchmark && !submission.templateBenchmarkOptOut)
+        .map((submission) => [submission.id, submission.templateBenchmark as TemplateBenchmarkResult]),
+    ),
+  );
   const [excludedBenchmarkGroupKeys, setExcludedBenchmarkGroupKeys] = useState<Set<string>>(() => new Set());
   const [isTemplateGenerationPending, startTemplateGenerationTransition] = useTransition();
   const [isDeleteTemplatePending, startDeleteTemplateTransition] = useTransition();

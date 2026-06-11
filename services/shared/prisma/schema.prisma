@@ -57,6 +57,7 @@ model Submission {
   mistake                 String?
   FollowUp                FollowUp[]
   SubmissionPatternTag    SubmissionPatternTag[]
+  TemplateBenchmarkScore  TemplateBenchmarkScore[]
   IntelligencePromptEvent IntelligencePromptEvent[]
 
   @@index([timeComplexity])
@@ -80,6 +81,7 @@ model PatternTag {
   parent               PatternTag?            @relation("PatternTagHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children             PatternTag[]           @relation("PatternTagHierarchy")
   SubmissionPatternTag SubmissionPatternTag[]
+  TemplateBenchmarkScore TemplateBenchmarkScore[]
 
   @@index([dimension])
   @@index([kind])
@@ -98,6 +100,28 @@ model SubmissionPatternTag {
   @@unique([submissionId, patternTagId])
   @@index([submissionId])
   @@index([patternTagId])
+}
+
+model TemplateBenchmarkScore {
+  id                String     @id @default(cuid())
+  submissionId      String
+  patternTagId      String
+  templateKey       String
+  model             String
+  score             Int
+  confidence        Int
+  reason            String?    @db.Text
+  evidence          String[]   @default([])
+  excludedGroupKeys String[]   @default([])
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime   @updatedAt @db.Timestamptz(6)
+  Submission        Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  PatternTag        PatternTag @relation(fields: [patternTagId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, patternTagId])
+  @@index([submissionId])
+  @@index([patternTagId])
+  @@index([score])
 }
 
 model FollowUp {

@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import type { TemplateMetadata } from './data';
+import { randomUUID } from 'node:crypto';
 
 export type TemplateBenchmarkScore = {
   key: string;
@@ -114,6 +115,53 @@ function parseBenchmarkPayload(payload: string, candidates: TemplateCandidate[])
   } catch {
     return [];
   }
+}
+
+async function persistTemplateBenchmarkResult(result: TemplateBenchmarkResult) {
+  await prisma.$transaction(
+    result.scores.map((score) =>
+      prisma.$executeRaw`
+        INSERT INTO "TemplateBenchmarkScore" (
+          "id",
+          "submissionId",
+          "patternTagId",
+          "templateKey",
+          "model",
+          "score",
+          "confidence",
+          "reason",
+          "evidence",
+          "excludedGroupKeys",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          ${randomUUID()},
+          ${result.submissionId},
+          ${score.patternTagId},
+          ${score.key},
+          ${result.model},
+          ${score.score},
+          ${score.confidence},
+          ${score.reason || null},
+          ${score.evidence},
+          ${result.excludedGroupKeys},
+          now(),
+          now()
+        )
+        ON CONFLICT ("submissionId", "patternTagId")
+        DO UPDATE SET
+          "templateKey" = EXCLUDED."templateKey",
+          "model" = EXCLUDED."model",
+          "score" = EXCLUDED."score",
+          "confidence" = EXCLUDED."confidence",
+          "reason" = EXCLUDED."reason",
+          "evidence" = EXCLUDED."evidence",
+          "excludedGroupKeys" = EXCLUDED."excludedGroupKeys",
+          "updatedAt" = now()
+      `,
+    ),
+  );
 }
 
 function createPrompt(candidates: TemplateCandidate[]) {
@@ -263,10 +311,14 @@ export async function analyzeSubmissionTemplates(
   };
   const content = payload.choices?.[0]?.message?.content ?? '{}';
 
-  return {
+  const result = {
     submissionId,
     model,
     excludedGroupKeys: excludedGroups,
     scores: parseBenchmarkPayload(content, candidates),
   };
+
+  await persistTemplateBenchmarkResult(result);
+
+  return result;
 }

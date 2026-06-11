@@ -1,4 +1,6 @@
 import { prisma } from './prisma';
+import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from './template-analyzer';
+import { Prisma } from '@prisma/client';
 
 export type PatternTagOption = {
   id: string;
@@ -48,6 +50,7 @@ export type SubmissionRow = {
   spaceComplexity: string | null;
   questionDescription: string | null;
   submissionCode: string;
+  templateBenchmark: TemplateBenchmarkResult | null;
   tags: Array<{
     id: string;
     key: string;
@@ -58,6 +61,19 @@ export type SubmissionRow = {
     parentKey: string | null;
     parentLabel: string | null;
   }>;
+};
+
+type TemplateBenchmarkRecord = {
+  submissionId: string;
+  patternTagId: string;
+  templateKey: string;
+  model: string;
+  score: number;
+  confidence: number;
+  reason: string | null;
+  evidence: string[];
+  excludedGroupKeys: string[];
+  updatedAt: Date;
 };
 
 export type TemplateCatalogSubmissionRow = {
@@ -202,6 +218,55 @@ export async function getTagWorkbenchData() {
     select: { titleSlug: true, title: true, difficulty: true, content: true, relatedProblems: true },
   });
   const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
+  const submissionIds = submissions.map((submission) => submission.id);
+  const benchmarkRecords = submissionIds.length
+    ? await prisma.$queryRaw<TemplateBenchmarkRecord[]>`
+        SELECT
+          "submissionId",
+          "patternTagId",
+          "templateKey",
+          "model",
+          "score",
+          "confidence",
+          "reason",
+          "evidence",
+          "excludedGroupKeys",
+          "updatedAt"
+        FROM "TemplateBenchmarkScore"
+        WHERE "submissionId" IN (${Prisma.join(submissionIds)})
+        ORDER BY "submissionId" ASC, "score" DESC, "updatedAt" DESC
+      `
+    : [];
+  const benchmarkRecordsBySubmission = new Map<string, TemplateBenchmarkRecord[]>();
+  for (const record of benchmarkRecords) {
+    const records = benchmarkRecordsBySubmission.get(record.submissionId) ?? [];
+    records.push(record);
+    benchmarkRecordsBySubmission.set(record.submissionId, records);
+  }
+
+  function readTemplateBenchmark(submissionId: string): TemplateBenchmarkResult | null {
+    const records = benchmarkRecordsBySubmission.get(submissionId) ?? [];
+    if (!records.length) {
+      return null;
+    }
+
+    const model = records[0]?.model ?? '';
+    const excludedGroupKeys = records[0]?.excludedGroupKeys ?? [];
+
+    return {
+      submissionId,
+      model,
+      excludedGroupKeys,
+      scores: records.map<TemplateBenchmarkScore>((record) => ({
+        key: record.templateKey,
+        patternTagId: record.patternTagId,
+        score: record.score,
+        confidence: record.confidence,
+        reason: record.reason ?? '',
+        evidence: record.evidence ?? [],
+      })),
+    };
+  }
 
   return {
     submissions: submissions.map<SubmissionRow>((submission) => {
@@ -220,6 +285,7 @@ export async function getTagWorkbenchData() {
         spaceComplexity: submission.spaceComplexity,
         questionDescription: readQuestionDescription(question?.content ?? null),
         submissionCode: submission.content,
+        templateBenchmark: readTemplateBenchmark(submission.id),
         tags: submission.SubmissionPatternTag.map((entry) => ({
           id: entry.PatternTag.id,
           key: entry.PatternTag.key,
