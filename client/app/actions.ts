@@ -18,6 +18,15 @@ import {
 
 type PatternTagWriter = Pick<typeof prisma, 'submissionPatternTag'>;
 
+function slugifyTemplateKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
 async function replaceTagsForSubmission(
   submissionId: string,
   patternTagIds: string[],
@@ -120,6 +129,126 @@ export async function createGeneratedTemplate(groupKey: string, draft: Generated
   const template = await createGeneratedTemplateRecord(groupKey, draft);
   revalidatePath('/');
   return template;
+}
+
+export async function createTemplateGroup(input: {
+  label: string;
+  key?: string;
+  description?: string;
+}) {
+  await assertWriteAccess();
+
+  const label = input.label.trim();
+  const description = input.description?.trim() || null;
+  const requestedKey = input.key?.trim() || label;
+  const baseKey = slugifyTemplateKey(requestedKey);
+
+  if (!label) {
+    throw new Error('Template group label is required.');
+  }
+
+  if (!baseKey) {
+    throw new Error('Template group key is invalid.');
+  }
+
+  let key = baseKey;
+  for (let suffix = 2; await prisma.patternTag.findUnique({ where: { key } }); suffix += 1) {
+    key = `${baseKey}-${suffix}`;
+  }
+
+  const maxSortOrder = await prisma.patternTag.aggregate({
+    where: { dimension: 'template', kind: 'template_group' },
+    _max: { sortOrder: true },
+  });
+
+  const group = await prisma.patternTag.create({
+    data: {
+      key,
+      label,
+      description,
+      dimension: 'template',
+      kind: 'template_group',
+      source: 'manually_created',
+      isActive: true,
+      parentId: null,
+      sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 100,
+    },
+    select: { id: true, key: true, label: true },
+  });
+
+  revalidatePath('/');
+  revalidatePath('/templates');
+  revalidatePath('/graph');
+  revalidatePath('/submission-history');
+  return group;
+}
+
+export async function moveTemplateToGroup(input: {
+  templateId: string;
+  targetGroupId: string;
+}) {
+  await assertWriteAccess();
+
+  const [template, targetGroup] = await Promise.all([
+    prisma.patternTag.findUnique({
+      where: { id: input.templateId },
+      select: {
+        id: true,
+        key: true,
+        label: true,
+        dimension: true,
+        kind: true,
+        parentId: true,
+        isActive: true,
+      },
+    }),
+    prisma.patternTag.findUnique({
+      where: { id: input.targetGroupId },
+      select: {
+        id: true,
+        key: true,
+        label: true,
+        dimension: true,
+        kind: true,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  if (!template || !template.isActive || template.dimension !== 'template' || template.kind !== 'tag') {
+    return { status: 'invalid_template' as const };
+  }
+
+  if (!targetGroup || !targetGroup.isActive || targetGroup.dimension !== 'template' || targetGroup.kind !== 'template_group') {
+    return { status: 'invalid_target_group' as const };
+  }
+
+  if (template.id === targetGroup.id) {
+    return { status: 'invalid_target_group' as const };
+  }
+
+  if (template.parentId === targetGroup.id) {
+    return {
+      status: 'unchanged' as const,
+      template: { id: template.id, key: template.key, label: template.label },
+      group: { id: targetGroup.id, key: targetGroup.key, label: targetGroup.label },
+    };
+  }
+
+  await prisma.patternTag.update({
+    where: { id: template.id },
+    data: { parentId: targetGroup.id },
+  });
+
+  revalidatePath('/');
+  revalidatePath('/templates');
+  revalidatePath('/graph');
+  revalidatePath('/submission-history');
+  return {
+    status: 'moved' as const,
+    template: { id: template.id, key: template.key, label: template.label },
+    group: { id: targetGroup.id, key: targetGroup.key, label: targetGroup.label },
+  };
 }
 
 export async function deleteNonSeededTemplate(patternTagId: string) {
