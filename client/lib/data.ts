@@ -51,6 +51,9 @@ export type SubmissionRow = {
     key: string;
     label: string;
     dimension: string;
+    parentId: string | null;
+    parentKey: string | null;
+    parentLabel: string | null;
   }>;
 };
 
@@ -136,7 +139,11 @@ export async function getTagWorkbenchData() {
       take: 250,
       include: {
         SubmissionPatternTag: {
-          include: { PatternTag: true },
+          include: {
+            PatternTag: {
+              include: { parent: true },
+            },
+          },
           orderBy: { createdAt: 'asc' },
         },
       },
@@ -179,6 +186,9 @@ export async function getTagWorkbenchData() {
           key: entry.PatternTag.key,
           label: entry.PatternTag.label,
           dimension: entry.PatternTag.dimension,
+          parentId: entry.PatternTag.parent?.id ?? null,
+          parentKey: entry.PatternTag.parent?.key ?? null,
+          parentLabel: entry.PatternTag.parent?.label ?? null,
         })),
       };
     }),

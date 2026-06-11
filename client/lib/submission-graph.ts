@@ -1,4 +1,15 @@
 import type { SubmissionRow } from './data';
+import {
+  forceCenter,
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  forceX,
+  forceY,
+  type SimulationLinkDatum,
+  type SimulationNodeDatum,
+} from 'd3-force';
 
 export type SubmissionGraphNode = {
   id: string;
@@ -12,6 +23,14 @@ export type SubmissionGraphNode = {
   x: number;
   y: number;
   connectionCount: number;
+  templateTags: Array<{
+    key: string;
+    label: string;
+  }>;
+  templateGroups: Array<{
+    key: string;
+    label: string;
+  }>;
 };
 
 export type SubmissionGraphEdge = {
@@ -25,6 +44,16 @@ export type SubmissionGraph = {
   edges: SubmissionGraphEdge[];
   canvasWidth: number;
   canvasHeight: number;
+};
+
+type GraphLayoutNode = SubmissionGraphNode &
+  SimulationNodeDatum & {
+    radius: number;
+  };
+
+type GraphLayoutLink = SimulationLinkDatum<GraphLayoutNode> & {
+  source: string | GraphLayoutNode;
+  target: string | GraphLayoutNode;
 };
 
 export function normalizeRelatedSlug(value: string) {
@@ -59,6 +88,8 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
       lastAttemptAt: string;
       representativeSubmissionId: string;
       relatedProblems: Set<string>;
+      templateTags: Map<string, string>;
+      templateGroups: Map<string, string>;
     }
   >();
 
@@ -78,6 +109,16 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
         lastAttemptAt: submission.createdAt,
         representativeSubmissionId: submission.id,
         relatedProblems: new Set(submission.relatedProblems.map(normalizeRelatedSlug)),
+        templateTags: new Map(
+          submission.tags
+            .filter((tag) => tag.dimension === 'template')
+            .map((tag) => [tag.key, tag.label] as const),
+        ),
+        templateGroups: new Map(
+          submission.tags
+            .filter((tag) => tag.dimension === 'template' && Boolean(tag.parentKey))
+            .map((tag) => [tag.parentKey as string, tag.parentLabel ?? tag.parentKey ?? tag.key] as const),
+        ),
       });
       continue;
     }
@@ -93,6 +134,17 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
       const normalized = normalizeRelatedSlug(related);
       if (normalized) {
         existing.relatedProblems.add(normalized);
+      }
+    }
+
+    for (const tag of submission.tags) {
+      if (tag.dimension !== 'template') {
+        continue;
+      }
+
+      existing.templateTags.set(tag.key, tag.label);
+      if (tag.parentKey) {
+        existing.templateGroups.set(tag.parentKey, tag.parentLabel ?? tag.parentKey);
       }
     }
   }
@@ -116,6 +168,8 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
       x: 0,
       y: 0,
       connectionCount: 0,
+      templateTags: [...problem.templateTags.entries()].map(([key, label]) => ({ key, label })),
+      templateGroups: [...problem.templateGroups.entries()].map(([key, label]) => ({ key, label })),
     }));
 
   const nodeSet = new Set(nodes.map((node) => node.slug));
@@ -148,7 +202,7 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
   const centerX = canvasWidth / 2;
   const centerY = canvasHeight / 2;
 
-  const nodeState = nodes.map((node, index) => {
+  const nodeState: GraphLayoutNode[] = nodes.map((node, index) => {
     const angle = (index / Math.max(nodes.length, 1)) * Math.PI * 2;
     const ringRadius = Math.min(canvasWidth, canvasHeight) * 0.26 + 70 * Math.sqrt(index + 1);
     return {
@@ -161,61 +215,40 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
     };
   });
 
+  const layoutLinks: GraphLayoutLink[] = edges.map((edge) => ({ ...edge }));
   const nodeById = new Map(nodeState.map((node) => [node.id, node]));
-  const springLength = 190;
-  const repulsionStrength = 24000;
-  const centerStrength = 0.0025;
-  const damping = 0.82;
+  const resolveLayoutNode = (value: string | GraphLayoutNode) => {
+    return typeof value === 'string' ? nodeById.get(value) ?? null : value;
+  };
 
-  for (let iteration = 0; iteration < 180; iteration += 1) {
-    for (let i = 0; i < nodeState.length; i += 1) {
-      const left = nodeState[i];
-      for (let j = i + 1; j < nodeState.length; j += 1) {
-        const right = nodeState[j];
-        let dx = right.x - left.x;
-        let dy = right.y - left.y;
-        const distance = Math.hypot(dx, dy) || 0.001;
-        const minDistance = left.radius + right.radius;
-        const overlap = Math.max(minDistance - distance, 0);
-        const force = overlap > 0 ? overlap * 0.12 : repulsionStrength / (distance * distance);
-        dx /= distance;
-        dy /= distance;
-        left.vx -= dx * force * 0.5;
-        left.vy -= dy * force * 0.5;
-        right.vx += dx * force * 0.5;
-        right.vy += dy * force * 0.5;
-      }
-    }
+  const simulation = forceSimulation<GraphLayoutNode>(nodeState)
+    .force('charge', forceManyBody().strength(-420))
+    .force(
+      'link',
+      forceLink<GraphLayoutNode, GraphLayoutLink>(layoutLinks)
+        .id((node) => node.id)
+        .distance((edge) => {
+          const source = resolveLayoutNode(edge.source);
+          const target = resolveLayoutNode(edge.target);
+          if (!source || !target) {
+            return 190;
+          }
+          return 190 + Math.min(source.attempts + target.attempts, 5) * 12;
+        })
+        .strength(0.22),
+    )
+    .force('collide', forceCollide().radius((node) => node.radius + 10).strength(0.95).iterations(2))
+    .force('center', forceCenter(centerX, centerY))
+    .force('x', forceX(centerX).strength(0.022))
+    .force('y', forceY(centerY).strength(0.022))
+    .alpha(1)
+    .alphaDecay(0.03)
+    .velocityDecay(0.36);
 
-    for (const edge of edges) {
-      const source = nodeById.get(edge.source);
-      const target = nodeById.get(edge.target);
-      if (!source || !target) {
-        continue;
-      }
-
-      let dx = target.x - source.x;
-      let dy = target.y - source.y;
-      const distance = Math.hypot(dx, dy) || 0.001;
-      const desired = springLength + Math.min(source.attempts + target.attempts, 5) * 12;
-      const force = (distance - desired) * 0.015;
-      dx /= distance;
-      dy /= distance;
-      source.vx += dx * force;
-      source.vy += dy * force;
-      target.vx -= dx * force;
-      target.vy -= dy * force;
-    }
-
-    for (const node of nodeState) {
-      node.vx += (centerX - node.x) * centerStrength;
-      node.vy += (centerY - node.y) * centerStrength;
-      node.vx *= damping;
-      node.vy *= damping;
-      node.x += node.vx;
-      node.y += node.vy;
-    }
+  for (let iteration = 0; iteration < 220; iteration += 1) {
+    simulation.tick();
   }
+  simulation.stop();
 
   const minX = Math.min(...nodeState.map((node) => node.x - node.radius));
   const minY = Math.min(...nodeState.map((node) => node.y - node.radius));
@@ -239,6 +272,8 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
     x: node.x + offsetX,
     y: node.y + offsetY,
     connectionCount: connectedMap.get(node.slug)?.size ?? 0,
+    templateTags: node.templateTags,
+    templateGroups: node.templateGroups,
   }));
 
   return { nodes: nodesWithConnection, edges, canvasWidth: finalWidth, canvasHeight: finalHeight };
