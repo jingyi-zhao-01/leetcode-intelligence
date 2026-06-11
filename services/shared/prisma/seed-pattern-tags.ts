@@ -1,4 +1,4 @@
-type PatternTagDimension = 'template';
+type PatternTagDimension = 'template' | 'data_structure';
 type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
 
 type TemplateMetadata = {
@@ -28,6 +28,12 @@ type TemplateGroupSeed = {
   label: string;
   description: string;
   children: TemplateTagSeed[];
+};
+
+type DataStructureSeed = {
+  key: string;
+  label: string;
+  description: string;
 };
 
 function m(input: TemplateMetadata): TemplateMetadata {
@@ -482,6 +488,28 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
   },
 ];
 
+const DATA_STRUCTURE_TAGS: DataStructureSeed[] = [
+  { key: 'ds-array', label: 'Array', description: 'Index-addressable contiguous sequence.' },
+  { key: 'ds-string', label: 'String', description: 'Character sequence with substring or scanning operations.' },
+  { key: 'ds-matrix', label: 'Matrix', description: 'Two-dimensional indexed grid or table.' },
+  { key: 'ds-grid', label: 'Grid', description: '2D traversal surface with neighbor movement.' },
+  { key: 'ds-hash-map', label: 'Hash map', description: 'Key-value lookup table for counts, indices, or state.' },
+  { key: 'ds-hash-set', label: 'Hash set', description: 'Membership set for deduplication or visited checks.' },
+  { key: 'ds-counter', label: 'Counter', description: 'Frequency map for characters, values, or signatures.' },
+  { key: 'ds-stack', label: 'Stack', description: 'Last-in-first-out container.' },
+  { key: 'ds-queue', label: 'Queue', description: 'First-in-first-out frontier container.' },
+  { key: 'ds-deque', label: 'Deque', description: 'Double-ended queue for window or monotonic frontier state.' },
+  { key: 'ds-heap', label: 'Heap', description: 'Priority-ordered container for repeated best extraction.' },
+  { key: 'ds-linked-list', label: 'Linked list', description: 'Node chain manipulated through next pointers.' },
+  { key: 'ds-doubly-linked-list', label: 'Doubly linked list', description: 'Node chain with previous and next pointers.' },
+  { key: 'ds-tree', label: 'Tree', description: 'Hierarchical acyclic node structure.' },
+  { key: 'ds-binary-tree', label: 'Binary tree', description: 'Tree where each node has left and right children.' },
+  { key: 'ds-graph', label: 'Graph', description: 'Nodes connected by directed or undirected edges.' },
+  { key: 'ds-trie', label: 'Trie', description: 'Prefix tree for strings or token paths.' },
+  { key: 'ds-disjoint-set', label: 'Disjoint set', description: 'Union-find structure for dynamic connectivity.' },
+  { key: 'ds-bitset', label: 'Bitset', description: 'Compact boolean state represented with bits.' },
+];
+
 type FlatSeed = TemplateTagSeed & {
   dimension: PatternTagDimension;
   source: PatternTagSource;
@@ -528,13 +556,37 @@ function flattenSeeds(): FlatSeed[] {
     });
   });
 
+  DATA_STRUCTURE_TAGS.forEach((tag, index) => {
+    seeds.push({
+      key: tag.key,
+      label: tag.label,
+      description: tag.description,
+      metadata: m({
+        classicProblems: [],
+        whenToUse: [],
+        whenNotToUse: [],
+        signals: [],
+        pseudocode: [],
+        invariants: [],
+        defaultComplexity: { time: 'n/a', space: 'n/a' },
+        relatedDataStructures: [],
+        similarTemplates: [],
+      }),
+      dimension: 'data_structure',
+      source: 'seeded',
+      isActive: true,
+      parentKey: null,
+      sortOrder: 10_000 + index,
+    });
+  });
+
   return seeds;
 }
 
 function validateSelectableTemplateMetadata(seeds: FlatSeed[]) {
   const errors: string[] = [];
 
-  for (const seed of seeds.filter((entry) => entry.isActive)) {
+  for (const seed of seeds.filter((entry) => entry.isActive && entry.dimension === 'template')) {
     const metadata = seed.metadata;
     const checks: Array<[string, boolean]> = [
       ['classicProblems', metadata.classicProblems.length > 0],
@@ -570,7 +622,7 @@ async function seedPatternTags() {
   try {
     await prisma.patternTag.updateMany({
       where: {
-        dimension: 'template',
+        dimension: { in: ['template', 'data_structure'] },
         source: 'seeded',
         key: { notIn: seedKeys },
         isActive: true,
@@ -646,10 +698,13 @@ async function seedPatternTags() {
 function printDryRun() {
   const seeds = flattenSeeds();
   validateSelectableTemplateMetadata(seeds);
-  const groups = seeds.filter((entry) => entry.parentKey === null);
-  const selectable = seeds.filter((entry) => entry.isActive);
+  const groups = seeds.filter((entry) => entry.parentKey === null && entry.dimension === 'template');
+  const selectable = seeds.filter((entry) => entry.isActive && entry.dimension === 'template');
+  const dataStructures = seeds.filter((entry) => entry.isActive && entry.dimension === 'data_structure');
 
-  console.log(`Pattern tag dry run: ${groups.length} parent groups, ${selectable.length} selectable canonical template tags.`);
+  console.log(
+    `Pattern tag dry run: ${groups.length} parent groups, ${selectable.length} selectable canonical template tags, ${dataStructures.length} data structure tags.`,
+  );
   for (const group of groups) {
     const childCount = seeds.filter((entry) => entry.parentKey === group.key).length;
     console.log(`- ${group.key}: ${childCount} selectable templates`);
@@ -663,10 +718,13 @@ async function main() {
   }
 
   const seeds = await seedPatternTags();
-  const parentCount = seeds.filter((entry) => entry.parentKey === null).length;
-  const selectableCount = seeds.filter((entry) => entry.isActive).length;
+  const parentCount = seeds.filter((entry) => entry.parentKey === null && entry.dimension === 'template').length;
+  const selectableCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'template').length;
+  const dataStructureCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'data_structure').length;
 
-  console.log(`Seeded ${parentCount} parent template groups and ${selectableCount} selectable canonical template tags.`);
+  console.log(
+    `Seeded ${parentCount} parent template groups, ${selectableCount} selectable canonical template tags, and ${dataStructureCount} data structure tags.`,
+  );
 }
 
 main().catch((error) => {

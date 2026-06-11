@@ -221,7 +221,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }, [query, submissions]);
 
   const tagGroups = useMemo(() => groupTags(tags), [tags]);
-  const includedBenchmarkGroupCount = tagGroups.length - excludedBenchmarkGroupKeys.size;
+  const benchmarkableGroupCount = tagGroups.filter((group) =>
+    group.tags.some((tag) => tag.dimension === 'template'),
+  ).length;
+  const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
 
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
@@ -510,24 +513,26 @@ export function TagWorkbench({ submissions, tags }: Props) {
                         <h3>{group.label}</h3>
                         {excludedBenchmarkGroupKeys.has(group.key) ? <small>Excluded from LLM benchmark</small> : null}
                       </div>
-                      <button
-                        className="exclude-group-button"
-                        onClick={() => toggleBenchmarkGroup(group.key)}
-                        type="button"
-                        aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
-                        aria-label={
-                          excludedBenchmarkGroupKeys.has(group.key)
-                            ? `Include ${group.label} in LLM benchmark`
-                            : `Exclude ${group.label} from LLM benchmark`
-                        }
-                        title={
-                          excludedBenchmarkGroupKeys.has(group.key)
-                            ? 'Include this group in LLM benchmark'
-                            : 'Exclude this group from LLM benchmark'
-                        }
-                      >
-                        ×
-                      </button>
+                      {group.tags.some((tag) => tag.dimension === 'template') ? (
+                        <button
+                          className="exclude-group-button"
+                          onClick={() => toggleBenchmarkGroup(group.key)}
+                          type="button"
+                          aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
+                          aria-label={
+                            excludedBenchmarkGroupKeys.has(group.key)
+                              ? `Include ${group.label} in LLM benchmark`
+                              : `Exclude ${group.label} from LLM benchmark`
+                          }
+                          title={
+                            excludedBenchmarkGroupKeys.has(group.key)
+                              ? 'Include this group in LLM benchmark'
+                              : 'Exclude this group from LLM benchmark'
+                          }
+                        >
+                          ×
+                        </button>
+                      ) : null}
                     </div>
                     <div className="tag-options">
                       {group.tags.map((tag) => {
@@ -557,11 +562,13 @@ export function TagWorkbench({ submissions, tags }: Props) {
                           </button>
                         );
                       })}
-                      <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
-                        <span>+</span>
-                        <strong>Generate template</strong>
-                        <small>{group.label}</small>
-                      </button>
+                      {group.tags.some((tag) => tag.dimension === 'template') ? (
+                        <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
+                          <span>+</span>
+                          <strong>Generate template</strong>
+                          <small>{group.label}</small>
+                        </button>
+                      ) : null}
                     </div>
                   </section>
                 ))}
