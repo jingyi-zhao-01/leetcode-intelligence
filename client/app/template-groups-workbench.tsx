@@ -6,6 +6,10 @@ import { useMemo, useState, useTransition } from 'react';
 import { createTemplateGroup, moveTemplateToGroup } from './actions';
 import { Spinner } from './components/spinner';
 import type { TemplateGroupCatalog } from './templates/page';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Textarea } from './components/ui/textarea';
 
 const UNKNOWN_TIME = 'unknown';
 
@@ -175,13 +179,13 @@ export function TemplateGroupsWorkbench({
         </div>
         <div className="template-builder-actions">
           {canWrite ? (
-            <button type="button" className="template-workbench-primary" onClick={openCreateModal}>
+            <Button type="button" size="sm" className="template-workbench-primary" onClick={openCreateModal}>
               + New template group
-            </button>
+            </Button>
           ) : (
             <span className="template-builder-readonly">Read-only</span>
           )}
-          <Link className="template-workbench-back" href="/submission-history">
+          <Link className="template-workbench-back ui-btn ui-btn-outline" href="/submission-history">
             Back to submission workbench
           </Link>
         </div>
@@ -261,13 +265,13 @@ export function TemplateGroupsWorkbench({
                   const previewProblems = entry.problems.slice(0, 3);
 
                   return (
-                    <article
-                      key={entry.template.id}
-                      className={[
-                        'template-builder-card',
-                        canWrite ? 'template-builder-card-draggable' : '',
-                        draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
-                      ]
+                <article
+                  key={entry.template.id}
+                  className={[
+                    'template-builder-card',
+                    canWrite ? 'template-builder-card-draggable' : '',
+                    draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
+                  ]
                         .filter(Boolean)
                         .join(' ')}
                       draggable={canWrite}
@@ -330,44 +334,44 @@ export function TemplateGroupsWorkbench({
 
       {isCreateModalOpen ? (
         <div className="modal-backdrop" role="presentation">
-          <section className="template-group-modal" role="dialog" aria-modal="true" aria-labelledby="template-group-modal-title">
+            <section className="template-group-modal" role="dialog" aria-modal="true" aria-labelledby="template-group-modal-title">
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Template Group</p>
                 <h2 id="template-group-modal-title">Create new template group</h2>
               </div>
-              <button type="button" className="modal-close" onClick={closeCreateModal} aria-label="Close create template group modal">
+              <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={closeCreateModal} aria-label="Close create template group modal">
                 ×
-              </button>
+              </Button>
             </div>
 
             <div className="template-group-form-grid">
-              <label>
+              <Label>
                 <span>Label</span>
-                <input value={groupLabel} onChange={(event) => setGroupLabel(event.target.value)} placeholder="e.g. Interval scheduling and greedy" />
-              </label>
-              <label>
+                <Input value={groupLabel} onChange={(event) => setGroupLabel(event.target.value)} placeholder="e.g. Interval scheduling and greedy" />
+              </Label>
+              <Label>
                 <span>Key</span>
-                <input value={groupKey} onChange={(event) => setGroupKey(event.target.value)} placeholder="Optional; auto-slugged from label" />
-              </label>
-              <label className="template-group-form-tall">
+                <Input value={groupKey} onChange={(event) => setGroupKey(event.target.value)} placeholder="Optional; auto-slugged from label" />
+              </Label>
+              <Label className="template-group-form-tall">
                 <span>Description</span>
-                <textarea
+                <Textarea
                   value={groupDescription}
                   onChange={(event) => setGroupDescription(event.target.value)}
                   placeholder="Describe the canonical family this group should hold."
                   rows={4}
                 />
-              </label>
+              </Label>
             </div>
 
             <div className="template-group-modal-actions">
-              <button type="button" onClick={closeCreateModal} disabled={isCreatePending}>
+              <Button type="button" variant="outline" onClick={closeCreateModal} disabled={isCreatePending}>
                 Cancel
-              </button>
-              <button type="button" className="primary" onClick={submitCreateGroup} disabled={isCreatePending}>
+              </Button>
+              <Button type="button" className="primary" onClick={submitCreateGroup} disabled={isCreatePending}>
                 <AsyncLabel isPending={isCreatePending} idle="Create template group" pending="Creating..." />
-              </button>
+              </Button>
             </div>
           </section>
         </div>

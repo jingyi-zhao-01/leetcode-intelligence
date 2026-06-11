@@ -19,6 +19,10 @@ import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from '../lib/tem
 import type { GeneratedTemplateDraft } from '../lib/template-generator';
 import { Spinner } from './components/spinner';
 import { PendingSubmitButton } from './components/pending-submit-button';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Label } from './components/ui/label';
+import { Textarea } from './components/ui/textarea';
 
 type Props = {
   submissions: SubmissionRow[];
@@ -731,9 +735,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 
   return (
     <main className="workspace">
-      <button className="floating-view-toggle" type="button" onClick={openGraphView}>
+      <Button className="floating-view-toggle" type="button" onClick={openGraphView}>
         Graph view
-      </button>
+      </Button>
 
       <section className="sidebar">
         <div className="brand">
@@ -771,7 +775,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
           {LEFT_PANEL_FEATURES.map((feature) => {
             const isActive = feature.key === leftPanelFeature;
             return (
-              <button
+              <Button
                 key={feature.key}
                 type="button"
                 role="tab"
@@ -781,7 +785,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               >
                 <span>{feature.label}</span>
                 <small>{feature.description}</small>
-              </button>
+              </Button>
             );
           })}
         </nav>
@@ -1013,15 +1017,15 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             ) : null}
 
             <div className="actions">
-              <button
+              <Button
                 className="primary"
                 onClick={saveSelectedSubmission}
                 disabled={isPending || !canWrite}
                 title={canWrite ? undefined : 'Sign in to enable saving tags'}
               >
                 <AsyncButtonLabel isPending={isPending} label="Save submission" pendingLabel="Saving..." />
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={runTemplateBenchmark}
                 disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut || !canWrite}
                 title={canWrite ? undefined : 'Sign in to run benchmark'}
@@ -1031,14 +1035,14 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                   label={benchmark ? 'Rerun benchmark' : 'Benchmark templates'}
                   pendingLabel="Benchmarking..."
                 />
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={clearTags}
                 disabled={isPending || draftTagIds.size === 0 || !canWrite}
                 title={canWrite ? undefined : 'Sign in to clear tags'}
               >
                 <AsyncButtonLabel isPending={isPending} label="Clear tags" pendingLabel="Clearing tags..." />
-              </button>
+              </Button>
               {message ? <p>{message}</p> : null}
               {isDeleteTemplatePending ? (
                 <p className="loading-inline">
@@ -1067,8 +1071,8 @@ function SubmissionHistoryPanel({
 }: SubmissionHistoryPanelProps) {
   return (
     <>
-      <div className="filters">
-        <input
+        <div className="filters">
+        <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search slug, title, language"
@@ -1183,9 +1187,9 @@ function LeftPanelGraphModule({ selectedSubmission, onOpenGraph }: LeftPanelGrap
       <p className="muted-copy">
         Current focus: {selectedSubmission ? selectedSubmission.titleSlug ?? selectedSubmission.title ?? 'selected submission' : 'none'}
       </p>
-      <button type="button" className="primary" onClick={onOpenGraph}>
+      <Button type="button" className="primary" onClick={onOpenGraph}>
         Open graph view
-      </button>
+      </Button>
       <p className="detail-meta">Graph pages include first-depth related-problem links and submission filtering by date.</p>
     </section>
   );
@@ -1265,34 +1269,34 @@ function TemplateGeneratorModal({
             <h2 id="template-generator-title">New canonical template</h2>
             <p>Group: {modal.groupLabel}</p>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close template generator">
+          <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={onClose} aria-label="Close template generator">
             ×
-          </button>
+          </Button>
         </div>
 
         <div className="modal-assist-bar">
-          <label>
+          <Label>
             <span>Model</span>
-            <input
+            <Input
               list="template-generator-models"
               value={modal.model}
               onChange={(event) => onChange({ model: event.target.value })}
               placeholder={DEFAULT_TEMPLATE_GENERATOR_MODEL}
               disabled={!canWrite}
             />
-          </label>
-          <label>
+          </Label>
+          <Label>
             <span>Brief</span>
-            <input
+            <Input
               value={modal.prompt}
               onChange={(event) => onChange({ prompt: event.target.value })}
               placeholder="e.g. generalize this submission into a reusable canonical template"
               disabled={!canWrite}
             />
-          </label>
-          <button type="button" onClick={onAssistAll} disabled={isPending || !canWrite}>
+          </Label>
+          <Button type="button" onClick={onAssistAll} disabled={isPending || !canWrite}>
             <AsyncButtonLabel isPending={isPending} label="LLM assist all" pendingLabel="Assisting..." />
-          </button>
+          </Button>
         </div>
         <datalist id="template-generator-models">
           {TEMPLATE_GENERATOR_MODELS.map((model) => (
@@ -1303,10 +1307,10 @@ function TemplateGeneratorModal({
         <div className="template-form-grid">
           {TEMPLATE_FORM_ROWS.map((row) => (
             <div className={row.multiline ? 'template-form-row tall' : 'template-form-row'} key={row.field}>
-              <label>
+              <Label>
                 <span>{row.label}</span>
                 {row.multiline ? (
-                    <textarea
+                  <Textarea
                     value={modal.form[row.field]}
                     onChange={(event) => onChangeField(row.field, event.target.value)}
                     placeholder={row.placeholder}
@@ -1315,7 +1319,7 @@ function TemplateGeneratorModal({
                     required
                   />
                 ) : (
-                  <input
+                  <Input
                     value={modal.form[row.field]}
                     onChange={(event) => onChangeField(row.field, event.target.value)}
                     placeholder={row.placeholder}
@@ -1323,10 +1327,10 @@ function TemplateGeneratorModal({
                     required
                   />
                 )}
-              </label>
-              <button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending || !canWrite}>
+              </Label>
+              <Button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending || !canWrite}>
                 <AsyncButtonLabel isPending={isPending} label="LLM assist" pendingLabel="Assisting..." />
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -1336,17 +1340,17 @@ function TemplateGeneratorModal({
         <div className="modal-footer">
           <p>{isComplete ? 'Ready to create.' : 'Fill every row before creating this template.'}</p>
           <div>
-            <button type="button" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               className="primary"
               onClick={onCreate}
               disabled={isPending || !isComplete || !canWrite}
             >
               <AsyncButtonLabel isPending={isPending} label="Create template" pendingLabel="Creating..." />
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -1363,19 +1367,19 @@ function DeleteTemplateBlockedModal({
 }) {
   return (
     <div className="modal-backdrop" role="presentation">
-      <section className="delete-template-modal" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
-        <div className="modal-header">
-          <div>
-            <p className="eyebrow">Delete blocked</p>
-            <h2 id="delete-template-title">{blocker.tag.label}</h2>
+        <section className="delete-template-modal" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+          <div className="modal-header">
+            <div>
+              <p className="eyebrow">Delete blocked</p>
+              <h2 id="delete-template-title">{blocker.tag.label}</h2>
             <p>
               This template is still associated with {blocker.assignmentCount} submission
-              {blocker.assignmentCount === 1 ? '' : 's'}. Manually remove or replace those tags before deleting it.
+                {blocker.assignmentCount === 1 ? '' : 's'}. Manually remove or replace those tags before deleting it.
             </p>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close delete blocker">
+          <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={onClose} aria-label="Close delete blocker">
             ×
-          </button>
+          </Button>
         </div>
 
         <div className="blocked-submission-list">
@@ -1396,9 +1400,9 @@ function DeleteTemplateBlockedModal({
         <div className="modal-footer">
           <p>Deletion is intentionally blocked until the associations are resolved manually.</p>
           <div>
-            <button type="button" className="primary" onClick={onClose}>
+            <Button type="button" className="primary" onClick={onClose}>
               I will resolve manually
-            </button>
+            </Button>
           </div>
         </div>
       </section>

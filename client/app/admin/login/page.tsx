@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { loginAdmin } from '../../actions';
 import { PendingSubmitButton } from '../../components/pending-submit-button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 type SearchParams = {
   error?: string;
@@ -32,20 +35,30 @@ export default async function AdminLoginPage({ searchParams }: Props) {
 
   return (
     <main className="admin-login">
-      <form className="admin-login-form" action={loginAdmin}>
-        <h1>Admin Sign In</h1>
-        <p>Need write permission for tag updates, template generation and benchmark actions.</p>
-        {errorMessage ? <p className="admin-error">{errorMessage}</p> : null}
-        <label>
-          <span>Admin Password</span>
-          <input name="password" type="password" required minLength={8} />
-        </label>
-        <input name="returnTo" type="hidden" value={returnTo} />
-        <PendingSubmitButton pendingText="Signing in...">Sign in</PendingSubmitButton>
-      </form>
+      <Card className="admin-login-form">
+        <CardHeader>
+          <CardTitle>Admin Sign In</CardTitle>
+          <p>Need write permission for tag updates, template generation and benchmark actions.</p>
+        </CardHeader>
+        <CardContent className="admin-login-content">
+          <form className="admin-login-fields" action={loginAdmin}>
+            {errorMessage ? <p className="admin-error">{errorMessage}</p> : null}
+            <Label>
+              <span>Admin Password</span>
+              <Input name="password" type="password" required minLength={8} />
+            </Label>
+            <input name="returnTo" type="hidden" value={returnTo} />
+            <PendingSubmitButton pendingText="Signing in..." className="ui-btn ui-btn-primary">
+              Sign in
+            </PendingSubmitButton>
+          </form>
+        </CardContent>
+      </Card>
 
       <p>
-        <Link href="/submission-history">Back to workbench</Link>
+        <Link href="/submission-history" className="admin-back-link">
+          Back to workbench
+        </Link>
       </p>
     </main>
   );

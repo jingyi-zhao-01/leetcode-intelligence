@@ -16,6 +16,161 @@
   --site-header-height: 76px;
 }
 
+.ui-btn,
+button.ui-btn {
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  height: 36px;
+  padding: 0 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ui-btn:hover {
+  border-color: var(--accent-dark);
+  color: var(--accent-dark);
+}
+
+.ui-btn-primary,
+.ui-btn-default {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ui-btn-primary:hover,
+.ui-btn-default:hover {
+  filter: brightness(0.96);
+}
+
+.ui-btn-outline {
+  background: transparent;
+}
+
+.ui-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.ui-btn-destructive {
+  background: #7f1d1d;
+  border-color: #7f1d1d;
+  color: #fff;
+}
+
+.ui-btn-sm {
+  height: 32px;
+  padding: 0 10px;
+}
+
+.ui-btn-lg {
+  height: 42px;
+  padding: 0 16px;
+}
+
+.ui-btn-icon {
+  padding: 0 12px;
+  width: 36px;
+}
+
+.ui-btn-disabled,
+.ui-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.ui-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.ui-card-header,
+.ui-card-content,
+.ui-card-footer {
+  padding: 12px;
+}
+
+.ui-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-card-title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.ui-card-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.ui-input,
+.ui-textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  padding: 10px 12px;
+}
+
+.ui-input:focus,
+.ui-textarea:focus {
+  outline: 2px solid rgba(31, 122, 107, 0.26);
+  outline-offset: 0;
+}
+
+.ui-textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  color: var(--ink);
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ui-badge-secondary {
+  background: #eef2ff;
+}
+
+.ui-badge-outline {
+  background: transparent;
+}
+
+.ui-label {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  font-weight: 800;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+
 * {
   box-sizing: border-box;
 }

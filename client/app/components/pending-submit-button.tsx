@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Spinner } from './spinner';
+import { cn } from '../../../lib/utils';
 
 type PendingSubmitButtonProps = {
   children: ReactNode;
@@ -20,7 +21,7 @@ export function PendingSubmitButton({
   const { pending } = useFormStatus();
 
   return (
-    <button type="submit" disabled={disabled || pending} className={className}>
+    <button type="submit" disabled={disabled || pending} className={cn('ui-btn', className)}>
       {pending ? (
         <span className="loading-inline">
           <Spinner size="small" />
@@ -32,4 +33,3 @@ export function PendingSubmitButton({
     </button>
   );
 }
-

@@ -19,6 +19,7 @@ import {
   createSharedTemplateGroupForce,
   buildVisibleTemplateGroupEnvelopes,
 } from '../lib/submission-graph-layout';
+import { Button } from './components/ui/button';
 
 type LiveGraphNode = SubmissionGraphNode &
   SimulationNodeDatum & {
@@ -265,24 +266,25 @@ export function SubmissionGraphView({
     <section className="graph-view">
       <div className="graph-toolbar">
         <div className="graph-zoom-controls">
-          <button type="button" onClick={() => applyZoom(zoom * zoomStep)} aria-label="Zoom in">
+          <Button type="button" variant="outline" size="icon" onClick={() => applyZoom(zoom * zoomStep)} aria-label="Zoom in">
             +
-          </button>
-          <button type="button" onClick={() => applyZoom(zoom / zoomStep)} aria-label="Zoom out">
+          </Button>
+          <Button type="button" variant="outline" size="icon" onClick={() => applyZoom(zoom / zoomStep)} aria-label="Zoom out">
             -
-          </button>
-          <button type="button" onClick={resetView} aria-label="Reset zoom">
+          </Button>
+          <Button type="button" variant="outline" onClick={resetView} aria-label="Reset zoom">
             Reset
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => setPanMode((current) => !current)}
             className={panMode ? 'active' : ''}
             aria-pressed={panMode}
             aria-label="Toggle pan mode"
           >
             Pan
-          </button>
+          </Button>
         </div>
         <span className="graph-zoom-readout">Zoom {Math.round(zoom * 100)}%</span>
       </div>

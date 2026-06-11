@@ -42,7 +42,7 @@ export function SiteHeader() {
           <Link
             key={route.href}
             href={route.href}
-            className={`site-nav-link ${isCurrentPath(pathname, route.href) ? 'active' : ''}`}
+            className={`site-nav-link ui-btn ui-btn-outline ${isCurrentPath(pathname, route.href) ? 'active ui-btn-primary' : ''}`}
           >
             {route.label}
           </Link>
@@ -51,4 +51,3 @@ export function SiteHeader() {
     </header>
   );
 }
-

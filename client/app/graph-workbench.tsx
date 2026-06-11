@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { SubmissionGraphView } from './submission-graph';
 import { type SubmissionGraph } from '../lib/submission-graph';
+import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
 
 type Props = {
   graph: SubmissionGraph;
@@ -133,13 +135,15 @@ export function GraphWorkbench({ graph, initialSelectedSlug }: Props) {
           <p className="eyebrow">Problem Graph</p>
           <h1>Solved question relationships</h1>
         </div>
-          <Link href="/submission-history">Back to submission workbench</Link>
+          <Link href="/submission-history" className="ui-btn ui-btn-outline">
+            Back to submission workbench
+          </Link>
         </header>
 
       <section className="graph-workbench-shell">
         <aside className="graph-control-panel">
           <section className="graph-fullscreen-toolbar">
-            <input
+            <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search in graph labels"
@@ -159,9 +163,9 @@ export function GraphWorkbench({ graph, initialSelectedSlug }: Props) {
                 <p className="eyebrow">Template Group Selector</p>
                 <h2>Template groups</h2>
               </div>
-              <button type="button" onClick={clearTemplateGroupFilters} disabled={!selectedTemplateGroupKeys.size}>
+              <Button type="button" variant="outline" onClick={clearTemplateGroupFilters} disabled={!selectedTemplateGroupKeys.size}>
                 Clear template group filters
-              </button>
+              </Button>
             </div>
             <div className="graph-cluster-tree" role="list" aria-label="Template group selector">
               {templateGroupTree.map((group) => {
