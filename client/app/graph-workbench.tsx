@@ -108,6 +108,7 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
   const [query, setQuery] = useState('');
   const [selectedNodeSlug, setSelectedNodeSlug] = useState<string | null>(initialSelectedSlug?.toLowerCase() ?? null);
   const [selectedPrimaryKeys, setSelectedPrimaryKeys] = useState<Set<string>>(() => new Set());
+  const [hoveredPrimaryKey, setHoveredPrimaryKey] = useState<string | null>(null);
   const clusterTree = useMemo(() => buildClusterTree(submissions), [submissions]);
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
     Object.fromEntries(buildClusterTree(submissions).map((cluster) => [cluster.key, defaultClusterHue(cluster.key)])),
@@ -155,81 +156,90 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
           <p className="eyebrow">Problem Graph</p>
           <h1>Solved question relationships</h1>
         </div>
-        <Link href="/">Back to submission workbench</Link>
-      </header>
+          <Link href="/submission-history">Back to submission workbench</Link>
+        </header>
 
-      <section className="graph-fullscreen-toolbar">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search in graph labels"
-          aria-label="Search in graph"
-        />
-        <div className="graph-selected-meta">
-          <span>{filteredGraph.nodes.length} problems</span>
-          <span>{filteredGraph.edges.length} edges</span>
-          <span>{selectedPrimaryKeys.size} primary filters</span>
-          <span>{selectedNodeExists ? `Selected: ${selectedNodeExists.title}` : 'Select a node to focus'}</span>
-        </div>
-      </section>
+      <section className="graph-workbench-shell">
+        <aside className="graph-control-panel">
+          <section className="graph-fullscreen-toolbar">
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search in graph labels"
+              aria-label="Search in graph"
+            />
+            <div className="graph-selected-meta">
+              <span>{filteredGraph.nodes.length} problems</span>
+              <span>{filteredGraph.edges.length} edges</span>
+              <span>{selectedPrimaryKeys.size} primary filters</span>
+              <span>{selectedNodeExists ? `Selected: ${selectedNodeExists.title}` : 'Select a node to focus'}</span>
+            </div>
+          </section>
 
-      <section className="graph-cluster-filter-panel">
-        <div className="graph-cluster-filter-header">
-          <div>
-            <p className="eyebrow">Cluster selector</p>
-            <h2>Primary clusters</h2>
-          </div>
-          <button type="button" onClick={clearClusterFilters} disabled={!selectedPrimaryKeys.size}>
-            Clear cluster filters
-          </button>
-        </div>
-        <div className="graph-cluster-tree" role="list" aria-label="Primary cluster selector">
-          {clusterTree.map((primary) => {
-            const isPrimarySelected = selectedPrimaryKeys.has(primary.key);
-            const hue = clusterHueByKey[primary.key] ?? defaultClusterHue(primary.key);
+          <section className="graph-cluster-filter-panel">
+            <div className="graph-cluster-filter-header">
+              <div>
+                <p className="eyebrow">Cluster selector</p>
+                <h2>Primary clusters</h2>
+              </div>
+              <button type="button" onClick={clearClusterFilters} disabled={!selectedPrimaryKeys.size}>
+                Clear cluster filters
+              </button>
+            </div>
+            <div className="graph-cluster-tree" role="list" aria-label="Primary cluster selector">
+              {clusterTree.map((primary) => {
+                const isPrimarySelected = selectedPrimaryKeys.has(primary.key);
+                const hue = clusterHueByKey[primary.key] ?? defaultClusterHue(primary.key);
 
-            return (
-              <section className="graph-cluster-branch" key={primary.key}>
-                <div className={`graph-cluster-row primary ${isPrimarySelected ? 'selected' : ''}`}>
-                  <label className="graph-cluster-toggle">
-                    <input
-                      type="checkbox"
-                      checked={isPrimarySelected}
-                      onChange={() => togglePrimary(primary.key)}
-                    />
-                    <span>{primary.label}</span>
-                    <small>{primary.questionCount} questions</small>
-                  </label>
-                  <div className="graph-cluster-hue-control">
-                    <span
-                      className="graph-cluster-hue-swatch"
-                      style={{ background: `hsl(${hue} 78% 52%)` }}
-                      aria-hidden="true"
-                    />
-                    <input
-                      type="range"
-                      min={0}
-                      max={360}
-                      value={hue}
-                      onChange={(event) => updateClusterHue(primary.key, Number(event.target.value))}
-                      aria-label={`Adjust hue for ${primary.label}`}
-                    />
-                  </div>
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      </section>
+                return (
+                  <section className="graph-cluster-branch" key={primary.key}>
+                    <div
+                      className={`graph-cluster-row primary ${isPrimarySelected ? 'selected' : ''}`}
+                      onMouseEnter={() => setHoveredPrimaryKey(primary.key)}
+                      onMouseLeave={() => setHoveredPrimaryKey((current) => (current === primary.key ? null : current))}
+                    >
+                      <label className="graph-cluster-toggle">
+                        <input
+                          type="checkbox"
+                          checked={isPrimarySelected}
+                          onChange={() => togglePrimary(primary.key)}
+                        />
+                        <span>{primary.label}</span>
+                        <small>{primary.questionCount} questions</small>
+                      </label>
+                      <div className="graph-cluster-hue-control">
+                        <span
+                          className="graph-cluster-hue-swatch"
+                          style={{ background: `hsl(${hue} 78% 52%)` }}
+                          aria-hidden="true"
+                        />
+                        <input
+                          type="range"
+                          min={0}
+                          max={360}
+                          value={hue}
+                          onChange={(event) => updateClusterHue(primary.key, Number(event.target.value))}
+                          aria-label={`Adjust hue for ${primary.label}`}
+                        />
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </section>
+        </aside>
 
-      <section className="graph-fullscreen-canvas">
-        <SubmissionGraphView
-          graph={filteredGraph}
-          visiblePrimaryClusterKeys={selectedPrimaryKeys}
-          clusterHueByKey={clusterHueByKey}
-          selectedNodeSlug={selectedNodeSlug}
-          onNodeSelect={setSelectedNodeSlug}
-        />
+        <section className="graph-stage-panel">
+          <SubmissionGraphView
+            graph={filteredGraph}
+            visiblePrimaryClusterKeys={selectedPrimaryKeys}
+            clusterHueByKey={clusterHueByKey}
+            hoveredPrimaryClusterKey={hoveredPrimaryKey}
+            selectedNodeSlug={selectedNodeSlug}
+            onNodeSelect={setSelectedNodeSlug}
+          />
+        </section>
       </section>
     </main>
   );

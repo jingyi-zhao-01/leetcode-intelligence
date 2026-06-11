@@ -237,7 +237,10 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
         })
         .strength(0.22),
     )
-    .force('collide', forceCollide().radius((node) => node.radius + 10).strength(0.95).iterations(2))
+    .force(
+      'collide',
+      forceCollide<GraphLayoutNode>().radius((node) => node.radius + 10).strength(0.95).iterations(2),
+    )
     .force('center', forceCenter(centerX, centerY))
     .force('x', forceX(centerX).strength(0.022))
     .force('y', forceY(centerY).strength(0.022))

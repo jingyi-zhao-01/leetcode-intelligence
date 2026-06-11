@@ -1,4 +1,5 @@
 import { logoutAdmin } from '../../actions';
+import { PendingSubmitButton } from '../../components/pending-submit-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,7 +8,7 @@ export default function AdminLogoutPage() {
     <main className="admin-login">
       <form action={logoutAdmin}>
         <p>Signing out…</p>
-        <button type="submit">Confirm sign out</button>
+        <PendingSubmitButton pendingText="Signing out...">Confirm sign out</PendingSubmitButton>
       </form>
     </main>
   );

@@ -160,7 +160,7 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
 
 export async function loginAdmin(formData: FormData) {
   const password = String(formData.get('password') ?? '').trim();
-  const returnTo = String(formData.get('returnTo') ?? '/');
+  const returnTo = String(formData.get('returnTo') ?? '/submission-history');
   if (!isWriteConfigured()) {
     redirect('/admin/login?error=config');
   }

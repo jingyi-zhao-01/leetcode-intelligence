@@ -12,7 +12,7 @@ import {
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from 'd3-force';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type WheelEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { type SubmissionGraph, type SubmissionGraphNode } from '../lib/submission-graph';
 
 type TemplateCluster = {
@@ -159,20 +159,32 @@ export function SubmissionGraphView({
   graph,
   visiblePrimaryClusterKeys,
   clusterHueByKey,
+  hoveredPrimaryClusterKey,
   selectedNodeSlug,
   onNodeSelect,
 }: {
   graph: SubmissionGraph;
   visiblePrimaryClusterKeys: Set<string>;
   clusterHueByKey: Record<string, number>;
+  hoveredPrimaryClusterKey: string | null;
   selectedNodeSlug: string | null;
   onNodeSelect: (slug: string) => void;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const [layoutNodes, setLayoutNodes] = useState<LiveGraphNode[]>(() => graph.nodes.map(buildLiveNode));
+  const [hoveredClusterFromGraph, setHoveredClusterFromGraph] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [panMode, setPanMode] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStateRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startPanX: number;
+    startPanY: number;
+  } | null>(null);
   const selectedCount = selectedNodeSlug ? 1 : 0;
   const hasOrphanNodes = layoutNodes.some((node) => node.connectionCount === 0);
   const canvasWidth = graph.canvasWidth;
@@ -249,6 +261,7 @@ export function SubmissionGraphView({
   }, [canvasHeight, canvasWidth, graph.edges, graph.nodes]);
 
   const nodeById = useMemo(() => new Map(layoutNodes.map((node) => [node.id, node])), [layoutNodes]);
+  const effectiveHoveredPrimaryClusterKey = hoveredClusterFromGraph ?? hoveredPrimaryClusterKey;
 
   const clusters = useMemo(() => {
     const clusterMap = new Map<string, TemplateCluster>();
@@ -322,6 +335,18 @@ export function SubmissionGraphView({
     });
   }, [layoutNodes, nodeById, visiblePrimaryClusterKeys]);
 
+  const highlightedNodeIds = useMemo(() => {
+    if (!effectiveHoveredPrimaryClusterKey) {
+      return null;
+    }
+
+    return new Set(
+      layoutNodes
+        .filter((node) => node.templateGroups.some((group) => group.key === effectiveHoveredPrimaryClusterKey))
+        .map((node) => node.id),
+    );
+  }, [effectiveHoveredPrimaryClusterKey, layoutNodes]);
+
   function applyZoom(nextZoom: number, focalPoint?: { x: number; y: number }) {
     const clampedZoom = Math.min(2.5, Math.max(0.5, nextZoom));
     const focus = focalPoint ?? graphCenter;
@@ -336,17 +361,49 @@ export function SubmissionGraphView({
     setZoom(clampedZoom);
   }
 
-  function handleWheel(event: WheelEvent<SVGSVGElement>) {
+  function handleCanvasPointerDown(event: PointerEvent<SVGSVGElement>) {
+    if (!panMode) {
+      return;
+    }
+
+    const target = event.target as Element | null;
+    if (target?.closest('.graph-node') || target?.closest('.graph-cluster-group')) {
+      return;
+    }
+
     event.preventDefault();
-    const rect = svgRef.current?.getBoundingClientRect();
-    const point = rect
-      ? {
-          x: event.clientX - rect.left,
-          y: event.clientY - rect.top,
-        }
-      : graphCenter;
-    const direction = event.deltaY < 0 ? 1 : -1;
-    applyZoom(zoom * (direction > 0 ? zoomStep : 1 / zoomStep), point);
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startPanX: pan.x,
+      startPanY: pan.y,
+    };
+    setIsPanning(true);
+    svgRef.current?.setPointerCapture(event.pointerId);
+  }
+
+  function handleCanvasPointerMove(event: PointerEvent<SVGSVGElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || dragState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragState.startClientX;
+    const deltaY = event.clientY - dragState.startClientY;
+    setPan({
+      x: dragState.startPanX + deltaX,
+      y: dragState.startPanY + deltaY,
+    });
+  }
+
+  function stopPanning(pointerId?: number) {
+    const activePointerId = pointerId ?? dragStateRef.current?.pointerId;
+    if (activePointerId !== undefined) {
+      svgRef.current?.releasePointerCapture(activePointerId);
+    }
+    dragStateRef.current = null;
+    setIsPanning(false);
   }
 
   function resetView() {
@@ -366,6 +423,15 @@ export function SubmissionGraphView({
           </button>
           <button type="button" onClick={resetView} aria-label="Reset zoom">
             Reset
+          </button>
+          <button
+            type="button"
+            onClick={() => setPanMode((current) => !current)}
+            className={panMode ? 'active' : ''}
+            aria-pressed={panMode}
+            aria-label="Toggle pan mode"
+          >
+            Pan
           </button>
         </div>
         <span className="graph-zoom-readout">Zoom {Math.round(zoom * 100)}%</span>
@@ -405,20 +471,36 @@ export function SubmissionGraphView({
       <div className="graph-canvas-shell">
         <svg
           ref={svgRef}
-          className="submission-graph"
+          className={`submission-graph ${panMode ? 'pan-enabled' : ''} ${isPanning ? 'panning' : ''}`.trim()}
           width={canvasWidth}
           height={canvasHeight}
           viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
           role="img"
           aria-label="Solved problems relationship graph"
-          onWheel={handleWheel}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={(event) => stopPanning(event.pointerId)}
+          onPointerCancel={(event) => stopPanning(event.pointerId)}
+          onPointerLeave={() => {
+            if (!dragStateRef.current) {
+              return;
+            }
+            stopPanning();
+          }}
         >
           <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
             <g className="graph-cluster-layer">
               {clusters.map((cluster) => {
                 const colors = paletteColor(cluster.kind, cluster.key, clusterHueByKey[cluster.key]);
+                const isClusterHighlighted =
+                  !effectiveHoveredPrimaryClusterKey || cluster.key === effectiveHoveredPrimaryClusterKey;
                 return (
-                  <g key={`cluster-${cluster.id}`} className="graph-cluster-group">
+                  <g
+                    key={`cluster-${cluster.id}`}
+                    className={`graph-cluster-group ${isClusterHighlighted ? '' : 'dimmed'}`.trim()}
+                    onMouseEnter={() => setHoveredClusterFromGraph(cluster.key)}
+                    onMouseLeave={() => setHoveredClusterFromGraph((current) => (current === cluster.key ? null : current))}
+                  >
                     <rect
                       x={cluster.x}
                       y={cluster.y}
@@ -464,13 +546,31 @@ export function SubmissionGraphView({
                 const target = nodeById.get(edge.target);
                 if (!source || !target) return null;
 
-                return <line key={edge.id} x1={source.x} y1={source.y} x2={target.x} y2={target.y} className="graph-edge" />;
+                 const isHighlightedEdge =
+                  !highlightedNodeIds || (highlightedNodeIds.has(source.id) && highlightedNodeIds.has(target.id));
+
+                return (
+                  <line
+                    key={edge.id}
+                    x1={source.x}
+                    y1={source.y}
+                    x2={target.x}
+                    y2={target.y}
+                    className={`graph-edge ${isHighlightedEdge ? '' : 'dimmed'}`.trim()}
+                  />
+                );
               })}
             </g>
             <g>
               {layoutNodes.map((node) => {
                 const isSelected = selectedNodeSlug === node.slug;
-                const classes = ['graph-node', isSelected ? 'selected' : '', selectedCount && !isSelected ? 'dim' : '']
+                const isHighlightedNode = !highlightedNodeIds || highlightedNodeIds.has(node.id);
+                const classes = [
+                  'graph-node',
+                  isSelected ? 'selected' : '',
+                  selectedCount && !isSelected ? 'dim' : '',
+                  !isHighlightedNode ? 'cluster-dim' : '',
+                ]
                   .filter(Boolean)
                   .join(' ');
 
@@ -495,7 +595,11 @@ export function SubmissionGraphView({
                       fill={nodeColor(node)}
                       className="node-circle"
                     />
-                    <text x={node.x} y={node.y + 34} className="graph-node-label">
+                    <text
+                      x={node.x}
+                      y={node.y + 34}
+                      className={`graph-node-label ${isHighlightedNode ? 'cluster-highlight' : 'cluster-dim'}`.trim()}
+                    >
                       {`${node.title.length > 28 ? `${node.title.slice(0, 26)}...` : node.title}`}
                     </text>
                     <title>

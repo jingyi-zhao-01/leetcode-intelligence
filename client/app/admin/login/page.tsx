@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { loginAdmin } from '../../actions';
+import { PendingSubmitButton } from '../../components/pending-submit-button';
 
 type SearchParams = {
   error?: string;
@@ -40,11 +41,11 @@ export default async function AdminLoginPage({ searchParams }: Props) {
           <input name="password" type="password" required minLength={8} />
         </label>
         <input name="returnTo" type="hidden" value={returnTo} />
-        <button type="submit">Sign in</button>
+        <PendingSubmitButton pendingText="Signing in...">Sign in</PendingSubmitButton>
       </form>
 
       <p>
-        <Link href="/">Back to workbench</Link>
+        <Link href="/submission-history">Back to workbench</Link>
       </p>
     </main>
   );

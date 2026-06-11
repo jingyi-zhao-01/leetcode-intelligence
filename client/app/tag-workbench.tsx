@@ -17,6 +17,8 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import type { PatternTagOption, SubmissionRow } from '../lib/data';
 import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from '../lib/template-analyzer';
 import type { GeneratedTemplateDraft } from '../lib/template-generator';
+import { Spinner } from './components/spinner';
+import { PendingSubmitButton } from './components/pending-submit-button';
 
 type Props = {
   submissions: SubmissionRow[];
@@ -31,10 +33,10 @@ type SubmissionProblemGroup = {
   submissions: SubmissionRow[];
 };
 
-type SubmissionWeekGroup = {
+type SubmissionDayGroup = {
   key: string;
   label: string;
-  weekStart: Date;
+  dayStart: Date;
   problems: SubmissionProblemGroup[];
 };
 
@@ -85,10 +87,10 @@ type DeleteTemplateBlocker = {
 type SubmissionHistoryPanelProps = {
   query: string;
   setQuery: (value: string) => void;
-  filteredWeeks: SubmissionWeekGroup[];
+  filteredDays: SubmissionDayGroup[];
   selectedSubmission: SubmissionRow | null;
-  collapsedWeekKeys: Set<string>;
-  onToggleWeek: (weekKey: string) => void;
+  collapsedDayKeys: Set<string>;
+  onToggleDay: (dayKey: string) => void;
   onSelectSubmission: (submission: SubmissionRow) => void;
 };
 
@@ -135,7 +137,7 @@ const LEFT_PANEL_FEATURES: LeftPanelFeature[] = [
   {
     key: 'submission-history',
     label: 'Submission History',
-    description: 'Browse attempts, group by week, and select a submission.',
+    description: 'Browse attempts, group by day, and select a submission.',
   },
   {
     key: 'insights',
@@ -168,17 +170,14 @@ function formatDate(value: string) {
   return DATE_TIME_FORMATTER.format(new Date(value));
 }
 
-function formatWeekLabel(value: Date) {
+function formatDayLabel(value: Date) {
   return WEEK_FORMATTER.format(value);
 }
 
-function startOfWeek(value: Date) {
-  const weekStart = new Date(value);
-  const dayIndex = weekStart.getUTCDay();
-  const offset = (dayIndex + 6) % 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - offset);
-  weekStart.setUTCHours(0, 0, 0, 0);
-  return weekStart;
+function startOfDayUTC(value: Date) {
+  const dayStart = new Date(value);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  return dayStart;
 }
 
 function getProblemKey(submission: SubmissionRow) {
@@ -216,6 +215,27 @@ function sourceLabel(source: PatternTagOption['source']) {
 
 function dimensionClass(dimension: string) {
   return `dimension-${dimension}`;
+}
+
+function AsyncButtonLabel({
+  isPending,
+  label,
+  pendingLabel,
+}: {
+  isPending: boolean;
+  label: string;
+  pendingLabel: string;
+}) {
+  if (isPending) {
+    return (
+      <span className="loading-inline">
+        <Spinner size="small" />
+        <span>{pendingLabel}</span>
+      </span>
+    );
+  }
+
+  return <>{label}</>;
 }
 
 function submissionTaxonomyState(submission: SubmissionRow) {
@@ -328,9 +348,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [isDeleteTemplatePending, startDeleteTemplateTransition] = useTransition();
   const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
   const [deleteTemplateBlocker, setDeleteTemplateBlocker] = useState<DeleteTemplateBlocker | null>(null);
-  const [collapsedWeekKeys, setCollapsedWeekKeys] = useState<Set<string>>(() => new Set());
+  const [collapsedDayKeys, setCollapsedDayKeys] = useState<Set<string>>(() => new Set());
   const [leftPanelFeature, setLeftPanelFeature] = useState<LeftPanelFeatureKey>('submission-history');
-  const hasInitializedWeekCollapse = useRef(false);
+  const hasInitializedDayCollapse = useRef(false);
   const returnTo = useMemo(() => {
     const query = searchParams.toString();
     const current = query ? `${pathname}?${query}` : pathname;
@@ -345,7 +365,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     return new Map(benchmark?.scores.map((score) => [score.patternTagId, score]) ?? []);
   }, [benchmark]);
   const selectedTemplateScore = selectedTemplate ? scoreByTagId.get(selectedTemplate.id) : null;
-  const filteredSubmissionWeeks = useMemo(() => {
+  const filteredSubmissionDays = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = submissions.filter((submission) => {
       const haystack = [submission.titleSlug, submission.title, submission.status, submission.language]
@@ -358,20 +378,20 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
     );
 
-    const weeks = new Map<
+    const days = new Map<
       string,
       {
-        weekStart: Date;
+        dayStart: Date;
         problems: Map<string, SubmissionProblemGroup>;
       }
     >();
 
     for (const submission of sorted) {
-      const weekStart = startOfWeek(new Date(submission.createdAt));
-      const weekKey = weekStart.toISOString();
-      const week = weeks.get(weekKey) ?? { weekStart, problems: new Map<string, SubmissionProblemGroup>() };
+      const dayStart = startOfDayUTC(new Date(submission.createdAt));
+      const dayKey = dayStart.toISOString();
+      const day = days.get(dayKey) ?? { dayStart, problems: new Map<string, SubmissionProblemGroup>() };
       const problemKey = getProblemKey(submission);
-      const problem = week.problems.get(problemKey) ?? {
+      const problem = day.problems.get(problemKey) ?? {
         key: problemKey,
         title: getProblemTitle(submission),
         titleSlug: submission.titleSlug,
@@ -379,17 +399,17 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       };
 
       problem.submissions.push(submission);
-      week.problems.set(problemKey, problem);
-      weeks.set(weekKey, week);
+      day.problems.set(problemKey, problem);
+      days.set(dayKey, day);
     }
 
-    return [...weeks.entries()]
-      .sort((left, right) => right[1].weekStart.getTime() - left[1].weekStart.getTime())
-      .map(([weekKey, week]) => ({
-        key: weekKey,
-        weekStart: week.weekStart,
-        label: formatWeekLabel(week.weekStart),
-        problems: [...week.problems.values()].sort(
+    return [...days.entries()]
+      .sort((left, right) => right[1].dayStart.getTime() - left[1].dayStart.getTime())
+      .map(([dayKey, day]) => ({
+        key: dayKey,
+        dayStart: day.dayStart,
+        label: formatDayLabel(day.dayStart),
+        problems: [...day.problems.values()].sort(
           (left, right) =>
             new Date(right.submissions[0]?.createdAt ?? 0).getTime() -
             new Date(left.submissions[0]?.createdAt ?? 0).getTime(),
@@ -402,9 +422,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     group.tags.some((tag) => tag.dimension === 'template'),
   ).length;
   const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
-  const defaultCollapsedWeekKeys = useMemo(
-    () => new Set(filteredSubmissionWeeks.slice(2).map((week) => week.key)),
-    [filteredSubmissionWeeks],
+  const defaultCollapsedDayKeys = useMemo(
+    () => new Set(filteredSubmissionDays.slice(2).map((day) => day.key)),
+    [filteredSubmissionDays],
   );
 
   useEffect(() => {
@@ -412,11 +432,11 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   }, [selectedSubmission?.id, selectedSubmission?.templateBenchmarkOptOut]);
 
   useEffect(() => {
-    if (hasInitializedWeekCollapse.current) return;
-    if (!filteredSubmissionWeeks.length) return;
-    setCollapsedWeekKeys(defaultCollapsedWeekKeys);
-    hasInitializedWeekCollapse.current = true;
-  }, [defaultCollapsedWeekKeys, filteredSubmissionWeeks.length]);
+    if (hasInitializedDayCollapse.current) return;
+    if (!filteredSubmissionDays.length) return;
+    setCollapsedDayKeys(defaultCollapsedDayKeys);
+    hasInitializedDayCollapse.current = true;
+  }, [defaultCollapsedDayKeys, filteredSubmissionDays.length]);
 
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
@@ -427,13 +447,13 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     setBenchmarkError('');
   }
 
-  function toggleWeekCollapsed(weekKey: string) {
-    setCollapsedWeekKeys((current) => {
+  function toggleDayCollapsed(dayKey: string) {
+    setCollapsedDayKeys((current) => {
       const next = new Set(current);
-      if (next.has(weekKey)) {
-        next.delete(weekKey);
+      if (next.has(dayKey)) {
+        next.delete(dayKey);
       } else {
-        next.add(weekKey);
+        next.add(dayKey);
       }
       return next;
     });
@@ -645,6 +665,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 
   function deleteTemplate(tag: PatternTagOption) {
     if (!canWrite) return;
+    if (isDeleteTemplatePending) return;
     if (tag.source === 'seeded' || tag.dimension !== 'template') return;
     const shouldDelete = window.confirm(`Delete template "${tag.label}"? This is only allowed when no submissions use it.`);
     if (!shouldDelete) return;
@@ -717,9 +738,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
           <div className="admin-access">
             {canWrite ? (
               <form action={logoutAdmin}>
-                <button type="submit" className="admin-control-button">
+                <PendingSubmitButton className="admin-control-button" pendingText="Signing out...">
                   Sign out
-                </button>
+                </PendingSubmitButton>
               </form>
             ) : (
               <Link className="admin-control-button" href={`/admin/login?returnTo=${encodeURIComponent(returnTo)}`}>
@@ -764,10 +785,10 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             <SubmissionHistoryPanel
               query={query}
               setQuery={setQuery}
-              filteredWeeks={filteredSubmissionWeeks}
+              filteredDays={filteredSubmissionDays}
               selectedSubmission={selectedSubmission}
-              collapsedWeekKeys={collapsedWeekKeys}
-              onToggleWeek={toggleWeekCollapsed}
+              collapsedDayKeys={collapsedDayKeys}
+              onToggleDay={toggleDayCollapsed}
               onSelectSubmission={selectSubmission}
             />
           ) : null}
@@ -800,7 +821,15 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                     onChange={(event) => toggleTemplateBenchmarkOptOut(event.target.checked)}
                     disabled={isPending || !canWrite}
                   />
-                  <span>Opt out from templating</span>
+                  <span>
+                    Opt out from templating
+                    {isPending ? (
+                      <span className="loading-inline" style={{ marginLeft: '8px' }}>
+                        <Spinner size="small" />
+                        <span>Updating...</span>
+                      </span>
+                    ) : null}
+                  </span>
                 </label>
               </div>
               <div className="complexity">
@@ -831,7 +860,12 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             </div>
 
             <div className="benchmark-status">
-              {isBenchmarkPending ? <span>Benchmarking templates with LLM...</span> : null}
+              {isBenchmarkPending ? (
+                <span className="loading-inline">
+                  <Spinner size="small" />
+                  <span>Benchmarking templates with LLM...</span>
+                </span>
+              ) : null}
               {benchmark ? <span>Benchmark model: {benchmark.model}</span> : null}
               {templateBenchmarkOptOut ? <span>Template benchmarking is opted out</span> : null}
               {excludedBenchmarkGroupKeys.size ? (
@@ -979,24 +1013,33 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                 disabled={isPending || !canWrite}
                 title={canWrite ? undefined : 'Sign in to enable saving tags'}
               >
-                {isPending ? 'Saving...' : 'Save submission'}
+                <AsyncButtonLabel isPending={isPending} label="Save submission" pendingLabel="Saving..." />
               </button>
               <button
                 onClick={runTemplateBenchmark}
                 disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut || !canWrite}
                 title={canWrite ? undefined : 'Sign in to run benchmark'}
               >
-                {isBenchmarkPending ? 'Benchmarking...' : benchmark ? 'Rerun benchmark' : 'Benchmark templates'}
+                <AsyncButtonLabel
+                  isPending={isBenchmarkPending}
+                  label={benchmark ? 'Rerun benchmark' : 'Benchmark templates'}
+                  pendingLabel="Benchmarking..."
+                />
               </button>
               <button
                 onClick={clearTags}
                 disabled={isPending || draftTagIds.size === 0 || !canWrite}
                 title={canWrite ? undefined : 'Sign in to clear tags'}
               >
-                Clear tags
+                <AsyncButtonLabel isPending={isPending} label="Clear tags" pendingLabel="Clearing tags..." />
               </button>
               {message ? <p>{message}</p> : null}
-              {isDeleteTemplatePending ? <p>Checking template deletion...</p> : null}
+              {isDeleteTemplatePending ? (
+                <p className="loading-inline">
+                  <Spinner size="small" />
+                  <span>Checking template deletion...</span>
+                </p>
+              ) : null}
             </div>
           </>
         ) : (
@@ -1010,10 +1053,10 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 function SubmissionHistoryPanel({
   query,
   setQuery,
-  filteredWeeks,
+  filteredDays,
   selectedSubmission,
-  collapsedWeekKeys,
-  onToggleWeek,
+  collapsedDayKeys,
+  onToggleDay,
   onSelectSubmission,
 }: SubmissionHistoryPanelProps) {
   return (
@@ -1029,24 +1072,24 @@ function SubmissionHistoryPanel({
 
       <div className="submission-list">
         <div className="submission-week-list">
-          {filteredWeeks.length ? (
-            filteredWeeks.map((week) => {
-              const isCollapsed = collapsedWeekKeys.has(week.key);
+          {filteredDays.length ? (
+            filteredDays.map((day) => {
+              const isCollapsed = collapsedDayKeys.has(day.key);
               return (
-                <section className="submission-week" key={week.key}>
+                <section className="submission-week" key={day.key}>
                   <button
                     className={`submission-week-header ${isCollapsed ? 'collapsed' : ''}`}
                     type="button"
-                    onClick={() => onToggleWeek(week.key)}
+                    onClick={() => onToggleDay(day.key)}
                     aria-expanded={!isCollapsed}
-                    aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} week of ${week.label}`}
+                    aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} day ${day.label}`}
                   >
-                    <h3>Week of {week.label}</h3>
-                    <span>{week.problems.reduce((count, problem) => count + problem.submissions.length, 0)} submissions</span>
+                    <h3>{day.label}</h3>
+                    <span>{day.problems.reduce((count, problem) => count + problem.submissions.length, 0)} submissions</span>
                   </button>
                   {!isCollapsed && (
                     <div className="submission-problem-list">
-                      {week.problems.map((problem) => {
+                      {day.problems.map((problem) => {
                         const active = problem.submissions.some((submission) => submission.id === selectedSubmission?.id);
                         return (
                           <section
@@ -1237,7 +1280,7 @@ function TemplateGeneratorModal({
             />
           </label>
           <button type="button" onClick={onAssistAll} disabled={isPending || !canWrite}>
-            {isPending ? 'Assisting...' : 'LLM assist all'}
+            <AsyncButtonLabel isPending={isPending} label="LLM assist all" pendingLabel="Assisting..." />
           </button>
         </div>
         <datalist id="template-generator-models">
@@ -1271,7 +1314,7 @@ function TemplateGeneratorModal({
                 )}
               </label>
               <button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending || !canWrite}>
-                LLM assist
+                <AsyncButtonLabel isPending={isPending} label="LLM assist" pendingLabel="Assisting..." />
               </button>
             </div>
           ))}
@@ -1291,7 +1334,7 @@ function TemplateGeneratorModal({
               onClick={onCreate}
               disabled={isPending || !isComplete || !canWrite}
             >
-              Create template
+              <AsyncButtonLabel isPending={isPending} label="Create template" pendingLabel="Creating..." />
             </button>
           </div>
         </div>
