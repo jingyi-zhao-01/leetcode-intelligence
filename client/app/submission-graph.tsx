@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { type SubmissionGraph, type SubmissionGraphNode } from '../lib/submission-graph';
 import {
   buildPrimaryClusterAnchors,
+  buildDanglingTemplateMarkers,
   createPrimaryClusterForce,
   createSharedTemplateGroupForce,
   buildVisibleTemplateGroupEnvelopes,
@@ -186,6 +187,20 @@ export function SubmissionGraphView({
   const clusters = useMemo(() => {
     return buildVisibleTemplateGroupEnvelopes(layoutNodes, visiblePrimaryClusterKeys, nodeRadius);
   }, [layoutNodes, visiblePrimaryClusterKeys]);
+
+  const danglingTemplateMarkers = useMemo(() => {
+    return buildDanglingTemplateMarkers(layoutNodes, visiblePrimaryClusterKeys);
+  }, [layoutNodes, visiblePrimaryClusterKeys]);
+
+  const danglingTemplatesByNodeId = useMemo(() => {
+    const markersByNodeId = new Map<string, ReturnType<typeof buildDanglingTemplateMarkers>>();
+    for (const marker of danglingTemplateMarkers) {
+      const current = markersByNodeId.get(marker.nodeId) ?? [];
+      current.push(marker);
+      markersByNodeId.set(marker.nodeId, current);
+    }
+    return markersByNodeId;
+  }, [danglingTemplateMarkers]);
 
   const highlightedNodeIds = useMemo(() => {
     if (!effectiveHoveredPrimaryClusterKey) {
@@ -393,7 +408,7 @@ export function SubmissionGraphView({
                         }
                       />
                       <text x={10} y={15} className={`graph-cluster-label ${cluster.kind}`}>
-                        {cluster.kind === 'template-group' ? `Template Group: ${cluster.label}` : `Template: ${cluster.label}`}
+                        {cluster.label}
                       </text>
                     </g>
                   </g>
@@ -468,6 +483,25 @@ export function SubmissionGraphView({
                     {node.connectionCount === 0 ? (
                       <line x1={node.x - 8} y1={node.y - 8} x2={node.x + 8} y2={node.y + 8} className="graph-node-cross" />
                     ) : null}
+                    {(danglingTemplatesByNodeId.get(node.id) ?? []).slice(0, 3).map((marker, index) => {
+                      const colors = paletteColor('template', marker.templateKey, clusterHueByKey[marker.parentKey]);
+                      return (
+                        <g key={`${node.id}:${marker.templateKey}`}>
+                          <circle
+                            cx={node.x + 18 + index * 7}
+                            cy={node.y - 18}
+                            r={3}
+                            className="graph-dangling-template-dot"
+                            style={
+                              {
+                                '--dangling-dot': colors.stroke,
+                              } as CSSProperties
+                            }
+                          />
+                          <title>{`Dangling template: ${marker.templateLabel}`}</title>
+                        </g>
+                      );
+                    })}
                   </g>
                 );
               })}

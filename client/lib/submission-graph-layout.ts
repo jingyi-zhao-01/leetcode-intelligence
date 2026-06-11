@@ -18,6 +18,13 @@ export type ClusterEnvelope = {
   labelHeight: number;
 };
 
+export type DanglingTemplateMarker = {
+  nodeId: string;
+  templateKey: string;
+  templateLabel: string;
+  parentKey: string;
+};
+
 type ClusterAnchor = {
   key: string;
   x: number;
@@ -156,7 +163,6 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
   const clusterMap = new Map<string, ClusterEnvelope>();
   const templateClusterMap = new Map<string, ClusterEnvelope>();
   const padding = 20;
-  const labelOffsetY = 12;
 
   for (const node of nodes) {
     for (const group of node.templateGroups) {
@@ -244,28 +250,86 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
       continue;
     }
 
+    const envelopeX = minX - (cluster.kind === 'template-group' ? padding : 12);
+    const envelopeY = minY - (cluster.kind === 'template-group' ? padding + 14 : 10);
+    const envelopeWidth = maxX - minX + (cluster.kind === 'template-group' ? padding * 2 : 24);
+    const envelopeHeight = maxY - minY + (cluster.kind === 'template-group' ? padding * 2 + 14 : 20);
+    const labelWidth =
+      cluster.kind === 'template-group'
+        ? Math.min(320, Math.max(160, 12 + cluster.label.length * 6))
+        : Math.min(220, Math.max(110, 12 + cluster.label.length * 6));
+    const labelInsetX = cluster.kind === 'template-group' ? 10 : 8;
+    const labelGapY = cluster.kind === 'template-group' ? 8 : 6;
+
     envelopes.push({
       ...cluster,
-      x: minX - (cluster.kind === 'template-group' ? padding : 12),
-      y: minY - (cluster.kind === 'template-group' ? padding + 14 : 10),
-      width: maxX - minX + (cluster.kind === 'template-group' ? padding * 2 : 24),
-      height: maxY - minY + (cluster.kind === 'template-group' ? padding * 2 + 14 : 20),
-      labelX: minX - (cluster.kind === 'template-group' ? padding : 12) + 10,
-      labelY: minY - (cluster.kind === 'template-group' ? padding + labelOffsetY : 8),
-      labelWidth:
-        cluster.kind === 'template-group'
-          ? Math.min(320, Math.max(160, 12 + cluster.label.length * 6))
-          : Math.min(220, Math.max(110, 12 + cluster.label.length * 6)),
+      x: envelopeX,
+      y: envelopeY,
+      width: envelopeWidth,
+      height: envelopeHeight,
+      labelX: envelopeX + envelopeWidth - labelWidth - labelInsetX,
+      labelY: envelopeY - cluster.labelHeight - labelGapY,
+      labelWidth,
     });
   }
 
-  return envelopes.sort((left, right) => {
-    if (left.kind !== right.kind) {
-      return left.kind === 'template-group' ? -1 : 1;
+  return envelopes
+    .filter((cluster) => cluster.kind === 'template-group' || cluster.nodeIds.length > 2)
+    .sort((left, right) => {
+      if (left.kind !== right.kind) {
+        return left.kind === 'template-group' ? -1 : 1;
+      }
+      if (left.nodeIds.length !== right.nodeIds.length) {
+        return right.nodeIds.length - left.nodeIds.length;
+      }
+      return left.label.localeCompare(right.label);
+    });
+}
+
+export function buildDanglingTemplateMarkers<Node extends ClusterableNode>(
+  nodes: Node[],
+  visiblePrimaryClusterKeys: Set<string>,
+) {
+  const templateClusterMap = new Map<string, { nodeIds: string[]; label: string; parentKey: string }>();
+
+  for (const node of nodes) {
+    for (const template of node.templateTags) {
+      if (!template.parentKey || !visiblePrimaryClusterKeys.has(template.parentKey)) {
+        continue;
+      }
+
+      const id = `template:${template.parentKey}:${template.key}`;
+      const cluster = templateClusterMap.get(id);
+      if (cluster) {
+        cluster.nodeIds.push(node.id);
+        continue;
+      }
+
+      templateClusterMap.set(id, {
+        nodeIds: [node.id],
+        label: template.label,
+        parentKey: template.parentKey,
+      });
     }
-    if (left.nodeIds.length !== right.nodeIds.length) {
-      return right.nodeIds.length - left.nodeIds.length;
+  }
+
+  const markers: DanglingTemplateMarker[] = [];
+
+  for (const [clusterId, cluster] of templateClusterMap.entries()) {
+    if (cluster.nodeIds.length > 2) {
+      continue;
     }
-    return left.label.localeCompare(right.label);
-  });
+
+    const templateKey = clusterId.split(':')[2] ?? clusterId;
+    for (const nodeId of cluster.nodeIds) {
+      markers.push({
+        nodeId,
+        templateKey,
+        templateLabel: cluster.label,
+        parentKey: cluster.parentKey,
+      });
+    }
+  }
+
+  return markers;
 }
