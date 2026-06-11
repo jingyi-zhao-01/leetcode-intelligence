@@ -7,8 +7,16 @@ on:
     tags:
       - "v*"
     paths:
+      - "services/shared/prisma/**"
       - "services/leetcode-submission-service/**"
-      - "services/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - "docker/leetcode-submission-service.Dockerfile"
+      - ".github/workflows/submission-service-image.yml"
+  pull_request:
+    paths:
+      - "services/shared/prisma/**"
+      - "services/leetcode-submission-service/**"
       - "package.json"
       - "package-lock.json"
       - "docker/leetcode-submission-service.Dockerfile"
@@ -128,6 +136,7 @@ jobs:
   build-and-push:
     needs: smoke
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
 
     steps:
       - name: Checkout repository
