@@ -33,3 +33,39 @@ This Next.js client uses middleware + session-cookie check to enforce write-only
 - Enter `ADMIN_PASSWORD` once to create the session.
 - After that, UI shows `Write enabled` and write buttons are active.
 - Sign out via top-right button or `/admin/logout`.
+
+## Run as systemd service on reboot
+
+To keep the client running across reboots, use the provided service unit and installer:
+
+- `client/leetcode-qa-client.service`
+- `client/install-systemd-service.sh`
+
+From repo root:
+
+```bash
+cd /home/jingyi/PycharmProjects/leetcode-qa/client
+sudo ./install-systemd-service.sh
+```
+
+This script:
+
+- Copies `leetcode-qa-client.service` into `/etc/systemd/system/`
+- Reloads systemd unit definitions
+- Enables the service on boot
+- Starts/refreshes the service now
+
+Useful commands:
+
+```bash
+sudo systemctl status leetcode-qa-client.service
+sudo systemctl restart leetcode-qa-client.service
+sudo systemctl stop leetcode-qa-client.service
+sudo systemctl disable leetcode-qa-client.service
+```
+
+If you prefer, run the service unit directly:
+
+- Working directory: `/home/jingyi/PycharmProjects/leetcode-qa/client`
+- Command: `npm run start -- --hostname 0.0.0.0 --port 3005`
+- Auto-restart: on crash/exit, with 5s backoff

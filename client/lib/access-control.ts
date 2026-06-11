@@ -1,11 +1,27 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
 export const ADMIN_COOKIE_NAME = process.env.ADMIN_COOKIE_NAME ?? 'leetcode-qa-admin';
 const ADMIN_COOKIE_MAX_AGE_SECONDS = Number(process.env.ADMIN_COOKIE_MAX_AGE_SECONDS ?? 60 * 60 * 8);
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_SESSION_TOKEN = process.env.ADMIN_SESSION_TOKEN;
+
+function isLocalhostHost(hostHeader: string | null) {
+  if (!hostHeader) {
+    return false;
+  }
+
+  const host = hostHeader.toLowerCase().split(':')[0];
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
+async function isLocalRequest() {
+  const headerStore = await headers();
+  const host = headerStore.get('x-forwarded-host') ?? headerStore.get('host') ?? headerStore.get(':authority') ?? null;
+  return isLocalhostHost(host);
+}
 
 function getSessionToken() {
   return ADMIN_SESSION_TOKEN ?? ADMIN_PASSWORD;
@@ -21,6 +37,10 @@ export async function readWriteSession() {
 }
 
 export async function isWriteAllowed() {
+  if (await isLocalRequest()) {
+    return true;
+  }
+
   const token = getSessionToken();
   if (!token) {
     return false;

@@ -1,0 +1,20 @@
+[Unit]
+Description=LeetCode QA Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jingyi
+Group=jingyi
+WorkingDirectory=/home/jingyi/PycharmProjects/leetcode-qa/client
+Environment=NODE_ENV=production
+Environment=PORT=3005
+EnvironmentFile=-/home/jingyi/PycharmProjects/leetcode-qa/client/.env
+ExecStartPre=/usr/bin/env npm run build
+ExecStart=/usr/bin/env npm run start -- --hostname 0.0.0.0 --port 3005
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
