@@ -1,11 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
+  deleteNonSeededTemplate,
   generateTemplateDraft,
+  setSubmissionTemplateOptOut,
   saveSubmissionTags,
 } from './actions';
 import type { PatternTagOption, SubmissionRow } from '../lib/data';
@@ -15,6 +17,20 @@ import type { GeneratedTemplateDraft } from '../lib/template-generator';
 type Props = {
   submissions: SubmissionRow[];
   tags: PatternTagOption[];
+};
+
+type SubmissionProblemGroup = {
+  key: string;
+  title: string;
+  titleSlug: string | null;
+  submissions: SubmissionRow[];
+};
+
+type SubmissionWeekGroup = {
+  key: string;
+  label: string;
+  weekStart: Date;
+  problems: SubmissionProblemGroup[];
 };
 
 type TemplateForm = {
@@ -40,6 +56,17 @@ type TemplateGeneratorModal = {
   model: string;
   form: TemplateForm;
   error?: string;
+};
+
+type DeleteTemplateBlocker = {
+  tag: { key: string; label: string };
+  assignmentCount: number;
+  submissions: Array<{
+    id: string;
+    titleSlug: string | null;
+    status: string;
+    createdAt: string;
+  }>;
 };
 
 const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
@@ -79,6 +106,31 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function formatWeekLabel(value: Date) {
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  }).format(value);
+}
+
+function startOfWeek(value: Date) {
+  const weekStart = new Date(value);
+  const dayIndex = weekStart.getDay();
+  const offset = (dayIndex + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - offset);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+}
+
+function getProblemKey(submission: SubmissionRow) {
+  return submission.titleSlug ?? submission.title ?? submission.id;
+}
+
+function getProblemTitle(submission: SubmissionRow) {
+  return submission.title ?? submission.titleSlug ?? 'Untitled submission';
+}
+
 function groupTags(tags: PatternTagOption[]) {
   const groups = new Map<string, { label: string; tags: PatternTagOption[] }>();
 
@@ -102,6 +154,10 @@ function benchmarkTone(score: number) {
 
 function sourceLabel(source: PatternTagOption['source']) {
   return source.replaceAll('_', ' ');
+}
+
+function dimensionClass(dimension: string) {
+  return `dimension-${dimension}`;
 }
 
 function emptyTemplateForm(): TemplateForm {
@@ -188,6 +244,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
       tags[0]?.id ??
       '',
   );
+  const [templateBenchmarkOptOut, setTemplateBenchmarkOptOut] = useState(submissions[0]?.templateBenchmarkOptOut ?? false);
   const [draftTagIds, setDraftTagIds] = useState<Set<string>>(
     () => new Set(submissions[0]?.tags.map((tag) => tag.id) ?? []),
   );
@@ -198,7 +255,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>({});
   const [excludedBenchmarkGroupKeys, setExcludedBenchmarkGroupKeys] = useState<Set<string>>(() => new Set());
   const [isTemplateGenerationPending, startTemplateGenerationTransition] = useTransition();
+  const [isDeleteTemplatePending, startDeleteTemplateTransition] = useTransition();
   const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
+  const [deleteTemplateBlocker, setDeleteTemplateBlocker] = useState<DeleteTemplateBlocker | null>(null);
+  const [collapsedWeekKeys, setCollapsedWeekKeys] = useState<Set<string>>(() => new Set());
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? submissions[0] ?? null;
   const selectedTags = tags.filter((tag) => draftTagIds.has(tag.id));
@@ -208,16 +268,56 @@ export function TagWorkbench({ submissions, tags }: Props) {
     return new Map(benchmark?.scores.map((score) => [score.patternTagId, score]) ?? []);
   }, [benchmark]);
   const selectedTemplateScore = selectedTemplate ? scoreByTagId.get(selectedTemplate.id) : null;
-
-  const filteredSubmissions = useMemo(() => {
+  const filteredSubmissionWeeks = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return submissions.filter((submission) => {
+    const filtered = submissions.filter((submission) => {
       const haystack = [submission.titleSlug, submission.title, submission.status, submission.language]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return !needle || haystack.includes(needle);
     });
+    const sorted = [...filtered].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
+
+    const weeks = new Map<
+      string,
+      {
+        weekStart: Date;
+        problems: Map<string, SubmissionProblemGroup>;
+      }
+    >();
+
+    for (const submission of sorted) {
+      const weekStart = startOfWeek(new Date(submission.createdAt));
+      const weekKey = weekStart.toISOString();
+      const week = weeks.get(weekKey) ?? { weekStart, problems: new Map<string, SubmissionProblemGroup>() };
+      const problemKey = getProblemKey(submission);
+      const problem = week.problems.get(problemKey) ?? {
+        key: problemKey,
+        title: getProblemTitle(submission),
+        titleSlug: submission.titleSlug,
+        submissions: [],
+      };
+
+      problem.submissions.push(submission);
+      week.problems.set(problemKey, problem);
+      weeks.set(weekKey, week);
+    }
+
+    return [...weeks.entries()]
+      .sort((left, right) => right[1].weekStart.getTime() - left[1].weekStart.getTime())
+      .map(([weekKey, week]) => ({
+        key: weekKey,
+        weekStart: week.weekStart,
+        label: formatWeekLabel(week.weekStart),
+        problems: [...week.problems.values()].sort(
+          (left, right) =>
+            new Date(right.submissions[0]?.createdAt ?? 0).getTime() -
+            new Date(left.submissions[0]?.createdAt ?? 0).getTime(),
+        ),
+      }));
   }, [query, submissions]);
 
   const tagGroups = useMemo(() => groupTags(tags), [tags]);
@@ -226,8 +326,13 @@ export function TagWorkbench({ submissions, tags }: Props) {
   ).length;
   const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
 
+  useEffect(() => {
+    setTemplateBenchmarkOptOut(selectedSubmission?.templateBenchmarkOptOut ?? false);
+  }, [selectedSubmission?.id, selectedSubmission?.templateBenchmarkOptOut]);
+
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
+    setTemplateBenchmarkOptOut(submission.templateBenchmarkOptOut);
     setDraftTagIds(new Set(submission.tags.map((tag) => tag.id)));
     const firstTemplate = submission.tags.find((tag) => tag.dimension === 'template');
     if (firstTemplate) {
@@ -235,6 +340,23 @@ export function TagWorkbench({ submissions, tags }: Props) {
     }
     setMessage('');
     setBenchmarkError('');
+  }
+
+  function toggleWeekCollapsed(weekKey: string) {
+    setCollapsedWeekKeys((current) => {
+      const next = new Set(current);
+      if (next.has(weekKey)) {
+        next.delete(weekKey);
+      } else {
+        next.add(weekKey);
+      }
+      return next;
+    });
+  }
+
+  function openGraphView() {
+    const selectedSlug = selectedSubmission?.titleSlug?.toLowerCase() ?? null;
+    router.push(selectedSlug ? `/graph?slug=${encodeURIComponent(selectedSlug)}` : '/graph');
   }
 
   function toggleTag(tagId: string) {
@@ -304,6 +426,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
 
   function runTemplateBenchmark() {
     if (!selectedSubmission) return;
+    if (templateBenchmarkOptOut) {
+      setBenchmarkError('This submission is opted out from templating. Turn off opt-out to run benchmark.');
+      return;
+    }
 
     setBenchmarkError('');
     startBenchmarkTransition(async () => {
@@ -416,8 +542,66 @@ export function TagWorkbench({ submissions, tags }: Props) {
     });
   }
 
+  function deleteTemplate(tag: PatternTagOption) {
+    if (tag.source === 'seeded' || tag.dimension !== 'template') return;
+    const shouldDelete = window.confirm(`Delete template "${tag.label}"? This is only allowed when no submissions use it.`);
+    if (!shouldDelete) return;
+
+    startDeleteTemplateTransition(async () => {
+      const result = await deleteNonSeededTemplate(tag.id);
+      if (result.status === 'blocked') {
+        setDeleteTemplateBlocker({
+          tag: result.tag,
+          assignmentCount: result.assignmentCount,
+          submissions: result.submissions,
+        });
+        return;
+      }
+
+      if (result.status === 'deleted') {
+        setMessage(`Deleted template: ${result.key}.`);
+        if (selectedTemplateId === tag.id) {
+          setSelectedTemplateId(tags.find((candidate) => candidate.id !== tag.id)?.id ?? '');
+        }
+        router.refresh();
+        return;
+      }
+
+      setMessage('This template cannot be deleted.');
+    });
+  }
+
+  function toggleTemplateBenchmarkOptOut(next: boolean) {
+    if (!selectedSubmission) return;
+    if (isPending) return;
+
+    setTemplateBenchmarkOptOut(next);
+    setMessage('');
+    setBenchmarkError('');
+    setBenchmarksBySubmission((current) => {
+      const nextBenchmarks = { ...current };
+      delete nextBenchmarks[selectedSubmission.id];
+      return nextBenchmarks;
+    });
+    startTransition(async () => {
+      const result = await setSubmissionTemplateOptOut(selectedSubmission.id, next);
+      if (result.status === 'not_found') {
+        setTemplateBenchmarkOptOut(selectedSubmission.templateBenchmarkOptOut);
+        setMessage('Unable to update because this submission is no longer accepted.');
+        return;
+      }
+
+      setMessage(next ? 'Opted out from templating for this submission.' : 'Included this submission in templating again.');
+      router.refresh();
+    });
+  }
+
   return (
     <main className="workspace">
+      <button className="floating-view-toggle" type="button" onClick={openGraphView}>
+        Graph view
+      </button>
+
       <section className="sidebar">
         <div className="brand">
           <div>
@@ -437,23 +621,73 @@ export function TagWorkbench({ submissions, tags }: Props) {
         </div>
 
         <div className="submission-list">
-          {filteredSubmissions.map((submission) => (
-            <button
-              key={submission.id}
-              className={submission.id === selectedSubmission?.id ? 'submission active' : 'submission'}
-              onClick={() => selectSubmission(submission)}
-            >
-              <span className="submission-title">
-                {submission.title ?? submission.titleSlug ?? 'Untitled submission'}
-              </span>
-              <span className="submission-meta">
-                {submission.status} · {formatDate(submission.createdAt)}
-              </span>
-              <span className="tag-preview">
-                {submission.tags.length ? submission.tags.map((tag) => tag.key).join(', ') : 'untagged'}
-              </span>
-            </button>
-          ))}
+          <div className="submission-week-list">
+            {filteredSubmissionWeeks.map((week) => {
+              const isCollapsed = collapsedWeekKeys.has(week.key);
+              return (
+                <section className="submission-week" key={week.key}>
+                  <button
+                    className={`submission-week-header ${isCollapsed ? 'collapsed' : ''}`}
+                    type="button"
+                    onClick={() => toggleWeekCollapsed(week.key)}
+                    aria-expanded={!isCollapsed}
+                    aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} week of ${week.label}`}
+                  >
+                    <h3>Week of {week.label}</h3>
+                    <span>{week.problems.reduce((count, problem) => count + problem.submissions.length, 0)} submissions</span>
+                  </button>
+                  {!isCollapsed && (
+                    <div className="submission-problem-list">
+                      {week.problems.map((problem) => {
+                        const active = problem.submissions.some((submission) => submission.id === selectedSubmission?.id);
+                        return (
+                          <section
+                            className={['submission-problem-group', active ? 'active' : ''].filter(Boolean).join(' ')}
+                            key={problem.key}
+                          >
+                            <button
+                              type="button"
+                              className="submission-problem-header"
+                              onClick={() => selectSubmission(problem.submissions[0])}
+                            >
+                              <span className="submission-title">{problem.title}</span>
+                              <span className="submission-problem-count">{problem.submissions.length}</span>
+                            </button>
+                            <div className="submission-attempt-list">
+                              {problem.submissions.map((submission) => (
+                                <button
+                                  key={submission.id}
+                                  type="button"
+                                  className={
+                                    submission.id === selectedSubmission?.id ? 'submission-attempt active' : 'submission-attempt'
+                                  }
+                                  onClick={() => selectSubmission(submission)}
+                                >
+                                  <span className="submission-meta">
+                                    {submission.status} · {formatDate(submission.createdAt)}
+                                  </span>
+                                  <span className="tag-preview">
+                                    {submission.tags.length ? submission.tags.map((tag) => tag.key).join(', ') : 'untagged'}
+                                  </span>
+                                  <span
+                                    className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}
+                                  >
+                                    {submission.templateBenchmarkOptOut
+                                      ? 'Template benchmark: opt out'
+                                      : 'Template benchmark: included'}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -468,6 +702,15 @@ export function TagWorkbench({ submissions, tags }: Props) {
                   {selectedSubmission.status} · {selectedSubmission.difficulty ?? 'unknown difficulty'} ·{' '}
                   {selectedSubmission.language ?? 'unknown language'}
                 </p>
+                <label className="template-optout-control">
+                  <input
+                    type="checkbox"
+                    checked={templateBenchmarkOptOut}
+                    onChange={(event) => toggleTemplateBenchmarkOptOut(event.target.checked)}
+                    disabled={isPending}
+                  />
+                  <span>Opt out from templating</span>
+                </label>
               </div>
               <div className="complexity">
                 <span>Time {selectedSubmission.timeComplexity ?? 'n/a'}</span>
@@ -491,6 +734,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
             <div className="benchmark-status">
               {isBenchmarkPending ? <span>Benchmarking templates with LLM...</span> : null}
               {benchmark ? <span>Benchmark model: {benchmark.model}</span> : null}
+              {templateBenchmarkOptOut ? <span>Template benchmarking is opted out</span> : null}
               {excludedBenchmarkGroupKeys.size ? (
                 <span>
                   Excluded groups: {excludedBenchmarkGroupKeys.size} · Included: {includedBenchmarkGroupCount}
@@ -505,7 +749,13 @@ export function TagWorkbench({ submissions, tags }: Props) {
               <div className="tag-grid">
                 {tagGroups.map((group) => (
                   <section
-                    className={excludedBenchmarkGroupKeys.has(group.key) ? 'tag-group excluded' : 'tag-group'}
+                    className={[
+                      'tag-group',
+                      dimensionClass(group.tags[0]?.dimension ?? 'unknown'),
+                      excludedBenchmarkGroupKeys.has(group.key) ? 'excluded' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                     key={group.key}
                   >
                     <div className="tag-group-header">
@@ -542,6 +792,8 @@ export function TagWorkbench({ submissions, tags }: Props) {
                             key={tag.id}
                             className={[
                               'tag-option',
+                              dimensionClass(tag.dimension),
+                              tag.source !== 'seeded' ? 'custom-template' : '',
                               draftTagIds.has(tag.id) ? 'selected' : '',
                               selectedTemplate?.id === tag.id ? 'focused' : '',
                               score ? `score-${benchmarkTone(score.score)}` : '',
@@ -555,6 +807,27 @@ export function TagWorkbench({ submissions, tags }: Props) {
                             title={tag.description ?? tag.label}
                           >
                             {score ? <strong className="benchmark-score">{score.score}</strong> : null}
+                            {tag.source !== 'seeded' && tag.dimension === 'template' ? (
+                              <span
+                                className="delete-template-button"
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Delete ${tag.label}`}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  deleteTemplate(tag);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter' || event.key === ' ') {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    deleteTemplate(tag);
+                                  }
+                                }}
+                              >
+                                ×
+                              </span>
+                            ) : null}
                             <span>{tag.label}</span>
                             <small>{tag.key}</small>
                             <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
@@ -593,17 +866,25 @@ export function TagWorkbench({ submissions, tags }: Props) {
               />
             ) : null}
 
+            {deleteTemplateBlocker ? (
+              <DeleteTemplateBlockedModal blocker={deleteTemplateBlocker} onClose={() => setDeleteTemplateBlocker(null)} />
+            ) : null}
+
             <div className="actions">
               <button className="primary" onClick={saveSelectedSubmission} disabled={isPending}>
                 {isPending ? 'Saving...' : 'Save submission'}
               </button>
-              <button onClick={runTemplateBenchmark} disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0}>
+              <button
+                onClick={runTemplateBenchmark}
+                disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut}
+              >
                 {isBenchmarkPending ? 'Benchmarking...' : benchmark ? 'Rerun benchmark' : 'Benchmark templates'}
               </button>
               <button onClick={clearTags} disabled={isPending || draftTagIds.size === 0}>
                 Clear tags
               </button>
               {message ? <p>{message}</p> : null}
+              {isDeleteTemplatePending ? <p>Checking template deletion...</p> : null}
             </div>
           </>
         ) : (
@@ -716,6 +997,58 @@ function TemplateGeneratorModal({
             </button>
             <button type="button" className="primary" onClick={onCreate} disabled={isPending || !isComplete}>
               Create template
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DeleteTemplateBlockedModal({
+  blocker,
+  onClose,
+}: {
+  blocker: DeleteTemplateBlocker;
+  onClose: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="delete-template-modal" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">Delete blocked</p>
+            <h2 id="delete-template-title">{blocker.tag.label}</h2>
+            <p>
+              This template is still associated with {blocker.assignmentCount} submission
+              {blocker.assignmentCount === 1 ? '' : 's'}. Manually remove or replace those tags before deleting it.
+            </p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close delete blocker">
+            ×
+          </button>
+        </div>
+
+        <div className="blocked-submission-list">
+          {blocker.submissions.map((submission) => (
+            <div key={submission.id} className="blocked-submission">
+              <strong>{submission.titleSlug ?? 'Untitled submission'}</strong>
+              <span>
+                {submission.status} · {formatDate(submission.createdAt)}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {blocker.assignmentCount > blocker.submissions.length ? (
+          <p className="blocked-note">Showing latest {blocker.submissions.length}; resolve all associations before deleting.</p>
+        ) : null}
+
+        <div className="modal-footer">
+          <p>Deletion is intentionally blocked until the associations are resolved manually.</p>
+          <div>
+            <button type="button" className="primary" onClick={onClose}>
+              I will resolve manually
             </button>
           </div>
         </div>

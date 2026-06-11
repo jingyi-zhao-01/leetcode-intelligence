@@ -41,6 +41,7 @@ model Submission {
   titleSlug               String?
   content                 String
   status                  String
+  templateBenchmarkOptOut  Boolean                   @default(false)
   createdAt               DateTime                  @default(now()) @db.Timestamptz(6)
   submissionDetails       Json?
   isCheat                 Boolean                   @default(false)

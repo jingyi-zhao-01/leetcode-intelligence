@@ -45,7 +45,39 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
 }
 
 export async function benchmarkSubmissionTemplates(submissionId: string, excludedGroupKeys: string[] = []) {
+  const submission = await prisma.submission.findFirst({
+    where: { id: submissionId, status: 'Accepted' },
+    select: { templateBenchmarkOptOut: true },
+  });
+
+  if (!submission) {
+    throw new Error('Submission not found or not accepted.');
+  }
+
+  if (submission.templateBenchmarkOptOut) {
+    throw new Error('Submission is opted out from templating.');
+  }
+
   return analyzeSubmissionTemplates(submissionId, excludedGroupKeys);
+}
+
+export async function setSubmissionTemplateOptOut(submissionId: string, templateBenchmarkOptOut: boolean) {
+  const submission = await prisma.submission.findFirst({
+    where: { id: submissionId, status: 'Accepted' },
+    select: { id: true },
+  });
+
+  if (!submission) {
+    return { status: 'not_found' as const };
+  }
+
+  await prisma.submission.update({
+    where: { id: submissionId },
+    data: { templateBenchmarkOptOut },
+  });
+
+  revalidatePath('/');
+  return { status: 'updated' as const, templateBenchmarkOptOut };
 }
 
 export async function generateTemplateDraft(input: {
@@ -61,4 +93,54 @@ export async function createGeneratedTemplate(groupKey: string, draft: Generated
   const template = await createGeneratedTemplateRecord(groupKey, draft);
   revalidatePath('/');
   return template;
+}
+
+export async function deleteNonSeededTemplate(patternTagId: string) {
+  const tag = await prisma.patternTag.findUnique({
+    where: { id: patternTagId },
+    select: {
+      id: true,
+      key: true,
+      label: true,
+      source: true,
+      dimension: true,
+      SubmissionPatternTag: {
+        take: 12,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          Submission: {
+            select: {
+              id: true,
+              titleSlug: true,
+              status: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+      _count: { select: { SubmissionPatternTag: true } },
+    },
+  });
+
+  if (!tag || tag.dimension !== 'template' || tag.source === 'seeded') {
+    return { status: 'not_allowed' as const };
+  }
+
+  if (tag._count.SubmissionPatternTag > 0) {
+    return {
+      status: 'blocked' as const,
+      tag: { key: tag.key, label: tag.label },
+      assignmentCount: tag._count.SubmissionPatternTag,
+      submissions: tag.SubmissionPatternTag.map((entry) => ({
+        id: entry.Submission.id,
+        titleSlug: entry.Submission.titleSlug,
+        status: entry.Submission.status,
+        createdAt: entry.Submission.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  await prisma.patternTag.delete({ where: { id: tag.id } });
+  revalidatePath('/');
+  return { status: 'deleted' as const, key: tag.key };
 }

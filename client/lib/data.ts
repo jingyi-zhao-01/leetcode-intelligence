@@ -6,6 +6,7 @@ export type PatternTagOption = {
   label: string;
   dimension: string;
   source: PatternTagSource;
+  assignmentCount: number;
   description: string | null;
   metadata: TemplateMetadata | null;
   parentId: string | null;
@@ -36,8 +37,10 @@ export type SubmissionRow = {
   titleSlug: string | null;
   title: string | null;
   difficulty: string | null;
+  relatedProblems: string[];
   status: string;
   createdAt: string;
+  templateBenchmarkOptOut: boolean;
   language: string | null;
   timeComplexity: string | null;
   spaceComplexity: string | null;
@@ -140,7 +143,7 @@ export async function getTagWorkbenchData() {
     }),
     prisma.patternTag.findMany({
       where: { isActive: true },
-      include: { parent: true },
+      include: { parent: true, _count: { select: { SubmissionPatternTag: true } } },
       orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { label: 'asc' }],
     }),
   ]);
@@ -150,7 +153,7 @@ export async function getTagWorkbenchData() {
   ];
   const questions = await prisma.question.findMany({
     where: { titleSlug: { in: slugs } },
-    select: { titleSlug: true, title: true, difficulty: true, content: true },
+    select: { titleSlug: true, title: true, difficulty: true, content: true, relatedProblems: true },
   });
   const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
 
@@ -162,7 +165,9 @@ export async function getTagWorkbenchData() {
         titleSlug: submission.titleSlug,
         title: question?.title ?? null,
         difficulty: question?.difficulty ?? null,
+        relatedProblems: question?.relatedProblems ?? [],
         status: submission.status,
+        templateBenchmarkOptOut: submission.templateBenchmarkOptOut,
         createdAt: submission.createdAt.toISOString(),
         language: readLanguage(submission.submissionDetails),
         timeComplexity: submission.timeComplexity,
@@ -183,6 +188,7 @@ export async function getTagWorkbenchData() {
       label: tag.label,
       dimension: tag.dimension,
       source: tag.source,
+      assignmentCount: tag._count.SubmissionPatternTag,
       description: tag.description,
       metadata: readTemplateMetadata(tag.metadata),
       parentId: tag.parentId,
