@@ -2,6 +2,7 @@
   "name": "leetcode-qa",
   "private": true,
   "workspaces": [
+    "client",
     "services/leetcode-intelligence-service",
     "services/leetcode-mcp-service",
     "services/leetcode-submission-service"
@@ -12,7 +13,8 @@
     "postinstall": "prisma generate --schema services/shared/prisma/schema.prisma",
     "test": "vitest run",
     "format": "prettier --write \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\"",
-    "format:check": "prettier --check \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\""
+    "format:check": "prettier --check \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\"",
+    "seed:pattern-tags": "tsx services/shared/prisma/seed-pattern-tags.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",

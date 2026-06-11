@@ -1,0 +1,194 @@
+import { prisma } from './prisma';
+
+export type PatternTagOption = {
+  id: string;
+  key: string;
+  label: string;
+  dimension: string;
+  source: PatternTagSource;
+  description: string | null;
+  metadata: TemplateMetadata | null;
+  parentId: string | null;
+  parentKey: string | null;
+  parentLabel: string | null;
+  sortOrder: number;
+};
+
+export type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
+
+export type TemplateMetadata = {
+  classicProblems?: string[];
+  whenToUse?: string[];
+  whenNotToUse?: string[];
+  signals?: string[];
+  pseudocode?: string[];
+  invariants?: string[];
+  defaultComplexity?: {
+    time?: string;
+    space?: string;
+  };
+  relatedDataStructures?: string[];
+  similarTemplates?: string[];
+};
+
+export type SubmissionRow = {
+  id: string;
+  titleSlug: string | null;
+  title: string | null;
+  difficulty: string | null;
+  status: string;
+  createdAt: string;
+  language: string | null;
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  questionDescription: string | null;
+  submissionCode: string;
+  tags: Array<{
+    id: string;
+    key: string;
+    label: string;
+    dimension: string;
+  }>;
+};
+
+function readLanguage(details: unknown): string | null {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return null;
+  }
+
+  const record = details as Record<string, unknown>;
+  const language = record.lang ?? record.language ?? record.programming_language;
+  return typeof language === 'string' && language.trim() ? language : null;
+}
+
+function readQuestionDescription(content: string | null): string | null {
+  if (!content) {
+    return null;
+  }
+
+  const text = content
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|pre|ul|ol|h[1-6])>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text || null;
+}
+
+function readTemplateMetadata(metadata: unknown): TemplateMetadata | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const record = metadata as Record<string, unknown>;
+  return {
+    classicProblems: readStringArray(record.classicProblems),
+    whenToUse: readStringArray(record.whenToUse),
+    whenNotToUse: readStringArray(record.whenNotToUse),
+    signals: readStringArray(record.signals),
+    pseudocode: readStringArray(record.pseudocode),
+    invariants: readStringArray(record.invariants),
+    defaultComplexity: readComplexity(record.defaultComplexity),
+    relatedDataStructures: readStringArray(record.relatedDataStructures),
+    similarTemplates: readStringArray(record.similarTemplates),
+  };
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+  return entries.length ? entries : undefined;
+}
+
+function readComplexity(value: unknown): TemplateMetadata['defaultComplexity'] | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const time = typeof record.time === 'string' ? record.time : undefined;
+  const space = typeof record.space === 'string' ? record.space : undefined;
+  return time || space ? { time, space } : undefined;
+}
+
+export async function getTagWorkbenchData() {
+  const [submissions, tags] = await Promise.all([
+    prisma.submission.findMany({
+      where: { status: 'Accepted' },
+      orderBy: { createdAt: 'desc' },
+      take: 250,
+      include: {
+        SubmissionPatternTag: {
+          include: { PatternTag: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    }),
+    prisma.patternTag.findMany({
+      where: { isActive: true },
+      include: { parent: true },
+      orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { label: 'asc' }],
+    }),
+  ]);
+
+  const slugs = [
+    ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+  ];
+  const questions = await prisma.question.findMany({
+    where: { titleSlug: { in: slugs } },
+    select: { titleSlug: true, title: true, difficulty: true, content: true },
+  });
+  const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
+
+  return {
+    submissions: submissions.map<SubmissionRow>((submission) => {
+      const question = submission.titleSlug ? questionBySlug.get(submission.titleSlug) : null;
+      return {
+        id: submission.id,
+        titleSlug: submission.titleSlug,
+        title: question?.title ?? null,
+        difficulty: question?.difficulty ?? null,
+        status: submission.status,
+        createdAt: submission.createdAt.toISOString(),
+        language: readLanguage(submission.submissionDetails),
+        timeComplexity: submission.timeComplexity,
+        spaceComplexity: submission.spaceComplexity,
+        questionDescription: readQuestionDescription(question?.content ?? null),
+        submissionCode: submission.content,
+        tags: submission.SubmissionPatternTag.map((entry) => ({
+          id: entry.PatternTag.id,
+          key: entry.PatternTag.key,
+          label: entry.PatternTag.label,
+          dimension: entry.PatternTag.dimension,
+        })),
+      };
+    }),
+    tags: tags.map<PatternTagOption>((tag) => ({
+      id: tag.id,
+      key: tag.key,
+      label: tag.label,
+      dimension: tag.dimension,
+      source: tag.source,
+      description: tag.description,
+      metadata: readTemplateMetadata(tag.metadata),
+      parentId: tag.parentId,
+      parentKey: tag.parent?.key ?? null,
+      parentLabel: tag.parent?.label ?? null,
+      sortOrder: tag.sortOrder,
+    })),
+  };
+}

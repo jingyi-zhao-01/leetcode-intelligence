@@ -6,6 +6,25 @@ vars: {
 
 direction: right
 
+PatternTag: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  key: string { constraint: unique }
+  dimension: enum
+  label: string
+  parentId: "string?" { constraint: foreign_key }
+  isActive: boolean
+  sortOrder: int
+}
+
+SubmissionPatternTag: {
+  shape: sql_table
+  id: string { constraint: primary_key }
+  submissionId: string { constraint: foreign_key }
+  patternTagId: string { constraint: foreign_key }
+  createdAt: timestamptz
+}
+
 IntelligenceResponse: {
   shape: sql_table
   id: string { constraint: primary_key }
@@ -79,6 +98,9 @@ Submission: {
   timeSpentMinutes: "int?"
 }
 
+PatternTag.parentId -> PatternTag.id: "N:1 optional"
+SubmissionPatternTag.submissionId -> Submission.id: "N:1"
+SubmissionPatternTag.patternTagId -> PatternTag.id: "N:1"
 IntelligenceResponse.promptEventId -> IntelligencePromptEvent.id: "1:1"
 IntelligenceWeightAudit.promptEventId -> IntelligencePromptEvent.id: "N:1 optional"
 IntelligenceWeightAudit.questionSlug -> Question.titleSlug: "N:1"

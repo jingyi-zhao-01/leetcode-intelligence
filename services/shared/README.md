@@ -19,3 +19,19 @@ Source diagram: `schema-relations.d2`
 
 - Prisma schema: `prisma/schema.prisma`
 - Relationship diagram: `schema-relations.d2`
+
+## Pattern Tag Seed
+
+The controlled template tag space is provisioned by `prisma/seed-pattern-tags.ts`.
+
+Preview without writing to the database:
+
+```bash
+npm run seed:pattern-tags -- --dry-run
+```
+
+Apply the seed to the configured `DATABASE_URL`:
+
+```bash
+npm run seed:pattern-tags
+```
