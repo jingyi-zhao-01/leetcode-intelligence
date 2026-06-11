@@ -41,12 +41,13 @@ function hashValue(value: string) {
   return hash;
 }
 
-function paletteColor(kind: 'template-group', key: string, hueOverride?: number) {
+function paletteColor(kind: 'template-group' | 'template', key: string, hueOverride?: number) {
   const hue = String(hueOverride ?? 290 + (hashValue(key) % 90));
+  const isTemplate = kind === 'template';
   return {
-    stroke: `hsl(${hue} 74% 40% / 0.95)`,
-    fill: `hsl(${hue} 78% 60% / 0.06)`,
-    text: `hsl(${hue} 75% 28% / 0.95)`,
+    stroke: isTemplate ? `hsl(${hue} 68% 46% / 0.55)` : `hsl(${hue} 74% 40% / 0.95)`,
+    fill: isTemplate ? `hsl(${hue} 74% 62% / 0.035)` : `hsl(${hue} 78% 60% / 0.06)`,
+    text: isTemplate ? `hsl(${hue} 62% 32% / 0.78)` : `hsl(${hue} 75% 28% / 0.95)`,
   };
 }
 
@@ -343,15 +344,22 @@ export function SubmissionGraphView({
           <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
             <g className="graph-cluster-layer">
               {clusters.map((cluster) => {
-                const colors = paletteColor(cluster.kind, cluster.key, clusterHueByKey[cluster.key]);
+                const hueKey = cluster.kind === 'template' ? cluster.parentKey ?? cluster.key : cluster.key;
+                const colors = paletteColor(cluster.kind, cluster.key, clusterHueByKey[hueKey]);
                 const isClusterHighlighted =
-                  !effectiveHoveredPrimaryClusterKey || cluster.key === effectiveHoveredPrimaryClusterKey;
+                  !effectiveHoveredPrimaryClusterKey ||
+                  cluster.key === effectiveHoveredPrimaryClusterKey ||
+                  cluster.parentKey === effectiveHoveredPrimaryClusterKey;
                 return (
                   <g
                     key={`cluster-${cluster.id}`}
                     className={`graph-cluster-group ${isClusterHighlighted ? '' : 'dimmed'}`.trim()}
-                    onMouseEnter={() => setHoveredClusterFromGraph(cluster.key)}
-                    onMouseLeave={() => setHoveredClusterFromGraph((current) => (current === cluster.key ? null : current))}
+                    onMouseEnter={() => setHoveredClusterFromGraph(cluster.kind === 'template' ? cluster.parentKey ?? null : cluster.key)}
+                    onMouseLeave={() =>
+                      setHoveredClusterFromGraph((current) =>
+                        current === (cluster.kind === 'template' ? cluster.parentKey ?? null : cluster.key) ? null : current,
+                      )
+                    }
                   >
                     <rect
                       x={cluster.x}
@@ -385,7 +393,7 @@ export function SubmissionGraphView({
                         }
                       />
                       <text x={10} y={15} className={`graph-cluster-label ${cluster.kind}`}>
-                        Template Group: {cluster.label}
+                        {cluster.kind === 'template-group' ? `Template Group: ${cluster.label}` : `Template: ${cluster.label}`}
                       </text>
                     </g>
                   </g>

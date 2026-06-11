@@ -3,9 +3,10 @@ import type { SubmissionGraphNode } from './submission-graph';
 
 export type ClusterEnvelope = {
   id: string;
-  kind: 'template-group';
+  kind: 'template-group' | 'template';
   key: string;
   label: string;
+  parentKey?: string;
   nodeIds: string[];
   x: number;
   y: number;
@@ -30,6 +31,7 @@ type ClusterableNode = {
   vx?: number;
   vy?: number;
   templateGroups: SubmissionGraphNode['templateGroups'];
+  templateTags: SubmissionGraphNode['templateTags'];
   primaryTemplateGroup: SubmissionGraphNode['primaryTemplateGroup'];
 };
 
@@ -152,6 +154,7 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
 ) {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const clusterMap = new Map<string, ClusterEnvelope>();
+  const templateClusterMap = new Map<string, ClusterEnvelope>();
   const padding = 20;
   const labelOffsetY = 12;
 
@@ -184,11 +187,41 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
         labelHeight: 22,
       });
     }
+
+    for (const template of node.templateTags) {
+      if (!template.parentKey || !visiblePrimaryClusterKeys.has(template.parentKey)) {
+        continue;
+      }
+
+      const id = `template:${template.parentKey}:${template.key}`;
+      const cluster = templateClusterMap.get(id);
+      if (cluster) {
+        cluster.nodeIds.push(node.id);
+        continue;
+      }
+
+      templateClusterMap.set(id, {
+        id,
+        kind: 'template',
+        key: template.key,
+        label: template.label,
+        parentKey: template.parentKey,
+        nodeIds: [node.id],
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        labelX: 0,
+        labelY: 0,
+        labelWidth: 0,
+        labelHeight: 20,
+      });
+    }
   }
 
   const envelopes: ClusterEnvelope[] = [];
 
-  for (const cluster of clusterMap.values()) {
+  for (const cluster of [...clusterMap.values(), ...templateClusterMap.values()]) {
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
     let maxX = Number.NEGATIVE_INFINITY;
@@ -200,7 +233,7 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
         continue;
       }
 
-      const radius = radiusForNode(node) + 20;
+      const radius = radiusForNode(node) + (cluster.kind === 'template-group' ? 20 : 10);
       minX = Math.min(minX, node.x - radius);
       minY = Math.min(minY, node.y - radius);
       maxX = Math.max(maxX, node.x + radius);
@@ -213,17 +246,23 @@ export function buildVisibleTemplateGroupEnvelopes<Node extends ClusterableNode>
 
     envelopes.push({
       ...cluster,
-      x: minX - padding,
-      y: minY - padding - 14,
-      width: maxX - minX + padding * 2,
-      height: maxY - minY + padding * 2 + 14,
-      labelX: minX - padding + 10,
-      labelY: minY - padding - labelOffsetY,
-      labelWidth: Math.min(320, Math.max(160, 12 + cluster.label.length * 6)),
+      x: minX - (cluster.kind === 'template-group' ? padding : 12),
+      y: minY - (cluster.kind === 'template-group' ? padding + 14 : 10),
+      width: maxX - minX + (cluster.kind === 'template-group' ? padding * 2 : 24),
+      height: maxY - minY + (cluster.kind === 'template-group' ? padding * 2 + 14 : 20),
+      labelX: minX - (cluster.kind === 'template-group' ? padding : 12) + 10,
+      labelY: minY - (cluster.kind === 'template-group' ? padding + labelOffsetY : 8),
+      labelWidth:
+        cluster.kind === 'template-group'
+          ? Math.min(320, Math.max(160, 12 + cluster.label.length * 6))
+          : Math.min(220, Math.max(110, 12 + cluster.label.length * 6)),
     });
   }
 
   return envelopes.sort((left, right) => {
+    if (left.kind !== right.kind) {
+      return left.kind === 'template-group' ? -1 : 1;
+    }
     if (left.nodeIds.length !== right.nodeIds.length) {
       return right.nodeIds.length - left.nodeIds.length;
     }

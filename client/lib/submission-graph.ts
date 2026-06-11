@@ -26,6 +26,8 @@ export type SubmissionGraphNode = {
   templateTags: Array<{
     key: string;
     label: string;
+    parentKey: string | null;
+    parentLabel: string | null;
   }>;
   templateGroups: Array<{
     key: string;
@@ -124,7 +126,7 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
         templateTags: new Map(
           submission.tags
             .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag')
-            .map((tag) => [tag.key, tag.label] as const),
+            .map((tag) => [tag.key, { label: tag.label, parentKey: tag.parentKey, parentLabel: tag.parentLabel }] as const),
         ),
         templateGroups: new Map(),
         templateGroupStats: new Map(),
@@ -160,7 +162,11 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
         continue;
       }
 
-      current.templateTags.set(tag.key, tag.label);
+      current.templateTags.set(tag.key, {
+        label: tag.label,
+        parentKey: tag.parentKey,
+        parentLabel: tag.parentLabel,
+      });
       if (tag.parentKey) {
         const label = tag.parentLabel ?? tag.parentKey;
         current.templateGroups.set(tag.parentKey, label);
@@ -220,7 +226,12 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
       x: 0,
       y: 0,
       connectionCount: 0,
-      templateTags: [...problem.templateTags.entries()].map(([key, label]) => ({ key, label })),
+      templateTags: [...problem.templateTags.entries()].map(([key, entry]) => ({
+        key,
+        label: entry.label,
+        parentKey: entry.parentKey,
+        parentLabel: entry.parentLabel,
+      })),
       templateGroups: [...problem.templateGroups.entries()].map(([key, label]) => ({ key, label })),
     }));
 
