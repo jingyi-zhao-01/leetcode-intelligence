@@ -31,6 +31,10 @@ export type SubmissionGraphNode = {
     key: string;
     label: string;
   }>;
+  primaryTemplateGroup: {
+    key: string;
+    label: string;
+  } | null;
 };
 
 export type SubmissionGraphEdge = {
@@ -90,6 +94,14 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
       relatedProblems: Set<string>;
       templateTags: Map<string, string>;
       templateGroups: Map<string, string>;
+      templateGroupStats: Map<
+        string,
+        {
+          label: string;
+          count: number;
+          lastSeenAt: string;
+        }
+      >;
     }
   >();
 
@@ -114,38 +126,63 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
             .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag')
             .map((tag) => [tag.key, tag.label] as const),
         ),
-        templateGroups: new Map(
-          submission.tags
-            .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag' && Boolean(tag.parentKey))
-            .map((tag) => [tag.parentKey as string, tag.parentLabel ?? tag.parentKey ?? tag.key] as const),
-        ),
+        templateGroups: new Map(),
+        templateGroupStats: new Map(),
       });
+    }
+
+    const current = problemMap.get(slug);
+    if (!current) {
       continue;
     }
 
-    existing.attempts += 1;
-    if (new Date(submission.createdAt) > new Date(existing.lastAttemptAt)) {
-      existing.lastAttemptAt = submission.createdAt;
-      existing.representativeSubmissionId = submission.id;
-      existing.title = submission.title ?? existing.title;
-      existing.difficulty = submission.difficulty ?? existing.difficulty;
+    if (existing) {
+      current.attempts += 1;
+      if (new Date(submission.createdAt) > new Date(current.lastAttemptAt)) {
+        current.lastAttemptAt = submission.createdAt;
+        current.representativeSubmissionId = submission.id;
+        current.title = submission.title ?? current.title;
+        current.difficulty = submission.difficulty ?? current.difficulty;
+      }
     }
+
     for (const related of submission.relatedProblems) {
       const normalized = normalizeRelatedSlug(related);
       if (normalized) {
-        existing.relatedProblems.add(normalized);
+        current.relatedProblems.add(normalized);
       }
     }
+
+    const templateGroupsForSubmission = new Map<string, string>();
 
     for (const tag of submission.tags) {
       if (tag.dimension !== 'template' || tag.kind !== 'tag') {
         continue;
       }
 
-      existing.templateTags.set(tag.key, tag.label);
+      current.templateTags.set(tag.key, tag.label);
       if (tag.parentKey) {
-        existing.templateGroups.set(tag.parentKey, tag.parentLabel ?? tag.parentKey);
+        const label = tag.parentLabel ?? tag.parentKey;
+        current.templateGroups.set(tag.parentKey, label);
+        templateGroupsForSubmission.set(tag.parentKey, label);
       }
+    }
+
+    for (const [groupKey, groupLabel] of templateGroupsForSubmission.entries()) {
+      const stat = current.templateGroupStats.get(groupKey);
+      if (stat) {
+        stat.count += 1;
+        if (new Date(submission.createdAt) > new Date(stat.lastSeenAt)) {
+          stat.lastSeenAt = submission.createdAt;
+        }
+        continue;
+      }
+
+      current.templateGroupStats.set(groupKey, {
+        label: groupLabel,
+        count: 1,
+        lastSeenAt: submission.createdAt,
+      });
     }
   }
 
@@ -157,6 +194,21 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
       return left.title.localeCompare(right.title);
     })
     .map((problem) => ({
+      primaryTemplateGroup: [...problem.templateGroupStats.entries()]
+        .sort((left, right) => {
+          if (right[1].count !== left[1].count) {
+            return right[1].count - left[1].count;
+          }
+          const timeDiff = new Date(right[1].lastSeenAt).getTime() - new Date(left[1].lastSeenAt).getTime();
+          if (timeDiff !== 0) {
+            return timeDiff;
+          }
+          return left[1].label.localeCompare(right[1].label);
+        })
+        .map(([key, entry]) => ({
+          key,
+          label: entry.label,
+        }))[0] ?? null,
       id: problem.slug,
       title: problem.title,
       slug: problem.slug,
@@ -277,6 +329,7 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
     connectionCount: connectedMap.get(node.slug)?.size ?? 0,
     templateTags: node.templateTags,
     templateGroups: node.templateGroups,
+    primaryTemplateGroup: node.primaryTemplateGroup,
   }));
 
   return { nodes: nodesWithConnection, edges, canvasWidth: finalWidth, canvasHeight: finalHeight };

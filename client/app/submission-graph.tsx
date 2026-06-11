@@ -8,31 +8,17 @@ import {
   forceSimulation,
   forceX,
   forceY,
-  type Force,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from 'd3-force';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { type SubmissionGraph, type SubmissionGraphNode } from '../lib/submission-graph';
-
-type TemplateCluster = {
-  id: string;
-  kind: 'template-group';
-  key: string;
-  label: string;
-  nodeIds: string[];
-};
-
-type TemplateClusterEnvelope = TemplateCluster & {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  labelX: number;
-  labelY: number;
-  labelWidth: number;
-  labelHeight: number;
-};
+import {
+  buildPrimaryClusterAnchors,
+  createPrimaryClusterForce,
+  createSharedTemplateGroupForce,
+  buildVisibleTemplateGroupEnvelopes,
+} from '../lib/submission-graph-layout';
 
 type LiveGraphNode = SubmissionGraphNode &
   SimulationNodeDatum & {
@@ -54,7 +40,7 @@ function hashValue(value: string) {
   return hash;
 }
 
-function paletteColor(kind: TemplateCluster['kind'], key: string, hueOverride?: number) {
+function paletteColor(kind: 'template-group', key: string, hueOverride?: number) {
   const hue = String(hueOverride ?? 290 + (hashValue(key) % 90));
   return {
     stroke: `hsl(${hue} 74% 40% / 0.95)`,
@@ -75,70 +61,6 @@ function buildLiveNode(node: SubmissionGraphNode): LiveGraphNode {
     vx: 0,
     vy: 0,
   };
-}
-
-function createMembershipForce(
-  membershipsForNode: (node: LiveGraphNode) => string[],
-  strength: number,
-): Force<LiveGraphNode, LiveGraphLink> {
-  let nodes: LiveGraphNode[] = [];
-
-  const force = ((alpha: number) => {
-    const centers = new Map<string, { x: number; y: number; count: number }>();
-
-    for (const node of nodes) {
-      for (const membership of membershipsForNode(node)) {
-        const center = centers.get(membership) ?? { x: 0, y: 0, count: 0 };
-        center.x += node.x;
-        center.y += node.y;
-        center.count += 1;
-        centers.set(membership, center);
-      }
-    }
-
-    for (const center of centers.values()) {
-      if (center.count > 0) {
-        center.x /= center.count;
-        center.y /= center.count;
-      }
-    }
-
-    for (const node of nodes) {
-      const memberships = membershipsForNode(node);
-      if (!memberships.length) {
-        continue;
-      }
-
-      let targetX = 0;
-      let targetY = 0;
-      let count = 0;
-
-      for (const membership of memberships) {
-        const center = centers.get(membership);
-        if (!center || center.count < 2) {
-          continue;
-        }
-        targetX += center.x;
-        targetY += center.y;
-        count += 1;
-      }
-
-      if (!count) {
-        continue;
-      }
-
-      targetX /= count;
-      targetY /= count;
-      node.vx = (node.vx ?? 0) + (targetX - node.x) * strength * alpha;
-      node.vy = (node.vy ?? 0) + (targetY - node.y) * strength * alpha;
-    }
-  }) as Force<LiveGraphNode, LiveGraphLink>;
-
-  force.initialize = (forceNodes) => {
-    nodes = forceNodes as LiveGraphNode[];
-  };
-
-  return force;
 }
 
 function nodeColor(node: SubmissionGraphNode) {
@@ -202,6 +124,7 @@ export function SubmissionGraphView({
   useEffect(() => {
     const nodes = graph.nodes.map(buildLiveNode);
     const links: LiveGraphLink[] = graph.edges.map((edge) => ({ ...edge }));
+    const primaryClusterAnchors = buildPrimaryClusterAnchors(nodes, canvasWidth, canvasHeight);
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
     const resolveNode = (value: string | LiveGraphNode) => {
       return typeof value === 'string' ? nodeById.get(value) ?? null : value;
@@ -229,13 +152,8 @@ export function SubmissionGraphView({
       .force('center', forceCenter(canvasWidth / 2, canvasHeight / 2))
       .force('x', forceX(canvasWidth / 2).strength(0.018))
       .force('y', forceY(canvasHeight / 2).strength(0.018))
-      .force(
-        'template-groups',
-        createMembershipForce(
-          (node) => node.templateGroups.map((group) => `group:${group.key}`),
-          0.12,
-        ),
-      )
+      .force('primary-template-group', createPrimaryClusterForce(primaryClusterAnchors, 0.18))
+      .force('shared-template-groups', createSharedTemplateGroupForce(primaryClusterAnchors, 0.1))
       .alpha(0.85)
       .alphaDecay(0.02)
       .velocityDecay(0.32);
@@ -264,76 +182,8 @@ export function SubmissionGraphView({
   const effectiveHoveredPrimaryClusterKey = hoveredClusterFromGraph ?? hoveredPrimaryClusterKey;
 
   const clusters = useMemo(() => {
-    const clusterMap = new Map<string, TemplateCluster>();
-
-    for (const node of layoutNodes) {
-      for (const templateGroup of node.templateGroups) {
-        if (!visiblePrimaryClusterKeys.has(templateGroup.key)) {
-          continue;
-        }
-        const key = `template-group:${templateGroup.key}`;
-        const cluster = clusterMap.get(key);
-        if (cluster) {
-          cluster.nodeIds.push(node.id);
-          continue;
-        }
-        clusterMap.set(key, {
-          id: key,
-          kind: 'template-group',
-          key: templateGroup.key,
-          label: templateGroup.label,
-          nodeIds: [node.id],
-        });
-      }
-    }
-
-    const envelopes: TemplateClusterEnvelope[] = [];
-    const padding = 20;
-    const labelOffsetY = 12;
-
-    for (const cluster of clusterMap.values()) {
-
-      let minX = Number.POSITIVE_INFINITY;
-      let minY = Number.POSITIVE_INFINITY;
-      let maxX = Number.NEGATIVE_INFINITY;
-      let maxY = Number.NEGATIVE_INFINITY;
-      let hasNode = false;
-
-      for (const nodeId of cluster.nodeIds) {
-        const node = nodeById.get(nodeId);
-        if (!node) continue;
-        const radius = nodeRadius(node) + 20;
-        minX = Math.min(minX, node.x - radius);
-        minY = Math.min(minY, node.y - radius);
-        maxX = Math.max(maxX, node.x + radius);
-        maxY = Math.max(maxY, node.y + radius);
-        hasNode = true;
-      }
-
-      if (!hasNode) {
-        continue;
-      }
-
-      envelopes.push({
-        ...cluster,
-        x: minX - padding,
-        y: minY - padding - 14,
-        width: maxX - minX + padding * 2,
-        height: maxY - minY + padding * 2 + 14,
-        labelX: minX - padding + 10,
-        labelY: minY - padding - labelOffsetY,
-        labelWidth: Math.min(320, Math.max(160, 12 + cluster.label.length * 6)),
-        labelHeight: 22,
-      });
-    }
-
-    return envelopes.sort((left, right) => {
-      if (left.nodeIds.length !== right.nodeIds.length) {
-        return right.nodeIds.length - left.nodeIds.length;
-      }
-      return left.label.localeCompare(right.label);
-    });
-  }, [layoutNodes, nodeById, visiblePrimaryClusterKeys]);
+    return buildVisibleTemplateGroupEnvelopes(layoutNodes, visiblePrimaryClusterKeys, nodeRadius);
+  }, [layoutNodes, visiblePrimaryClusterKeys]);
 
   const highlightedNodeIds = useMemo(() => {
     if (!effectiveHoveredPrimaryClusterKey) {

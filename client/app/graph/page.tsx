@@ -25,5 +25,5 @@ export default async function GraphPage({
   const submissions = await getGraphPageData();
   const graph = buildSubmissionGraph(submissions);
 
-  return <GraphWorkbench submissions={submissions} graph={graph} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
+  return <GraphWorkbench graph={graph} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
 }

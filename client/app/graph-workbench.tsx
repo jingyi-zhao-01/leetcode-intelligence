@@ -4,10 +4,8 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { SubmissionGraphView } from './submission-graph';
 import { type SubmissionGraph } from '../lib/submission-graph';
-import type { GraphSubmissionRow } from '../lib/data';
 
 type Props = {
-  submissions: GraphSubmissionRow[];
   graph: SubmissionGraph;
   initialSelectedSlug?: string | null;
 };
@@ -60,58 +58,37 @@ function filterGraph(
   };
 }
 
-function buildClusterTree(submissions: GraphSubmissionRow[]): GraphClusterTree[] {
-  const slugMembers = new Map<string, Map<string, string>>();
+function buildClusterTree(graph: SubmissionGraph): GraphClusterTree[] {
+  const groupCounts = new Map<string, { label: string; slugs: Set<string> }>();
 
-  for (const submission of submissions) {
-    if (!submission.titleSlug) {
-      continue;
-    }
-
-    const slug = submission.titleSlug.toLowerCase();
-    const membership = slugMembers.get(slug) ?? new Map<string, string>();
-
-    for (const tag of submission.tags) {
-      if (tag.dimension !== 'template' || tag.kind !== 'tag' || !tag.parentKey) {
-        continue;
-      }
-
-      membership.set(tag.parentKey, tag.parentLabel ?? tag.parentKey);
-    }
-
-    slugMembers.set(slug, membership);
-  }
-
-  const primaryCounts = new Map<string, { label: string; slugs: Set<string> }>();
-
-  for (const [slug, membership] of slugMembers.entries()) {
-    for (const [primaryKey, primaryLabel] of membership.entries()) {
-      const primary = primaryCounts.get(primaryKey) ?? {
-        label: primaryLabel,
+  for (const node of graph.nodes) {
+    for (const group of node.templateGroups) {
+      const entry = groupCounts.get(group.key) ?? {
+        label: group.label,
         slugs: new Set<string>(),
       };
-      primary.slugs.add(slug);
-      primaryCounts.set(primaryKey, primary);
+      entry.slugs.add(node.slug);
+      groupCounts.set(group.key, entry);
     }
   }
 
-  return [...primaryCounts.entries()]
-    .map(([key, primary]) => ({
+  return [...groupCounts.entries()]
+    .map(([key, group]) => ({
       key,
-      label: primary.label,
-      questionCount: primary.slugs.size,
+      label: group.label,
+      questionCount: group.slugs.size,
     }))
     .sort((left, right) => right.questionCount - left.questionCount || left.label.localeCompare(right.label));
 }
 
-export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Props) {
+export function GraphWorkbench({ graph, initialSelectedSlug }: Props) {
   const [query, setQuery] = useState('');
   const [selectedNodeSlug, setSelectedNodeSlug] = useState<string | null>(initialSelectedSlug?.toLowerCase() ?? null);
   const [selectedTemplateGroupKeys, setSelectedTemplateGroupKeys] = useState<Set<string>>(() => new Set());
   const [hoveredTemplateGroupKey, setHoveredTemplateGroupKey] = useState<string | null>(null);
-  const templateGroupTree = useMemo(() => buildClusterTree(submissions), [submissions]);
+  const templateGroupTree = useMemo(() => buildClusterTree(graph), [graph]);
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
-    Object.fromEntries(buildClusterTree(submissions).map((group) => [group.key, defaultClusterHue(group.key)])),
+    Object.fromEntries(buildClusterTree(graph).map((group) => [group.key, defaultClusterHue(group.key)])),
   );
   const filteredGraph = useMemo(
     () => filterGraph(graph, query.trim().toLowerCase(), selectedTemplateGroupKeys),
