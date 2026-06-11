@@ -1,12 +1,14 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
   deleteNonSeededTemplate,
   generateTemplateDraft,
+  logoutAdmin,
   setSubmissionTemplateOptOut,
   saveSubmissionTags,
 } from './actions';
@@ -17,6 +19,7 @@ import type { GeneratedTemplateDraft } from '../lib/template-generator';
 type Props = {
   submissions: SubmissionRow[];
   tags: PatternTagOption[];
+  canWrite: boolean;
 };
 
 type SubmissionProblemGroup = {
@@ -97,29 +100,35 @@ const TEMPLATE_FORM_ROWS: Array<{
   { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line' },
 ];
 
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  month: 'short',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+const WEEK_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  month: 'short',
+  day: '2-digit',
+  year: 'numeric',
+});
+
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
+  return DATE_TIME_FORMATTER.format(new Date(value));
 }
 
 function formatWeekLabel(value: Date) {
-  return new Intl.DateTimeFormat('en', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-  }).format(value);
+  return WEEK_FORMATTER.format(value);
 }
 
 function startOfWeek(value: Date) {
   const weekStart = new Date(value);
-  const dayIndex = weekStart.getDay();
+  const dayIndex = weekStart.getUTCDay();
   const offset = (dayIndex + 6) % 7;
-  weekStart.setDate(weekStart.getDate() - offset);
-  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setUTCDate(weekStart.getUTCDate() - offset);
+  weekStart.setUTCHours(0, 0, 0, 0);
   return weekStart;
 }
 
@@ -234,8 +243,10 @@ function valueFromDraftField(draft: GeneratedTemplateDraft, field: keyof Templat
   return form[field];
 }
 
-export function TagWorkbench({ submissions, tags }: Props) {
+export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(submissions[0]?.id ?? '');
   const [selectedTemplateId, setSelectedTemplateId] = useState(
@@ -259,6 +270,11 @@ export function TagWorkbench({ submissions, tags }: Props) {
   const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
   const [deleteTemplateBlocker, setDeleteTemplateBlocker] = useState<DeleteTemplateBlocker | null>(null);
   const [collapsedWeekKeys, setCollapsedWeekKeys] = useState<Set<string>>(() => new Set());
+  const returnTo = useMemo(() => {
+    const query = searchParams.toString();
+    const current = query ? `${pathname}?${query}` : pathname;
+    return current || '/';
+  }, [pathname, searchParams]);
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? submissions[0] ?? null;
   const selectedTags = tags.filter((tag) => draftTagIds.has(tag.id));
@@ -380,6 +396,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function saveSelectedSubmission() {
+    if (!canWrite) {
+      setMessage('Read-only mode. Please sign in to save tags.');
+      return;
+    }
     if (!selectedSubmission) return;
     startTransition(async () => {
       await saveSubmissionTags(selectedSubmission.id, [...draftTagIds]);
@@ -389,6 +409,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function clearTags() {
+    if (!canWrite) {
+      setMessage('Read-only mode. Please sign in to clear tags.');
+      return;
+    }
     if (!selectedSubmission) return;
     const shouldClear = window.confirm(
       'Clear all tags for this submission? This will remove the saved tag assignments from the database.',
@@ -425,6 +449,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function runTemplateBenchmark() {
+    if (!canWrite) {
+      setBenchmarkError('Read-only mode. Please sign in to run benchmark.');
+      return;
+    }
     if (!selectedSubmission) return;
     if (templateBenchmarkOptOut) {
       setBenchmarkError('This submission is opted out from templating. Turn off opt-out to run benchmark.');
@@ -446,6 +474,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function openTemplateGenerator(group: { key: string; label: string }) {
+    if (!canWrite) return;
     setTemplateGeneratorModal({
       groupKey: group.key,
       groupLabel: group.label,
@@ -474,6 +503,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function runTemplateGenerator() {
+    if (!canWrite) return;
     if (!selectedSubmission || !templateGeneratorModal) return;
     const modal = templateGeneratorModal;
 
@@ -500,6 +530,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function assistTemplateRow(field: keyof TemplateForm, label: string) {
+    if (!canWrite) return;
     if (!selectedSubmission || !templateGeneratorModal) return;
     const modal = templateGeneratorModal;
 
@@ -524,6 +555,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function createTemplateFromModal() {
+    if (!canWrite) return;
     if (!templateGeneratorModal || !isTemplateFormComplete(templateGeneratorModal.form)) return;
     const modal = templateGeneratorModal;
 
@@ -543,6 +575,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function deleteTemplate(tag: PatternTagOption) {
+    if (!canWrite) return;
     if (tag.source === 'seeded' || tag.dimension !== 'template') return;
     const shouldDelete = window.confirm(`Delete template "${tag.label}"? This is only allowed when no submissions use it.`);
     if (!shouldDelete) return;
@@ -572,6 +605,10 @@ export function TagWorkbench({ submissions, tags }: Props) {
   }
 
   function toggleTemplateBenchmarkOptOut(next: boolean) {
+    if (!canWrite) {
+      setMessage('Read-only mode. Please sign in to change opt-out settings.');
+      return;
+    }
     if (!selectedSubmission) return;
     if (isPending) return;
 
@@ -607,6 +644,22 @@ export function TagWorkbench({ submissions, tags }: Props) {
           <div>
             <p className="eyebrow">Pattern Tag Workbench</p>
             <h1>Submission taxonomy</h1>
+          </div>
+          <div className="admin-access">
+            {canWrite ? (
+              <form action={logoutAdmin}>
+                <button type="submit" className="admin-control-button">
+                  Sign out
+                </button>
+              </form>
+            ) : (
+              <Link className="admin-control-button" href={`/admin/login?returnTo=${encodeURIComponent(returnTo)}`}>
+                Sign in
+              </Link>
+            )}
+            <span className={`write-badge ${canWrite ? 'write-enabled' : 'write-disabled'}`}>
+              {canWrite ? 'Write enabled' : 'Read-only'}
+            </span>
           </div>
           <span>{submissions.length}</span>
         </div>
@@ -707,7 +760,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
                     type="checkbox"
                     checked={templateBenchmarkOptOut}
                     onChange={(event) => toggleTemplateBenchmarkOptOut(event.target.checked)}
-                    disabled={isPending}
+                    disabled={isPending || !canWrite}
                   />
                   <span>Opt out from templating</span>
                 </label>
@@ -721,7 +774,15 @@ export function TagWorkbench({ submissions, tags }: Props) {
             <div className="selected-tags">
               {selectedTags.length ? (
                 selectedTags.map((tag) => (
-                  <button key={tag.id} className="selected-tag" onClick={() => removeTag(tag.id)}>
+                  <button
+                    key={tag.id}
+                    className="selected-tag"
+                    disabled={!canWrite}
+                    onClick={() => {
+                      if (!canWrite) return;
+                      removeTag(tag.id);
+                    }}
+                  >
                     <span>{tag.key}</span>
                     <small>Remove</small>
                   </button>
@@ -798,16 +859,18 @@ export function TagWorkbench({ submissions, tags }: Props) {
                               selectedTemplate?.id === tag.id ? 'focused' : '',
                               score ? `score-${benchmarkTone(score.score)}` : '',
                             ]
-                              .filter(Boolean)
-                              .join(' ')}
+                            .filter(Boolean)
+                            .join(' ')}
                             onClick={() => {
                               setSelectedTemplateId(tag.id);
-                              toggleTag(tag.id);
+                              if (canWrite) {
+                                toggleTag(tag.id);
+                              }
                             }}
                             title={tag.description ?? tag.label}
                           >
                             {score ? <strong className="benchmark-score">{score.score}</strong> : null}
-                            {tag.source !== 'seeded' && tag.dimension === 'template' ? (
+                            {canWrite && tag.source !== 'seeded' && tag.dimension === 'template' ? (
                               <span
                                 className="delete-template-button"
                                 role="button"
@@ -835,7 +898,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
                           </button>
                         );
                       })}
-                      {group.tags.some((tag) => tag.dimension === 'template') ? (
+                      {canWrite && group.tags.some((tag) => tag.dimension === 'template') ? (
                         <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
                           <span>+</span>
                           <strong>Generate template</strong>
@@ -857,6 +920,7 @@ export function TagWorkbench({ submissions, tags }: Props) {
                 modal={templateGeneratorModal}
                 isPending={isTemplateGenerationPending}
                 isComplete={isTemplateFormComplete(templateGeneratorModal.form)}
+                canWrite={canWrite}
                 onClose={() => setTemplateGeneratorModal(null)}
                 onChange={updateTemplateGeneratorModal}
                 onChangeField={updateTemplateForm}
@@ -871,16 +935,26 @@ export function TagWorkbench({ submissions, tags }: Props) {
             ) : null}
 
             <div className="actions">
-              <button className="primary" onClick={saveSelectedSubmission} disabled={isPending}>
+              <button
+                className="primary"
+                onClick={saveSelectedSubmission}
+                disabled={isPending || !canWrite}
+                title={canWrite ? undefined : 'Sign in to enable saving tags'}
+              >
                 {isPending ? 'Saving...' : 'Save submission'}
               </button>
               <button
                 onClick={runTemplateBenchmark}
-                disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut}
+                disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut || !canWrite}
+                title={canWrite ? undefined : 'Sign in to run benchmark'}
               >
                 {isBenchmarkPending ? 'Benchmarking...' : benchmark ? 'Rerun benchmark' : 'Benchmark templates'}
               </button>
-              <button onClick={clearTags} disabled={isPending || draftTagIds.size === 0}>
+              <button
+                onClick={clearTags}
+                disabled={isPending || draftTagIds.size === 0 || !canWrite}
+                title={canWrite ? undefined : 'Sign in to clear tags'}
+              >
                 Clear tags
               </button>
               {message ? <p>{message}</p> : null}
@@ -899,6 +973,7 @@ function TemplateGeneratorModal({
   modal,
   isPending,
   isComplete,
+  canWrite,
   onClose,
   onChange,
   onChangeField,
@@ -909,6 +984,7 @@ function TemplateGeneratorModal({
   modal: TemplateGeneratorModal;
   isPending: boolean;
   isComplete: boolean;
+  canWrite: boolean;
   onClose: () => void;
   onChange: (patch: Partial<TemplateGeneratorModal>) => void;
   onChangeField: (field: keyof TemplateForm, value: string) => void;
@@ -938,6 +1014,7 @@ function TemplateGeneratorModal({
               value={modal.model}
               onChange={(event) => onChange({ model: event.target.value })}
               placeholder={DEFAULT_TEMPLATE_GENERATOR_MODEL}
+              disabled={!canWrite}
             />
           </label>
           <label>
@@ -946,9 +1023,10 @@ function TemplateGeneratorModal({
               value={modal.prompt}
               onChange={(event) => onChange({ prompt: event.target.value })}
               placeholder="e.g. generalize this submission into a reusable canonical template"
+              disabled={!canWrite}
             />
           </label>
-          <button type="button" onClick={onAssistAll} disabled={isPending}>
+          <button type="button" onClick={onAssistAll} disabled={isPending || !canWrite}>
             {isPending ? 'Assisting...' : 'LLM assist all'}
           </button>
         </div>
@@ -964,11 +1042,12 @@ function TemplateGeneratorModal({
               <label>
                 <span>{row.label}</span>
                 {row.multiline ? (
-                  <textarea
+                    <textarea
                     value={modal.form[row.field]}
                     onChange={(event) => onChangeField(row.field, event.target.value)}
                     placeholder={row.placeholder}
                     rows={4}
+                    disabled={!canWrite}
                     required
                   />
                 ) : (
@@ -976,11 +1055,12 @@ function TemplateGeneratorModal({
                     value={modal.form[row.field]}
                     onChange={(event) => onChangeField(row.field, event.target.value)}
                     placeholder={row.placeholder}
+                    disabled={!canWrite}
                     required
                   />
                 )}
               </label>
-              <button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending}>
+              <button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending || !canWrite}>
                 LLM assist
               </button>
             </div>
@@ -995,7 +1075,12 @@ function TemplateGeneratorModal({
             <button type="button" onClick={onClose}>
               Cancel
             </button>
-            <button type="button" className="primary" onClick={onCreate} disabled={isPending || !isComplete}>
+            <button
+              type="button"
+              className="primary"
+              onClick={onCreate}
+              disabled={isPending || !isComplete || !canWrite}
+            >
               Create template
             </button>
           </div>

@@ -13,7 +13,7 @@ function nodeColor(node: SubmissionGraphNode) {
       ? medium
       : difficulty === 'hard'
         ? high
-        : '#3457a6';
+        : '#7f8a9c';
 }
 
 export function SubmissionGraphView({
@@ -27,8 +27,8 @@ export function SubmissionGraphView({
 }) {
   const selectedCount = selectedNodeSlug ? 1 : 0;
   const hasOrphanNodes = graph.nodes.some((node) => node.connectionCount === 0);
-  const canvasWidth = 760;
-  const canvasHeight = 520;
+  const canvasWidth = graph.canvasWidth;
+  const canvasHeight = graph.canvasHeight;
 
   return (
     <section className="graph-view">
@@ -39,10 +39,35 @@ export function SubmissionGraphView({
         </p>
         <p>{selectedCount ? 'One selected question in list' : 'Click a node to focus on a question in this graph'}</p>
       </div>
+      <div className="graph-legend" role="note" aria-label="Node color legend">
+        <span className="graph-legend-title">Node colors</span>
+        <span className="graph-legend-item">
+          <span className="graph-legend-dot node-color-easy" />
+          Easy
+        </span>
+        <span className="graph-legend-item">
+          <span className="graph-legend-dot node-color-medium" />
+          Medium
+        </span>
+        <span className="graph-legend-item">
+          <span className="graph-legend-dot node-color-hard" />
+          Hard
+        </span>
+        <span className="graph-legend-item">
+          <span className="graph-legend-dot node-color-unknown" />
+          Unknown
+        </span>
+        <span className="graph-legend-item">
+          <span className="graph-legend-cross">✕</span>
+          No related-problem links
+        </span>
+      </div>
       {hasOrphanNodes ? <p className="orphan-note">Some problems are isolated because related-problem links were not available.</p> : null}
 
       <svg
         className="submission-graph"
+        width={canvasWidth}
+        height={canvasHeight}
         viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
         role="img"
         aria-label="Solved problems relationship graph"

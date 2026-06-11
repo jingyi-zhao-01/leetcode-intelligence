@@ -1,8 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { prisma } from '../lib/prisma';
 import { analyzeSubmissionTemplates } from '../lib/template-analyzer';
+import {
+  assertWriteAccess,
+  clearWriteSession,
+  isWriteConfigured,
+  setWriteSession,
+} from '../lib/access-control';
 import {
   createGeneratedTemplate as createGeneratedTemplateRecord,
   generateTemplateDraft as generateTemplateDraftFromLlm,
@@ -29,6 +36,7 @@ async function replaceTagsForSubmission(
 }
 
 export async function saveSubmissionTags(submissionId: string, patternTagIds: string[]) {
+  await assertWriteAccess();
   const submission = await prisma.submission.findFirst({
     where: { id: submissionId, status: 'Accepted' },
     select: { id: true },
@@ -45,6 +53,7 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
 }
 
 export async function benchmarkSubmissionTemplates(submissionId: string, excludedGroupKeys: string[] = []) {
+  await assertWriteAccess();
   const submission = await prisma.submission.findFirst({
     where: { id: submissionId, status: 'Accepted' },
     select: { templateBenchmarkOptOut: true },
@@ -62,6 +71,7 @@ export async function benchmarkSubmissionTemplates(submissionId: string, exclude
 }
 
 export async function setSubmissionTemplateOptOut(submissionId: string, templateBenchmarkOptOut: boolean) {
+  await assertWriteAccess();
   const submission = await prisma.submission.findFirst({
     where: { id: submissionId, status: 'Accepted' },
     select: { id: true },
@@ -86,16 +96,19 @@ export async function generateTemplateDraft(input: {
   prompt: string;
   model?: string;
 }) {
+  await assertWriteAccess();
   return generateTemplateDraftFromLlm(input);
 }
 
 export async function createGeneratedTemplate(groupKey: string, draft: GeneratedTemplateDraft) {
+  await assertWriteAccess();
   const template = await createGeneratedTemplateRecord(groupKey, draft);
   revalidatePath('/');
   return template;
 }
 
 export async function deleteNonSeededTemplate(patternTagId: string) {
+  await assertWriteAccess();
   const tag = await prisma.patternTag.findUnique({
     where: { id: patternTagId },
     select: {
@@ -143,4 +156,25 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
   await prisma.patternTag.delete({ where: { id: tag.id } });
   revalidatePath('/');
   return { status: 'deleted' as const, key: tag.key };
+}
+
+export async function loginAdmin(formData: FormData) {
+  const password = String(formData.get('password') ?? '').trim();
+  const returnTo = String(formData.get('returnTo') ?? '/');
+  if (!isWriteConfigured()) {
+    redirect('/admin/login?error=config');
+  }
+
+  if (password !== process.env.ADMIN_PASSWORD) {
+    redirect('/admin/login?error=invalid');
+  }
+
+  await setWriteSession();
+  const cleanReturnTo = returnTo.startsWith('/') ? returnTo : '/';
+  redirect(cleanReturnTo);
+}
+
+export async function logoutAdmin() {
+  await clearWriteSession();
+  redirect('/admin/login');
 }
