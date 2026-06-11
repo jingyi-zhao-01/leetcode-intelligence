@@ -1,4 +1,4 @@
-import type { SubmissionRow } from './data';
+import type { GraphSubmissionRow } from './data';
 import {
   forceCenter,
   forceCollide,
@@ -77,7 +77,7 @@ export function normalizeRelatedSlug(value: string) {
   return parts[parts.length - 1] ?? cleaned;
 }
 
-export function buildSubmissionGraph(submissions: SubmissionRow[]) {
+export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
   const problemMap = new Map<
     string,
     {

@@ -60,6 +60,42 @@ export type SubmissionRow = {
   }>;
 };
 
+export type TemplateCatalogSubmissionRow = {
+  id: string;
+  titleSlug: string | null;
+  title: string | null;
+  createdAt: string;
+  tags: Array<{
+    id: string;
+    key: string;
+    label: string;
+    dimension: string;
+    kind: PatternTagKind;
+    parentId: string | null;
+    parentKey: string | null;
+    parentLabel: string | null;
+  }>;
+};
+
+export type GraphSubmissionRow = {
+  id: string;
+  titleSlug: string | null;
+  title: string | null;
+  difficulty: string | null;
+  relatedProblems: string[];
+  createdAt: string;
+  tags: Array<{
+    id: string;
+    key: string;
+    label: string;
+    dimension: string;
+    kind: PatternTagKind;
+    parentId: string | null;
+    parentKey: string | null;
+    parentLabel: string | null;
+  }>;
+};
+
 function readLanguage(details: unknown): string | null {
   if (!details || typeof details !== 'object' || Array.isArray(details)) {
     return null;
@@ -212,4 +248,127 @@ export async function getTagWorkbenchData() {
       sortOrder: tag.sortOrder,
     })),
   };
+}
+
+export async function getTemplatesPageData() {
+  const [submissions, tags] = await Promise.all([
+    prisma.submission.findMany({
+      where: { status: 'Accepted' },
+      orderBy: { createdAt: 'desc' },
+      take: 250,
+      select: {
+        id: true,
+        titleSlug: true,
+        createdAt: true,
+        SubmissionPatternTag: {
+          include: {
+            PatternTag: {
+              include: { parent: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    }),
+    prisma.patternTag.findMany({
+      where: { isActive: true },
+      include: { parent: true, _count: { select: { SubmissionPatternTag: true } } },
+      orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { label: 'asc' }],
+    }),
+  ]);
+
+  const slugs = [
+    ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+  ];
+  const questions = await prisma.question.findMany({
+    where: { titleSlug: { in: slugs } },
+    select: { titleSlug: true, title: true },
+  });
+  const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
+
+  return {
+    submissions: submissions.map<TemplateCatalogSubmissionRow>((submission) => ({
+      id: submission.id,
+      titleSlug: submission.titleSlug,
+      title: submission.titleSlug ? questionBySlug.get(submission.titleSlug)?.title ?? null : null,
+      createdAt: submission.createdAt.toISOString(),
+      tags: submission.SubmissionPatternTag.map((entry) => ({
+        id: entry.PatternTag.id,
+        key: entry.PatternTag.key,
+        label: entry.PatternTag.label,
+        dimension: entry.PatternTag.dimension,
+        kind: entry.PatternTag.kind,
+        parentId: entry.PatternTag.parent?.id ?? null,
+        parentKey: entry.PatternTag.parent?.key ?? null,
+        parentLabel: entry.PatternTag.parent?.label ?? null,
+      })),
+    })),
+    tags: tags.map<PatternTagOption>((tag) => ({
+      id: tag.id,
+      key: tag.key,
+      label: tag.label,
+      dimension: tag.dimension,
+      kind: tag.kind,
+      source: tag.source,
+      assignmentCount: tag._count.SubmissionPatternTag,
+      description: tag.description,
+      metadata: readTemplateMetadata(tag.metadata),
+      parentId: tag.parentId,
+      parentKey: tag.parent?.key ?? null,
+      parentLabel: tag.parent?.label ?? null,
+      sortOrder: tag.sortOrder,
+    })),
+  };
+}
+
+export async function getGraphPageData() {
+  const submissions = await prisma.submission.findMany({
+    where: { status: 'Accepted' },
+    orderBy: { createdAt: 'desc' },
+    take: 250,
+    select: {
+      id: true,
+      titleSlug: true,
+      createdAt: true,
+      SubmissionPatternTag: {
+        include: {
+          PatternTag: {
+            include: { parent: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+
+  const slugs = [
+    ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+  ];
+  const questions = await prisma.question.findMany({
+    where: { titleSlug: { in: slugs } },
+    select: { titleSlug: true, title: true, difficulty: true, relatedProblems: true },
+  });
+  const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
+
+  return submissions.map<GraphSubmissionRow>((submission) => {
+    const question = submission.titleSlug ? questionBySlug.get(submission.titleSlug) : null;
+    return {
+      id: submission.id,
+      titleSlug: submission.titleSlug,
+      title: question?.title ?? null,
+      difficulty: question?.difficulty ?? null,
+      relatedProblems: question?.relatedProblems ?? [],
+      createdAt: submission.createdAt.toISOString(),
+      tags: submission.SubmissionPatternTag.map((entry) => ({
+        id: entry.PatternTag.id,
+        key: entry.PatternTag.key,
+        label: entry.PatternTag.label,
+        dimension: entry.PatternTag.dimension,
+        kind: entry.PatternTag.kind,
+        parentId: entry.PatternTag.parent?.id ?? null,
+        parentKey: entry.PatternTag.parent?.key ?? null,
+        parentLabel: entry.PatternTag.parent?.label ?? null,
+      })),
+    };
+  });
 }

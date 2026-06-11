@@ -1,5 +1,6 @@
-import Link from 'next/link';
-import { getTagWorkbenchData, type PatternTagOption, type SubmissionRow } from '../../lib/data';
+import { getTemplatesPageData, type PatternTagOption, type TemplateCatalogSubmissionRow } from '../../lib/data';
+import { isWriteAllowed } from '../../lib/access-control';
+import { TemplateGroupsWorkbench } from '../template-groups-workbench';
 
 const UNKNOWN_TIME = 'unknown';
 
@@ -23,6 +24,8 @@ type TemplateCluster = {
   templates: TemplateWithProblems[];
 };
 
+export type TemplateGroupCatalog = TemplateCluster;
+
 const FALLBACK_CLUSTER = {
   key: 'ungrouped-templates',
   label: 'Ungrouped templates',
@@ -41,11 +44,11 @@ function formatDate(value: string) {
   return DATE_FORMATTER.format(new Date(value));
 }
 
-function formatTitle(submission: SubmissionRow) {
+function formatTitle(submission: TemplateCatalogSubmissionRow) {
   return submission.title ?? submission.titleSlug ?? 'Untitled problem';
 }
 
-function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionRow[]) {
+function buildTemplateCatalog(tags: PatternTagOption[], submissions: TemplateCatalogSubmissionRow[]): TemplateGroupCatalog[] {
   const templateTags = tags.filter((tag) => tag.dimension === 'template');
   const templateGroups = templateTags.filter((tag) => tag.kind === 'template_group');
   const templateLeaves = templateTags.filter((tag) => tag.kind === 'tag');
@@ -154,7 +157,7 @@ function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionR
           return left.template.label.localeCompare(right.template.label);
         }),
     }))
-    .filter((cluster) => cluster.templates.length > 0)
+    .filter((cluster) => cluster.key !== fallbackClusterKey || cluster.templates.length > 0)
     .sort((left, right) => {
       if (left.sortOrder !== right.sortOrder) {
         return left.sortOrder - right.sortOrder;
@@ -167,98 +170,10 @@ function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionR
 export const dynamic = 'force-dynamic';
 
 export default async function TemplatesPage() {
-  const { tags, submissions } = await getTagWorkbenchData();
+  const [{ tags, submissions }, canWrite] = await Promise.all([getTemplatesPageData(), isWriteAllowed()]);
   const clusters = buildTemplateCatalog(tags, submissions);
 
   return (
-    <main className="template-builder-page">
-      <header className="template-builder-header">
-        <div>
-          <p className="eyebrow">Template Builder</p>
-          <h1>Template Groups</h1>
-        </div>
-        <Link className="template-workbench-back" href="/submission-history">
-          Back to submission workbench
-        </Link>
-      </header>
-
-      {clusters.length ? (
-        <section className="template-builder-grid">
-          {clusters.map((cluster) => (
-            <section className="template-builder-cluster" key={cluster.key}>
-              <div className="template-cluster-heading">
-                <div>
-                  <h2>{cluster.label}</h2>
-                  <p className="cluster-description">
-                    {cluster.description ?? 'Template group with reusable approach metadata.'}
-                  </p>
-                </div>
-                <div className="template-cluster-stats">
-                  <span>{cluster.templates.length} templates</span>
-                  <span>
-                    {cluster.templates.reduce((count, entry) => count + entry.problems.length, 0)} associated problems
-                  </span>
-                </div>
-              </div>
-
-              <div className="template-list">
-                {cluster.templates.map((entry) => {
-                  const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
-                  const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
-                  const sourceClass = entry.template.source.replaceAll('_', '-');
-                  const previewProblems = entry.problems.slice(0, 3);
-
-                  return (
-                    <article key={entry.template.id} className="template-builder-card">
-                      <div className="template-card-head">
-                        <div>
-                          <h3>{entry.template.label}</h3>
-                          <p>{entry.template.key}</p>
-                        </div>
-                        <span className={`template-source-tag source-${sourceClass}`}>{entry.template.source}</span>
-                      </div>
-                      {entry.template.description ? <p className="template-desc">{entry.template.description}</p> : null}
-
-                      <p className="template-complexity">
-                        Time {complexityTime} · Space {complexitySpace}
-                      </p>
-
-                      <div className="template-problem-list">
-                        <p className="template-problem-title">Associated problems ({entry.problems.length})</p>
-                        {previewProblems.length ? (
-                          <ul>
-                            {previewProblems.map((problem) => (
-                              <li key={problem.id}>
-                                <span>{problem.title}</span>
-                                <small>
-                                  {problem.attempts} attempt{problem.attempts === 1 ? '' : 's'} · latest {formatDate(problem.latest)}
-                                </small>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="template-empty-problem">No problems tagged yet.</p>
-                        )}
-                        {entry.problems.length > previewProblems.length ? (
-                          <p className="template-more-problems">+ {entry.problems.length - previewProblems.length} more problems</p>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-
-                <Link className="template-builder-card template-builder-card-create" href="/submission-history">
-                  <span className="template-create-icon">+</span>
-                  <strong>Generate template</strong>
-                  <small>{cluster.label}</small>
-                </Link>
-              </div>
-            </section>
-          ))}
-        </section>
-      ) : (
-        <p className="template-empty">No template data found. Seed templates first, then refresh this page.</p>
-      )}
-    </main>
+    <TemplateGroupsWorkbench clusters={clusters} canWrite={canWrite} />
   );
 }

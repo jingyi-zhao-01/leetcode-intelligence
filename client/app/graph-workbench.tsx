@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { SubmissionGraphView } from './submission-graph';
 import { type SubmissionGraph } from '../lib/submission-graph';
-import type { SubmissionRow } from '../lib/data';
+import type { GraphSubmissionRow } from '../lib/data';
 
 type Props = {
-  submissions: SubmissionRow[];
+  submissions: GraphSubmissionRow[];
   graph: SubmissionGraph;
   initialSelectedSlug?: string | null;
 };
@@ -60,7 +60,7 @@ function filterGraph(
   };
 }
 
-function buildClusterTree(submissions: SubmissionRow[]): GraphClusterTree[] {
+function buildClusterTree(submissions: GraphSubmissionRow[]): GraphClusterTree[] {
   const slugMembers = new Map<string, Map<string, string>>();
 
   for (const submission of submissions) {

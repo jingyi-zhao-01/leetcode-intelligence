@@ -1,5 +1,5 @@
 import { GraphWorkbench } from '../graph-workbench';
-import { getTagWorkbenchData } from '../../lib/data';
+import { getGraphPageData } from '../../lib/data';
 import { buildSubmissionGraph } from '../../lib/submission-graph';
 
 export const dynamic = 'force-dynamic';
@@ -22,8 +22,8 @@ export default async function GraphPage({
   searchParams: Promise<SearchParams>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const data = await getTagWorkbenchData();
-  const graph = buildSubmissionGraph(data.submissions);
+  const submissions = await getGraphPageData();
+  const graph = buildSubmissionGraph(submissions);
 
-  return <GraphWorkbench submissions={data.submissions} graph={graph} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
+  return <GraphWorkbench submissions={submissions} graph={graph} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
 }

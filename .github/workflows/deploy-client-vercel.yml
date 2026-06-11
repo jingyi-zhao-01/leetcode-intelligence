@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - 'client/**'
+      - '.github/workflows/deploy-client-vercel.yml'
   pull_request:
     paths:
       - 'client/**'
+      - '.github/workflows/deploy-client-vercel.yml'
   workflow_dispatch:
 
 concurrency:
