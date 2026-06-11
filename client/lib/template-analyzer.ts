@@ -105,10 +105,8 @@ function parseBenchmarkPayload(payload: string, candidates: TemplateCandidate[])
           patternTagId: candidate.id,
           score: clampScore(record.score),
           confidence: clampScore(record.confidence),
-          reason: typeof record.reason === 'string' ? truncate(record.reason, 220) : '',
-          evidence: readStringArray(record.evidence)
-            .slice(0, 3)
-            .map((item) => truncate(item, 160)),
+          reason: typeof record.reason === 'string' ? record.reason.trim() : '',
+          evidence: readStringArray(record.evidence).map((item) => item.trim()).filter(Boolean),
         };
       })
       .filter((entry): entry is TemplateBenchmarkScore => Boolean(entry))
@@ -131,6 +129,19 @@ Task:
 - 40-69 means partial overlap.
 - 0-39 means weak or unrelated.
 - Do not change tags. Only benchmark fit.
+- The output is invalid if it contains "..." or the ellipsis character "…".
+- Do not abbreviate, summarize with ellipses, or omit text inside quoted code clues.
+- Write the full reason as complete sentences.
+- Write evidence as complete, specific code or behavior observations.
+- If a code example would be too long, choose one short self-contained fragment. Never truncate a fragment with ellipses.
+- If you cannot fit a long explanation, write a shorter complete explanation instead of an incomplete one.
+- Every reason must end as a complete sentence, not a cut-off fragment.
+- Every evidence item must be a complete observation or a complete short code fragment.
+- Bad: "the code slides by exa..."
+- Bad: "for i in range(...)"
+- Good: "the code slides the window by advancing i from n1 to n2."
+- Good: "for i in range(n1, n2)"
+- If any field would contain "..." or "…", rewrite that field before returning.
 - Return strict JSON only. No markdown.
 
 JSON format:
@@ -140,8 +151,8 @@ JSON format:
       "key": "template-key",
       "score": 0,
       "confidence": 0,
-      "reason": "short reason",
-      "evidence": ["short code or behavior clue"]
+      "reason": "complete explanation of why the code matches or does not match the template",
+      "evidence": ["complete code or behavior clue without ellipses"]
     }
   ]
 }

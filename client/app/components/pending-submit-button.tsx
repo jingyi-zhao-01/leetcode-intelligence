@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Spinner } from './spinner';
-import { cn } from '../../../lib/utils';
+import { cn } from '../lib/utils';
 
 type PendingSubmitButtonProps = {
   children: ReactNode;

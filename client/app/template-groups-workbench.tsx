@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { createTemplateGroup, moveTemplateToGroup } from './actions';
 import { Spinner } from './components/spinner';
-import type { TemplateGroupCatalog } from './templates/page';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Textarea } from './components/ui/textarea';
+import type { TemplateGroupCatalog } from '../lib/template-catalog';
 
 const UNKNOWN_TIME = 'unknown';
 
@@ -63,8 +63,21 @@ export function TemplateGroupsWorkbench({
   const [dropTargetGroupKey, setDropTargetGroupKey] = useState<string | null>(null);
   const [isCreatePending, startCreateTransition] = useTransition();
   const [isMovePending, startMoveTransition] = useTransition();
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(() => new Set(clusters.map((cluster) => cluster.id)));
 
-  const groupByKey = useMemo(() => new Map(clusters.map((cluster) => [cluster.key, cluster])), [clusters]);
+  const groupByKey = useMemo(() => new Map(clusters.map((cluster) => [cluster.id, cluster])), [clusters]);
+
+  function toggleGroupExpanded(groupId: string) {
+    setExpandedGroupKeys((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
 
   function resetCreateForm() {
     setGroupLabel('');
@@ -209,16 +222,16 @@ export function TemplateGroupsWorkbench({
               ]
                 .filter(Boolean)
                 .join(' ')}
-              key={cluster.key}
+              key={cluster.id}
               onDragOver={(event) => {
                 if (!canWrite || !draggingTemplateId) return;
                 event.preventDefault();
-                setDropTargetGroupKey(cluster.key);
+                setDropTargetGroupKey(cluster.id);
               }}
               onDragEnter={(event) => {
                 if (!canWrite || !draggingTemplateId) return;
                 event.preventDefault();
-                setDropTargetGroupKey(cluster.key);
+                setDropTargetGroupKey(cluster.id);
               }}
               onDragLeave={(event) => {
                 if (!canWrite) return;
@@ -226,16 +239,27 @@ export function TemplateGroupsWorkbench({
                 if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
                   return;
                 }
-                setDropTargetGroupKey((current) => (current === cluster.key ? null : current));
+                setDropTargetGroupKey((current) => (current === cluster.id ? null : current));
               }}
               onDrop={(event) => {
                 if (!canWrite || !draggingTemplateId) return;
                 event.preventDefault();
-                handleDrop(cluster.key);
+                handleDrop(cluster.id);
               }}
             >
               <div className="template-cluster-heading">
                 <div>
+                  <button
+                    type="button"
+                    className="template-directory-toggle"
+                    onClick={() => toggleGroupExpanded(cluster.id)}
+                    aria-expanded={expandedGroupKeys.has(cluster.id)}
+                    aria-controls={`template-directory-${cluster.id}`}
+                  >
+                    <span className="template-directory-chevron">{expandedGroupKeys.has(cluster.id) ? '▾' : '▸'}</span>
+                    <span className="template-directory-folder">📁</span>
+                    <span>Directory</span>
+                  </button>
                   <h2>{cluster.label}</h2>
                   <p className="cluster-description">
                     {cluster.description ?? 'Template group with reusable approach metadata.'}
@@ -251,80 +275,94 @@ export function TemplateGroupsWorkbench({
 
               {canWrite ? (
                 <p className="template-drop-hint">
-                  {dropTargetGroupKey === cluster.key && draggingTemplateLabel
+                  {dropTargetGroupKey === cluster.id && draggingTemplateLabel
                     ? `Release to move ${draggingTemplateLabel} here`
                     : 'Drag a template card here to reorganize this group'}
                 </p>
               ) : null}
 
-              <div className="template-list">
-                {cluster.templates.map((entry) => {
-                  const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
-                  const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
-                  const sourceClass = entry.template.source.replaceAll('_', '-');
-                  const previewProblems = entry.problems.slice(0, 3);
+              {expandedGroupKeys.has(cluster.id) ? (
+                <div className="template-directory" id={`template-directory-${cluster.id}`}>
+                  {cluster.templates.map((entry) => {
+                    const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
+                    const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
+                    const sourceClass = entry.template.source.replaceAll('_', '-');
+                    const previewProblems = entry.problems.slice(0, 3);
 
-                  return (
-                <article
-                  key={entry.template.id}
-                  className={[
-                    'template-builder-card',
-                    canWrite ? 'template-builder-card-draggable' : '',
-                    draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
-                  ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      draggable={canWrite}
-                      onDragStart={(event) => {
-                        beginDrag(entry.template.id, entry.template.label);
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData('text/plain', entry.template.id);
-                      }}
-                      onDragEnd={clearDragState}
-                    >
-                      <div className="template-card-head">
-                        <div>
-                          <h3>{entry.template.label}</h3>
-                          <p>{entry.template.key}</p>
+                    return (
+                      <article
+                        key={entry.template.id}
+                        className={[
+                          'template-directory-item',
+                          canWrite ? 'template-directory-item-draggable' : '',
+                          draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        draggable={canWrite}
+                        onDragStart={(event) => {
+                          beginDrag(entry.template.id, entry.template.label);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', entry.template.id);
+                        }}
+                        onDragEnd={clearDragState}
+                      >
+                        <div className="template-directory-item-header">
+                          <div className="template-directory-item-heading">
+                            <span className="template-directory-branch-line" aria-hidden="true">
+                              └
+                            </span>
+                            <div>
+                              <h3>{entry.template.label}</h3>
+                              <p>{entry.template.key}</p>
+                            </div>
+                          </div>
+                          <div className="template-directory-item-badges">
+                            <span className={`template-source-tag source-${sourceClass}`}>{entry.template.source}</span>
+                            <span className="template-directory-count">{entry.problems.length} problems</span>
+                          </div>
                         </div>
-                        <span className={`template-source-tag source-${sourceClass}`}>{entry.template.source}</span>
-                      </div>
-                      {entry.template.description ? <p className="template-desc">{entry.template.description}</p> : null}
+                        {entry.template.description ? <p className="template-desc">{entry.template.description}</p> : null}
 
-                      <p className="template-complexity">
-                        Time {complexityTime} · Space {complexitySpace}
-                      </p>
+                        <p className="template-complexity">
+                          Time {complexityTime} · Space {complexitySpace}
+                        </p>
 
-                      <div className="template-problem-list">
-                        <p className="template-problem-title">Associated problems ({entry.problems.length})</p>
-                        {previewProblems.length ? (
-                          <ul>
-                            {previewProblems.map((problem) => (
-                              <li key={problem.id}>
-                                <span>{problem.title}</span>
-                                <small>
-                                  {problem.attempts} attempt{problem.attempts === 1 ? '' : 's'} · latest {formatDate(problem.latest)}
-                                </small>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="template-empty-problem">No problems tagged yet.</p>
-                        )}
-                        {entry.problems.length > previewProblems.length ? (
-                          <p className="template-more-problems">+ {entry.problems.length - previewProblems.length} more problems</p>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
+                        <div className="template-problem-list">
+                          {previewProblems.length ? (
+                            <ul>
+                              {previewProblems.map((problem) => (
+                                <li key={problem.id}>
+                                  <span>{problem.title}</span>
+                                  <small>
+                                    {problem.attempts} attempt{problem.attempts === 1 ? '' : 's'} · latest {formatDate(problem.latest)}
+                                  </small>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="template-empty-problem">No problems tagged yet.</p>
+                          )}
+                          {entry.problems.length > previewProblems.length ? (
+                            <p className="template-more-problems">+ {entry.problems.length - previewProblems.length} more problems</p>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
 
-                <Link className="template-builder-card template-builder-card-create" href="/submission-history">
-                  <span className="template-create-icon">+</span>
-                  <strong>Generate template</strong>
-                  <small>{cluster.label}</small>
-                </Link>
-              </div>
+                  <Link className="template-directory-create" href="/submission-history">
+                    <span className="template-directory-branch-line" aria-hidden="true">
+                      └
+                    </span>
+                    <span className="template-create-icon">+</span>
+                    <div>
+                      <strong>Generate template</strong>
+                      <small>{cluster.label}</small>
+                    </div>
+                  </Link>
+                </div>
+              ) : null}
             </section>
           ))}
         </section>

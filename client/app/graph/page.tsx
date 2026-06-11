@@ -1,6 +1,7 @@
 import { GraphWorkbench } from '../graph-workbench';
-import { getGraphPageData } from '../../lib/data';
+import { getGraphPageData, getTemplatesPageData } from '../../lib/data';
 import { buildSubmissionGraph } from '../../lib/submission-graph';
+import { buildTemplateCatalog } from '../../lib/template-catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,8 +23,9 @@ export default async function GraphPage({
   searchParams: Promise<SearchParams>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const submissions = await getGraphPageData();
+  const [submissions, templateData] = await Promise.all([getGraphPageData(), getTemplatesPageData()]);
   const graph = buildSubmissionGraph(submissions);
+  const templateCatalog = buildTemplateCatalog(templateData.tags, templateData.submissions);
 
-  return <GraphWorkbench graph={graph} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
+  return <GraphWorkbench graph={graph} templateCatalog={templateCatalog} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
 }
