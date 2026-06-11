@@ -111,12 +111,12 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
         relatedProblems: new Set(submission.relatedProblems.map(normalizeRelatedSlug)),
         templateTags: new Map(
           submission.tags
-            .filter((tag) => tag.dimension === 'template')
+            .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag')
             .map((tag) => [tag.key, tag.label] as const),
         ),
         templateGroups: new Map(
           submission.tags
-            .filter((tag) => tag.dimension === 'template' && Boolean(tag.parentKey))
+            .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag' && Boolean(tag.parentKey))
             .map((tag) => [tag.parentKey as string, tag.parentLabel ?? tag.parentKey ?? tag.key] as const),
         ),
       });
@@ -138,7 +138,7 @@ export function buildSubmissionGraph(submissions: SubmissionRow[]) {
     }
 
     for (const tag of submission.tags) {
-      if (tag.dimension !== 'template') {
+      if (tag.dimension !== 'template' || tag.kind !== 'tag') {
         continue;
       }
 

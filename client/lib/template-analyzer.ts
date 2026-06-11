@@ -188,7 +188,7 @@ export async function analyzeSubmissionTemplates(
       },
     }),
     prisma.patternTag.findMany({
-      where: { dimension: 'template', isActive: true },
+      where: { dimension: 'template', kind: 'tag', isActive: true },
       include: { parent: true },
       orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
     }),

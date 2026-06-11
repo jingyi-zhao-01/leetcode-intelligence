@@ -28,24 +28,24 @@ function defaultClusterHue(key: string) {
 
 function matchesClusterSelection(
   node: SubmissionGraph['nodes'][number],
-  selectedPrimaryKeys: Set<string>,
+  selectedTemplateGroupKeys: Set<string>,
 ) {
-  const hasPrimaryFilter = selectedPrimaryKeys.size > 0;
+  const hasTemplateGroupFilter = selectedTemplateGroupKeys.size > 0;
 
-  if (!hasPrimaryFilter) {
+  if (!hasTemplateGroupFilter) {
     return true;
   }
 
-  return node.templateGroups.some((group) => selectedPrimaryKeys.has(group.key));
+  return node.templateGroups.some((group) => selectedTemplateGroupKeys.has(group.key));
 }
 
 function filterGraph(
   graph: SubmissionGraph,
   needle: string,
-  selectedPrimaryKeys: Set<string>,
+  selectedTemplateGroupKeys: Set<string>,
 ) {
   const filteredNodes = graph.nodes.filter((node) => {
-    if (!matchesClusterSelection(node, selectedPrimaryKeys)) {
+    if (!matchesClusterSelection(node, selectedTemplateGroupKeys)) {
       return false;
     }
     const haystack = [node.title, node.slug, node.difficulty].filter(Boolean).join(' ').toLowerCase();
@@ -72,7 +72,7 @@ function buildClusterTree(submissions: SubmissionRow[]): GraphClusterTree[] {
     const membership = slugMembers.get(slug) ?? new Map<string, string>();
 
     for (const tag of submission.tags) {
-      if (tag.dimension !== 'template' || !tag.parentKey) {
+      if (tag.dimension !== 'template' || tag.kind !== 'tag' || !tag.parentKey) {
         continue;
       }
 
@@ -107,15 +107,15 @@ function buildClusterTree(submissions: SubmissionRow[]): GraphClusterTree[] {
 export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Props) {
   const [query, setQuery] = useState('');
   const [selectedNodeSlug, setSelectedNodeSlug] = useState<string | null>(initialSelectedSlug?.toLowerCase() ?? null);
-  const [selectedPrimaryKeys, setSelectedPrimaryKeys] = useState<Set<string>>(() => new Set());
-  const [hoveredPrimaryKey, setHoveredPrimaryKey] = useState<string | null>(null);
-  const clusterTree = useMemo(() => buildClusterTree(submissions), [submissions]);
+  const [selectedTemplateGroupKeys, setSelectedTemplateGroupKeys] = useState<Set<string>>(() => new Set());
+  const [hoveredTemplateGroupKey, setHoveredTemplateGroupKey] = useState<string | null>(null);
+  const templateGroupTree = useMemo(() => buildClusterTree(submissions), [submissions]);
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
-    Object.fromEntries(buildClusterTree(submissions).map((cluster) => [cluster.key, defaultClusterHue(cluster.key)])),
+    Object.fromEntries(buildClusterTree(submissions).map((group) => [group.key, defaultClusterHue(group.key)])),
   );
   const filteredGraph = useMemo(
-    () => filterGraph(graph, query.trim().toLowerCase(), selectedPrimaryKeys),
-    [graph, query, selectedPrimaryKeys],
+    () => filterGraph(graph, query.trim().toLowerCase(), selectedTemplateGroupKeys),
+    [graph, query, selectedTemplateGroupKeys],
   );
 
   const selectedNodeExists = useMemo(() => {
@@ -126,20 +126,20 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
     return filteredGraph.nodes.find((node) => node.slug === selectedNodeSlug) ?? null;
   }, [selectedNodeSlug, filteredGraph]);
 
-  function togglePrimary(primaryKey: string) {
-    setSelectedPrimaryKeys((current) => {
+  function toggleTemplateGroup(groupKey: string) {
+    setSelectedTemplateGroupKeys((current) => {
       const next = new Set(current);
-      if (next.has(primaryKey)) {
-        next.delete(primaryKey);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
       } else {
-        next.add(primaryKey);
+        next.add(groupKey);
       }
       return next;
     });
   }
 
-  function clearClusterFilters() {
-    setSelectedPrimaryKeys(new Set());
+  function clearTemplateGroupFilters() {
+    setSelectedTemplateGroupKeys(new Set());
   }
 
   function updateClusterHue(clusterKey: string, hue: number) {
@@ -171,7 +171,7 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
             <div className="graph-selected-meta">
               <span>{filteredGraph.nodes.length} problems</span>
               <span>{filteredGraph.edges.length} edges</span>
-              <span>{selectedPrimaryKeys.size} primary filters</span>
+              <span>{selectedTemplateGroupKeys.size} template group filters</span>
               <span>{selectedNodeExists ? `Selected: ${selectedNodeExists.title}` : 'Select a node to focus'}</span>
             </div>
           </section>
@@ -179,33 +179,33 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
           <section className="graph-cluster-filter-panel">
             <div className="graph-cluster-filter-header">
               <div>
-                <p className="eyebrow">Cluster selector</p>
-                <h2>Primary clusters</h2>
+                <p className="eyebrow">Template Group Selector</p>
+                <h2>Template groups</h2>
               </div>
-              <button type="button" onClick={clearClusterFilters} disabled={!selectedPrimaryKeys.size}>
-                Clear cluster filters
+              <button type="button" onClick={clearTemplateGroupFilters} disabled={!selectedTemplateGroupKeys.size}>
+                Clear template group filters
               </button>
             </div>
-            <div className="graph-cluster-tree" role="list" aria-label="Primary cluster selector">
-              {clusterTree.map((primary) => {
-                const isPrimarySelected = selectedPrimaryKeys.has(primary.key);
-                const hue = clusterHueByKey[primary.key] ?? defaultClusterHue(primary.key);
+            <div className="graph-cluster-tree" role="list" aria-label="Template group selector">
+              {templateGroupTree.map((group) => {
+                const isGroupSelected = selectedTemplateGroupKeys.has(group.key);
+                const hue = clusterHueByKey[group.key] ?? defaultClusterHue(group.key);
 
                 return (
-                  <section className="graph-cluster-branch" key={primary.key}>
+                  <section className="graph-cluster-branch" key={group.key}>
                     <div
-                      className={`graph-cluster-row primary ${isPrimarySelected ? 'selected' : ''}`}
-                      onMouseEnter={() => setHoveredPrimaryKey(primary.key)}
-                      onMouseLeave={() => setHoveredPrimaryKey((current) => (current === primary.key ? null : current))}
+                      className={`graph-cluster-row primary ${isGroupSelected ? 'selected' : ''}`}
+                      onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
+                      onMouseLeave={() => setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))}
                     >
                       <label className="graph-cluster-toggle">
                         <input
                           type="checkbox"
-                          checked={isPrimarySelected}
-                          onChange={() => togglePrimary(primary.key)}
+                          checked={isGroupSelected}
+                          onChange={() => toggleTemplateGroup(group.key)}
                         />
-                        <span>{primary.label}</span>
-                        <small>{primary.questionCount} questions</small>
+                        <span>{group.label}</span>
+                        <small>{group.questionCount} questions</small>
                       </label>
                       <div className="graph-cluster-hue-control">
                         <span
@@ -218,8 +218,8 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
                           min={0}
                           max={360}
                           value={hue}
-                          onChange={(event) => updateClusterHue(primary.key, Number(event.target.value))}
-                          aria-label={`Adjust hue for ${primary.label}`}
+                          onChange={(event) => updateClusterHue(group.key, Number(event.target.value))}
+                          aria-label={`Adjust hue for ${group.label}`}
                         />
                       </div>
                     </div>
@@ -233,9 +233,9 @@ export function GraphWorkbench({ submissions, graph, initialSelectedSlug }: Prop
         <section className="graph-stage-panel">
           <SubmissionGraphView
             graph={filteredGraph}
-            visiblePrimaryClusterKeys={selectedPrimaryKeys}
+            visiblePrimaryClusterKeys={selectedTemplateGroupKeys}
             clusterHueByKey={clusterHueByKey}
-            hoveredPrimaryClusterKey={hoveredPrimaryKey}
+            hoveredPrimaryClusterKey={hoveredTemplateGroupKey}
             selectedNodeSlug={selectedNodeSlug}
             onNodeSelect={setSelectedNodeSlug}
           />

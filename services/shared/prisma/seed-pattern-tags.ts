@@ -1,4 +1,5 @@
 type PatternTagDimension = 'template' | 'data_structure';
+type PatternTagKind = 'template_group' | 'tag';
 type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
 
 type TemplateMetadata = {
@@ -512,6 +513,7 @@ const DATA_STRUCTURE_TAGS: DataStructureSeed[] = [
 
 type FlatSeed = TemplateTagSeed & {
   dimension: PatternTagDimension;
+  kind: PatternTagKind;
   source: PatternTagSource;
   isActive: boolean;
   parentKey: string | null;
@@ -538,8 +540,9 @@ function flattenSeeds(): FlatSeed[] {
         similarTemplates: [],
       }),
       dimension: 'template',
+      kind: 'template_group',
       source: 'seeded',
-      isActive: false,
+      isActive: true,
       parentKey: null,
       sortOrder: groupIndex * 100,
     });
@@ -548,6 +551,7 @@ function flattenSeeds(): FlatSeed[] {
       seeds.push({
         ...child,
         dimension: 'template',
+        kind: 'tag',
         source: 'seeded',
         isActive: true,
         parentKey: group.key,
@@ -573,6 +577,7 @@ function flattenSeeds(): FlatSeed[] {
         similarTemplates: [],
       }),
       dimension: 'data_structure',
+      kind: 'tag',
       source: 'seeded',
       isActive: true,
       parentKey: null,
@@ -586,7 +591,7 @@ function flattenSeeds(): FlatSeed[] {
 function validateSelectableTemplateMetadata(seeds: FlatSeed[]) {
   const errors: string[] = [];
 
-  for (const seed of seeds.filter((entry) => entry.isActive && entry.dimension === 'template')) {
+  for (const seed of seeds.filter((entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag')) {
     const metadata = seed.metadata;
     const checks: Array<[string, boolean]> = [
       ['classicProblems', metadata.classicProblems.length > 0],
@@ -637,6 +642,7 @@ async function seedPatternTags() {
           key: seed.key,
           label: seed.label,
           dimension: seed.dimension,
+          kind: seed.kind,
           source: seed.source,
           description: seed.description,
           metadata: seed.metadata,
@@ -646,6 +652,7 @@ async function seedPatternTags() {
         update: {
           label: seed.label,
           dimension: seed.dimension,
+          kind: seed.kind,
           source: seed.source,
           description: seed.description,
           metadata: seed.metadata,
@@ -669,6 +676,7 @@ async function seedPatternTags() {
           key: seed.key,
           label: seed.label,
           dimension: seed.dimension,
+          kind: seed.kind,
           source: seed.source,
           description: seed.description,
           metadata: seed.metadata,
@@ -679,6 +687,7 @@ async function seedPatternTags() {
         update: {
           label: seed.label,
           dimension: seed.dimension,
+          kind: seed.kind,
           source: seed.source,
           description: seed.description,
           metadata: seed.metadata,
@@ -698,8 +707,8 @@ async function seedPatternTags() {
 function printDryRun() {
   const seeds = flattenSeeds();
   validateSelectableTemplateMetadata(seeds);
-  const groups = seeds.filter((entry) => entry.parentKey === null && entry.dimension === 'template');
-  const selectable = seeds.filter((entry) => entry.isActive && entry.dimension === 'template');
+  const groups = seeds.filter((entry) => entry.dimension === 'template' && entry.kind === 'template_group');
+  const selectable = seeds.filter((entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag');
   const dataStructures = seeds.filter((entry) => entry.isActive && entry.dimension === 'data_structure');
 
   console.log(
@@ -718,8 +727,8 @@ async function main() {
   }
 
   const seeds = await seedPatternTags();
-  const parentCount = seeds.filter((entry) => entry.parentKey === null && entry.dimension === 'template').length;
-  const selectableCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'template').length;
+  const parentCount = seeds.filter((entry) => entry.dimension === 'template' && entry.kind === 'template_group').length;
+  const selectableCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag').length;
   const dataStructureCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'data_structure').length;
 
   console.log(

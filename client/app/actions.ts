@@ -46,8 +46,23 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
     return;
   }
 
+  const allowedTags = await prisma.patternTag.findMany({
+    where: {
+      id: { in: [...new Set(patternTagIds)] },
+      isActive: true,
+      kind: 'tag',
+    },
+    select: { id: true },
+  });
+
+  const allowedTagIds = new Set(allowedTags.map((tag) => tag.id));
+
   await prisma.$transaction(async (tx) => {
-    await replaceTagsForSubmission(submissionId, patternTagIds, tx);
+    await replaceTagsForSubmission(
+      submissionId,
+      patternTagIds.filter((patternTagId) => allowedTagIds.has(patternTagId)),
+      tx,
+    );
   });
   revalidatePath('/');
 }
@@ -117,6 +132,7 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
       label: true,
       source: true,
       dimension: true,
+      kind: true,
       SubmissionPatternTag: {
         take: 12,
         orderBy: { createdAt: 'desc' },
@@ -135,7 +151,7 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
     },
   });
 
-  if (!tag || tag.dimension !== 'template' || tag.source === 'seeded') {
+  if (!tag || tag.dimension !== 'template' || tag.kind !== 'tag' || tag.source === 'seeded') {
     return { status: 'not_allowed' as const };
   }
 

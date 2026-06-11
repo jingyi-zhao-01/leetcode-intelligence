@@ -19,6 +19,11 @@ enum PatternTagSource {
   llm_generated
 }
 
+enum PatternTagKind {
+  template_group
+  tag
+}
+
 model Question {
   id                      String                    @id @default(cuid())
   difficulty              String
@@ -63,6 +68,7 @@ model PatternTag {
   key                  String                 @unique
   label                String
   dimension            PatternTagDimension
+  kind                 PatternTagKind         @default(tag)
   source               PatternTagSource       @default(manually_created)
   description          String?                @db.Text
   metadata             Json?
@@ -76,6 +82,7 @@ model PatternTag {
   SubmissionPatternTag SubmissionPatternTag[]
 
   @@index([dimension])
+  @@index([kind])
   @@index([source])
   @@index([parentId])
 }

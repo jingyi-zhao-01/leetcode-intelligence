@@ -191,7 +191,7 @@ function getProblemTitle(submission: SubmissionRow) {
 function groupTags(tags: PatternTagOption[]) {
   const groups = new Map<string, { label: string; tags: PatternTagOption[] }>();
 
-  for (const tag of tags) {
+  for (const tag of tags.filter((entry) => entry.kind === 'tag')) {
     const key = tag.parentKey ?? tag.dimension;
     const label = tag.parentLabel ?? tag.dimension.replaceAll('_', ' ');
     const group = groups.get(key) ?? { label, tags: [] };
@@ -217,6 +217,10 @@ function dimensionClass(dimension: string) {
   return `dimension-${dimension}`;
 }
 
+function isTemplateLeaf(tag: { dimension: string; kind: string }) {
+  return tag.dimension === 'template' && tag.kind === 'tag';
+}
+
 function AsyncButtonLabel({
   isPending,
   label,
@@ -239,7 +243,7 @@ function AsyncButtonLabel({
 }
 
 function submissionTaxonomyState(submission: SubmissionRow) {
-  const hasTemplate = submission.tags.some((tag) => tag.dimension === 'template');
+  const hasTemplate = submission.tags.some((tag) => isTemplateLeaf(tag));
   const hasDataStructure = submission.tags.some((tag) => tag.dimension === 'data_structure');
 
   if (!hasTemplate && !hasDataStructure) {
@@ -333,10 +337,12 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState(submissions[0]?.id ?? '');
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(submissions[0]?.tags[0]?.id ?? null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    submissions[0]?.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null,
+  );
   const [templateBenchmarkOptOut, setTemplateBenchmarkOptOut] = useState(submissions[0]?.templateBenchmarkOptOut ?? false);
   const [draftTagIds, setDraftTagIds] = useState<Set<string>>(
-    () => new Set(submissions[0]?.tags.map((tag) => tag.id) ?? []),
+    () => new Set((submissions[0]?.tags ?? []).filter((tag) => tag.kind === 'tag').map((tag) => tag.id)),
   );
   const [message, setMessage] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -419,7 +425,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 
   const tagGroups = useMemo(() => groupTags(tags), [tags]);
   const benchmarkableGroupCount = tagGroups.filter((group) =>
-    group.tags.some((tag) => tag.dimension === 'template'),
+    group.tags.some((tag) => isTemplateLeaf(tag)),
   ).length;
   const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
   const defaultCollapsedDayKeys = useMemo(
@@ -441,8 +447,8 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
     setTemplateBenchmarkOptOut(submission.templateBenchmarkOptOut);
-    setDraftTagIds(new Set(submission.tags.map((tag) => tag.id)));
-    setSelectedTemplateId(submission.tags[0]?.id ?? null);
+    setDraftTagIds(new Set(submission.tags.filter((tag) => tag.kind === 'tag').map((tag) => tag.id)));
+    setSelectedTemplateId(submission.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null);
     setMessage('');
     setBenchmarkError('');
   }
@@ -666,7 +672,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   function deleteTemplate(tag: PatternTagOption) {
     if (!canWrite) return;
     if (isDeleteTemplatePending) return;
-    if (tag.source === 'seeded' || tag.dimension !== 'template') return;
+    if (tag.source === 'seeded' || !isTemplateLeaf(tag)) return;
     const shouldDelete = window.confirm(`Delete template "${tag.label}"? This is only allowed when no submissions use it.`);
     if (!shouldDelete) return;
 
@@ -896,7 +902,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                         <h3>{group.label}</h3>
                         {excludedBenchmarkGroupKeys.has(group.key) ? <small>Excluded from LLM benchmark</small> : null}
                       </div>
-                      {group.tags.some((tag) => tag.dimension === 'template') ? (
+                      {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
                         <button
                           className="exclude-group-button"
                           onClick={() => toggleBenchmarkGroup(group.key)}
@@ -942,7 +948,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                             title={tag.description ?? tag.label}
                           >
                             {score ? <strong className="benchmark-score">{score.score}</strong> : null}
-                            {canWrite && tag.source !== 'seeded' && tag.dimension === 'template' ? (
+                            {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
                               <span
                                 className="delete-template-button"
                                 role="button"
@@ -970,7 +976,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                           </button>
                         );
                       })}
-                      {canWrite && group.tags.some((tag) => tag.dimension === 'template') ? (
+                      {canWrite && group.tags.some((tag) => isTemplateLeaf(tag)) ? (
                         <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
                           <span>+</span>
                           <strong>Generate template</strong>
@@ -1131,7 +1137,12 @@ function SubmissionHistoryPanel({
                                       {submission.status} · {formatDate(submission.createdAt)}
                                     </span>
                                     <span className="tag-preview">
-                                      {submission.tags.length ? submission.tags.map((tag) => tag.key).join(', ') : 'untagged'}
+                                      {submission.tags.filter((tag) => tag.kind === 'tag').length
+                                        ? submission.tags
+                                            .filter((tag) => tag.kind === 'tag')
+                                            .map((tag) => tag.key)
+                                            .join(', ')
+                                        : 'untagged'}
                                     </span>
                                     <span
                                       className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}
@@ -1181,9 +1192,9 @@ function LeftPanelGraphModule({ selectedSubmission, onOpenGraph }: LeftPanelGrap
 }
 
 function LeftPanelInsights({ selectedSubmission, submissionCount, tags }: LeftPanelInsightsProps) {
-  const seededTemplateCount = tags.filter((tag) => tag.source === 'seeded' && tag.dimension === 'template').length;
-  const customTemplateCount = tags.filter((tag) => tag.source === 'manually_created' && tag.dimension === 'template').length;
-  const llmTemplateCount = tags.filter((tag) => tag.source === 'llm_generated' && tag.dimension === 'template').length;
+  const seededTemplateCount = tags.filter((tag) => tag.source === 'seeded' && isTemplateLeaf(tag)).length;
+  const customTemplateCount = tags.filter((tag) => tag.source === 'manually_created' && isTemplateLeaf(tag)).length;
+  const llmTemplateCount = tags.filter((tag) => tag.source === 'llm_generated' && isTemplateLeaf(tag)).length;
 
   return (
     <section className="left-panel-card">

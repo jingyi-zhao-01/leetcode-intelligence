@@ -149,10 +149,10 @@ export async function generateTemplateDraft({
 
   const [group, submission] = await Promise.all([
     prisma.patternTag.findFirst({
-      where: { key: groupKey, dimension: 'template' },
+      where: { key: groupKey, dimension: 'template', kind: 'template_group', isActive: true },
       include: {
         children: {
-          where: { isActive: true, dimension: 'template' },
+          where: { isActive: true, dimension: 'template', kind: 'tag' },
           orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
         },
       },
@@ -247,7 +247,7 @@ export async function generateTemplateDraft({
 
 export async function createGeneratedTemplate(groupKey: string, draft: GeneratedTemplateDraft) {
   const group = await prisma.patternTag.findFirst({
-    where: { key: groupKey, dimension: 'template' },
+    where: { key: groupKey, dimension: 'template', kind: 'template_group', isActive: true },
     select: { id: true },
   });
 
@@ -266,7 +266,7 @@ export async function createGeneratedTemplate(groupKey: string, draft: Generated
   }
 
   const maxSortOrder = await prisma.patternTag.aggregate({
-    where: { parentId: group.id, dimension: 'template' },
+    where: { parentId: group.id, dimension: 'template', kind: 'tag' },
     _max: { sortOrder: true },
   });
 
@@ -275,6 +275,7 @@ export async function createGeneratedTemplate(groupKey: string, draft: Generated
       key,
       label: draft.label.trim(),
       dimension: 'template',
+      kind: 'tag',
       source: 'llm_generated',
       description: draft.description.trim(),
       metadata: draft.metadata,

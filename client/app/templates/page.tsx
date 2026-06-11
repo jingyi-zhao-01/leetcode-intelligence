@@ -26,7 +26,7 @@ type TemplateCluster = {
 const FALLBACK_CLUSTER = {
   key: 'ungrouped-templates',
   label: 'Ungrouped templates',
-  description: 'Templates without a parent primary group.',
+  description: 'Templates without a parent template group.',
   sortOrder: Number.MAX_SAFE_INTEGER,
 };
 
@@ -47,6 +47,8 @@ function formatTitle(submission: SubmissionRow) {
 
 function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionRow[]) {
   const templateTags = tags.filter((tag) => tag.dimension === 'template');
+  const templateGroups = templateTags.filter((tag) => tag.kind === 'template_group');
+  const templateLeaves = templateTags.filter((tag) => tag.kind === 'tag');
   const clusters = new Map<string, TemplateCluster>();
   const fallbackClusterKey = FALLBACK_CLUSTER.key;
 
@@ -63,14 +65,13 @@ function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionR
     return clusters.get(key)!;
   }
 
-  for (const tag of templateTags) {
+  for (const tag of templateGroups) {
     if (!tag.parentId) {
       ensureCluster(tag.id, tag.label, tag.description, tag.sortOrder);
-      continue;
     }
   }
 
-  const templatesById = new Map<string, PatternTagOption>(templateTags.map((tag) => [tag.id, tag]));
+  const templatesById = new Map<string, PatternTagOption>(templateLeaves.map((tag) => [tag.id, tag]));
   const problemsByTemplateId = new Map<string, Map<string, TemplateProblem>>();
 
   for (const submission of submissions) {
@@ -85,7 +86,7 @@ function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionR
     const visitedTemplateIds = new Set<string>();
 
     for (const tag of submission.tags) {
-      if (tag.dimension !== 'template') {
+      if (tag.dimension !== 'template' || tag.kind !== 'tag') {
         continue;
       }
 
@@ -110,7 +111,7 @@ function buildTemplateCatalog(tags: PatternTagOption[], submissions: SubmissionR
     }
   }
 
-  for (const tag of templateTags) {
+  for (const tag of templateLeaves) {
     if (!tag.parentId || tag.id === tag.parentId) {
       continue;
     }
@@ -174,7 +175,7 @@ export default async function TemplatesPage() {
       <header className="template-builder-header">
         <div>
           <p className="eyebrow">Template Builder</p>
-          <h1>Primary Template Groups</h1>
+          <h1>Template Groups</h1>
         </div>
         <Link className="template-workbench-back" href="/submission-history">
           Back to submission workbench
@@ -186,9 +187,18 @@ export default async function TemplatesPage() {
           {clusters.map((cluster) => (
             <section className="template-builder-cluster" key={cluster.key}>
               <div className="template-cluster-heading">
-                <p className="eyebrow">Primary cluster</p>
-                <h2>{cluster.label}</h2>
-                <p className="cluster-description">{cluster.description ?? 'Template group with reusable approach metadata.'}</p>
+                <div>
+                  <h2>{cluster.label}</h2>
+                  <p className="cluster-description">
+                    {cluster.description ?? 'Template group with reusable approach metadata.'}
+                  </p>
+                </div>
+                <div className="template-cluster-stats">
+                  <span>{cluster.templates.length} templates</span>
+                  <span>
+                    {cluster.templates.reduce((count, entry) => count + entry.problems.length, 0)} associated problems
+                  </span>
+                </div>
               </div>
 
               <div className="template-list">
@@ -196,6 +206,7 @@ export default async function TemplatesPage() {
                   const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
                   const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
                   const sourceClass = entry.template.source.replaceAll('_', '-');
+                  const previewProblems = entry.problems.slice(0, 3);
 
                   return (
                     <article key={entry.template.id} className="template-builder-card">
@@ -213,12 +224,10 @@ export default async function TemplatesPage() {
                       </p>
 
                       <div className="template-problem-list">
-                        <p className="template-problem-title">
-                          Associated problems ({entry.problems.length})
-                        </p>
-                        {entry.problems.length ? (
+                        <p className="template-problem-title">Associated problems ({entry.problems.length})</p>
+                        {previewProblems.length ? (
                           <ul>
-                            {entry.problems.map((problem) => (
+                            {previewProblems.map((problem) => (
                               <li key={problem.id}>
                                 <span>{problem.title}</span>
                                 <small>
@@ -230,10 +239,19 @@ export default async function TemplatesPage() {
                         ) : (
                           <p className="template-empty-problem">No problems tagged yet.</p>
                         )}
+                        {entry.problems.length > previewProblems.length ? (
+                          <p className="template-more-problems">+ {entry.problems.length - previewProblems.length} more problems</p>
+                        ) : null}
                       </div>
                     </article>
                   );
                 })}
+
+                <Link className="template-builder-card template-builder-card-create" href="/submission-history">
+                  <span className="template-create-icon">+</span>
+                  <strong>Generate template</strong>
+                  <small>{cluster.label}</small>
+                </Link>
               </div>
             </section>
           ))}

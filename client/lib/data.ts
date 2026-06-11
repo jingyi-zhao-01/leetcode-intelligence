@@ -5,6 +5,7 @@ export type PatternTagOption = {
   key: string;
   label: string;
   dimension: string;
+  kind: PatternTagKind;
   source: PatternTagSource;
   assignmentCount: number;
   description: string | null;
@@ -16,6 +17,7 @@ export type PatternTagOption = {
 };
 
 export type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
+export type PatternTagKind = 'template_group' | 'tag';
 
 export type TemplateMetadata = {
   classicProblems?: string[];
@@ -51,6 +53,7 @@ export type SubmissionRow = {
     key: string;
     label: string;
     dimension: string;
+    kind: PatternTagKind;
     parentId: string | null;
     parentKey: string | null;
     parentLabel: string | null;
@@ -186,6 +189,7 @@ export async function getTagWorkbenchData() {
           key: entry.PatternTag.key,
           label: entry.PatternTag.label,
           dimension: entry.PatternTag.dimension,
+          kind: entry.PatternTag.kind,
           parentId: entry.PatternTag.parent?.id ?? null,
           parentKey: entry.PatternTag.parent?.key ?? null,
           parentLabel: entry.PatternTag.parent?.label ?? null,
@@ -197,6 +201,7 @@ export async function getTagWorkbenchData() {
       key: tag.key,
       label: tag.label,
       dimension: tag.dimension,
+      kind: tag.kind,
       source: tag.source,
       assignmentCount: tag._count.SubmissionPatternTag,
       description: tag.description,
