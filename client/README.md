@@ -25,7 +25,18 @@ This Next.js client uses middleware + session-cookie check to enforce write-only
    - `ADMIN_SESSION_TOKEN` (recommended, separate from `ADMIN_PASSWORD`)
    - `ADMIN_COOKIE_NAME` (optional, default `leetcode-qa-admin`)
    - `ADMIN_COOKIE_MAX_AGE_SECONDS` (optional, default `28800`)
+   - `UPSTASH_REDIS_REST_URL` (required for prod non-admin IP rate limiting)
+   - `UPSTASH_REDIS_REST_TOKEN` (required for prod non-admin IP rate limiting)
+   - `NON_ADMIN_RATE_LIMIT_MAX_REQUESTS` (optional, default `120`)
+   - `NON_ADMIN_RATE_LIMIT_WINDOW_SECONDS` (optional, default `60`)
 3. Deploy.
+
+## Production rate limiting
+
+- In production, all non-admin requests are rate-limited by client IP in middleware.
+- Admin sessions bypass the limiter.
+- Local development bypass remains available.
+- Vercel Preview deployments are not treated as production for this limiter.
 
 ## First write authentication
 
