@@ -23,6 +23,10 @@ async function isLocalRequest() {
   return isLocalhostHost(host);
 }
 
+function isLocalWriteBypassEnabled() {
+  return process.env.NODE_ENV !== 'production';
+}
+
 function getSessionToken() {
   return ADMIN_SESSION_TOKEN ?? ADMIN_PASSWORD;
 }
@@ -37,7 +41,7 @@ export async function readWriteSession() {
 }
 
 export async function isWriteAllowed() {
-  if (await isLocalRequest()) {
+  if (isLocalWriteBypassEnabled() && (await isLocalRequest())) {
     return true;
   }
 
