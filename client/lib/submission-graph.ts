@@ -94,7 +94,14 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
       lastAttemptAt: string;
       representativeSubmissionId: string;
       relatedProblems: Set<string>;
-      templateTags: Map<string, string>;
+      templateTags: Map<
+        string,
+        {
+          label: string;
+          parentKey: string | null;
+          parentLabel: string | null;
+        }
+      >;
       templateGroups: Map<string, string>;
       templateGroupStats: Map<
         string,
