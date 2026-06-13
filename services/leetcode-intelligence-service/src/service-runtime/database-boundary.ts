@@ -1,4 +1,4 @@
-import { LogOperation } from "../core/decorators/logging.ts";
+import { runLoggedOperation } from "../core/decorators/logging.ts";
 import type { FocusRecommendationResult, PromptTransport } from "../core/types.ts";
 import { createLogger } from "../logger.ts";
 import type { IntelligenceService } from "./contracts.ts";
@@ -37,76 +37,116 @@ export class DatabaseBoundIntelligenceService implements IntelligenceService {
     return this.inner.health();
   }
 
-  @LogOperation("service-runtime/database-boundary", "triggerPrompt", (triggerSource = "manual", transport?: PromptTransport) => ({
-    triggerSource,
-    channelId: transport?.channelId,
-  }))
   async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
-    return this.withDatabase(
-      () => this.inner.triggerPrompt(triggerSource, transport),
+    return runLoggedOperation(
       {
+        scope: "service-runtime/database-boundary",
         operation: "triggerPrompt",
-        triggerSource,
-        channelId: transport?.channelId,
+        args: [triggerSource, transport] as const,
+        buildMeta: (loggedTriggerSource = "manual", loggedTransport?: PromptTransport) => ({
+          triggerSource: loggedTriggerSource,
+          channelId: loggedTransport?.channelId,
+        }),
       },
+      () =>
+        this.withDatabase(
+          () => this.inner.triggerPrompt(triggerSource, transport),
+          {
+            operation: "triggerPrompt",
+            triggerSource,
+            channelId: transport?.channelId,
+          },
+        ),
     );
   }
 
-  @LogOperation("service-runtime/database-boundary", "attachPromptMessage", (promptEventId: string, messageId: string) => ({
-    promptEventId,
-    messageId,
-  }))
   async attachPromptMessage(promptEventId: string, messageId: string): Promise<void> {
-    await this.withDatabase(
-      () => this.inner.attachPromptMessage(promptEventId, messageId),
+    await runLoggedOperation(
       {
+        scope: "service-runtime/database-boundary",
         operation: "attachPromptMessage",
-        promptEventId,
-        messageId,
+        args: [promptEventId, messageId] as const,
+        buildMeta: (loggedPromptEventId: string, loggedMessageId: string) => ({
+          promptEventId: loggedPromptEventId,
+          messageId: loggedMessageId,
+        }),
       },
+      () =>
+        this.withDatabase(
+          () => this.inner.attachPromptMessage(promptEventId, messageId),
+          {
+            operation: "attachPromptMessage",
+            promptEventId,
+            messageId,
+          },
+        ),
     );
   }
 
-  @LogOperation("service-runtime/database-boundary", "scorePromptReply", (promptEventId: string, rawReply: string) => ({
-    promptEventId,
-    rawReplyChars: rawReply.length,
-  }))
   async scorePromptReply(promptEventId: string, rawReply: string): Promise<Record<string, unknown>> {
-    return this.withDatabase(
-      () => this.inner.scorePromptReply(promptEventId, rawReply),
+    return runLoggedOperation(
       {
+        scope: "service-runtime/database-boundary",
         operation: "scorePromptReply",
-        promptEventId,
-        rawReplyChars: rawReply.length,
+        args: [promptEventId, rawReply] as const,
+        buildMeta: (loggedPromptEventId: string, loggedRawReply: string) => ({
+          promptEventId: loggedPromptEventId,
+          rawReplyChars: loggedRawReply.length,
+        }),
       },
+      () =>
+        this.withDatabase(
+          () => this.inner.scorePromptReply(promptEventId, rawReply),
+          {
+            operation: "scorePromptReply",
+            promptEventId,
+            rawReplyChars: rawReply.length,
+          },
+        ),
     );
   }
 
-  @LogOperation("service-runtime/database-boundary", "scorePromptReplyByMessageId", (messageId: string, rawReply: string) => ({
-    messageId,
-    rawReplyChars: rawReply.length,
-  }))
   async scorePromptReplyByMessageId(messageId: string, rawReply: string): Promise<Record<string, unknown> | null> {
-    return this.withDatabase(
-      () => this.inner.scorePromptReplyByMessageId(messageId, rawReply),
+    return runLoggedOperation(
       {
+        scope: "service-runtime/database-boundary",
         operation: "scorePromptReplyByMessageId",
-        messageId,
-        rawReplyChars: rawReply.length,
+        args: [messageId, rawReply] as const,
+        buildMeta: (loggedMessageId: string, loggedRawReply: string) => ({
+          messageId: loggedMessageId,
+          rawReplyChars: loggedRawReply.length,
+        }),
       },
+      () =>
+        this.withDatabase(
+          () => this.inner.scorePromptReplyByMessageId(messageId, rawReply),
+          {
+            operation: "scorePromptReplyByMessageId",
+            messageId,
+            rawReplyChars: rawReply.length,
+          },
+        ),
     );
   }
 
-  @LogOperation("service-runtime/database-boundary", "recommendFocus", (limit?: number) => ({
-    limit,
-  }))
   async recommendFocus(limit?: number): Promise<FocusRecommendationResult> {
-    return this.withDatabase(
-      () => this.inner.recommendFocus(limit),
+    return runLoggedOperation(
       {
+        scope: "service-runtime/database-boundary",
         operation: "recommendFocus",
-        limit,
+        args: [limit] as const,
+        buildMeta: (loggedLimit?: number) => ({
+          limit: loggedLimit,
+        }),
       },
+      () =>
+        this.withDatabase(
+          () => this.inner.recommendFocus(limit),
+          {
+            operation: "recommendFocus",
+            limit,
+          },
+        ),
     );
   }
 

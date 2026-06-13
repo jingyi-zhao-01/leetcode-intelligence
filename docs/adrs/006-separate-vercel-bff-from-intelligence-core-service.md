@@ -1,171 +1,131 @@
-# Split Vercel BFF From The Intelligence Core Service
+# Keep Vercel Thin, Move Core Logic To The Intelligence Service
 
 Date: 2026-06-12
 
 Related:
 
-- [README.md](../../README.md)
-- [docs/architecture/README.md](../architecture/README.md)
-- [services/leetcode-intelligence-service/README.md](../../services/leetcode-intelligence-service/README.md)
 - [client/app/actions.ts](../../client/app/actions.ts)
 - [services/leetcode-intelligence-service/src/server.ts](../../services/leetcode-intelligence-service/src/server.ts)
+- [client/eslint.config.mjs](../../client/eslint.config.mjs)
+- [client/tsconfig.json](../../client/tsconfig.json)
 
-## Why I am writing this down
+## Why this ADR exists
 
-Right now the web side is convenient, but it is starting to feel too mixed together.
+This one is mostly me writing down a pattern that kept showing up while fixing real issues.
 
-At the moment:
+The web app is deployed from `client/` on Vercel, but some of the actual intelligence logic is still split between:
 
-- `client/` is a Next.js app
-- Vercel is hosting the UI
-- some business logic is still living in server actions and route handlers
-- some other business logic already lives in `services/leetcode-intelligence-service`
+- Next.js server actions / route handlers
+- `services/leetcode-intelligence-service`
 
-That was fine early on, but it is getting awkward now.
+That was fine at first, but the boundary has been getting messy.
 
-The biggest signal is that Vercel is not really building "the whole repo". It is building `client/` as its own little world.
+## Problems I actually ran into
 
-That already caused real issues:
+### 1. Vercel treats `client/` like its own world
 
-- cross-directory `tsconfig` broke remote Vercel builds
-- cross-directory ESLint config broke remote Vercel builds
-- local repo build passed while Vercel deploy still failed
+This was the first big signal.
 
-So even before talking about code organization, there is already a deployment-boundary problem:
+A few times, local checks passed, but Vercel still failed because `client/` was not self-contained enough:
 
-> the Vercel app needs to behave like a self-contained deployable, not like it can freely reach into the rest of the repo forever.
+- root ESLint config vs `client/` ESLint config
+- root/shared TypeScript config vs what Vercel can see from `client/`
+- local repo build passing while remote Vercel build still broke
 
-There is also a second problem:
+So even before architecture purity, there is a practical rule here:
 
-`client/app/actions.ts` is starting to do too many things at once:
+> if Vercel deploys `client/`, then `client/` has to be able to stand on its own.
 
-- web request parsing
-- admin/session checks
+### 2. `client/app/actions.ts` is starting to feel like backend code
+
+The server actions are not just doing web glue anymore.
+
+They are gradually taking on things like:
+
+- auth/session checks
 - Prisma reads and writes
-- tag governance
+- tag mutation rules
 - cross-record validation
-- shaping responses for the UI
+- transaction-heavy flows
 
-That makes it harder to tell what is:
+That is the point where BFF code starts quietly turning into the real backend.
 
-- just web adapter code
-- actual intelligence-domain logic
+### 3. The same logic wants to be reused outside the web app
 
-And if I ever want the same logic from somewhere else, like:
+A lot of the interesting logic here is not really "for Next.js".
 
-- Discord
-- CLI
+It could also be used by:
+
+- Discord flows
 - cron jobs
-- batch scripts
+- CLI tools
+- local automation
 
-then keeping it only in Next.js server actions is the wrong place.
+Once that is true, it is a bad fit for the logic to live only inside Vercel-facing server actions.
 
 ## Decision
 
-I am going to treat these two things differently from now on.
+I am going to treat the two sides differently.
 
-### 1. `client/` is the Vercel BFF
+### `client/` is the BFF
 
-`client/` should mainly own browser-facing concerns:
+`client/` should stay thin and own browser-facing concerns:
 
 - UI
-- session and auth checks
-- request parsing
-- rate limiting
-- thin server actions / route handlers
-- UI-friendly response shaping
+- auth/session glue
+- request validation
+- server actions as adapters
+- Next.js-specific cache / revalidation behavior
 
-In other words, it is the BFF layer, not the long-term home for core intelligence logic.
+It can still have server code, but that code should mostly be adapter code.
 
-### 2. `services/leetcode-intelligence-service` is the core service
+### `services/leetcode-intelligence-service` is the real backend
 
-This service should own the intelligence domain long term:
+This service should own the reusable domain behavior:
 
-- domain rules
-- scoring
-- recommendation
-- classification / governance logic
-- persistence orchestration
-- reusable APIs for non-browser callers
+- recommendation logic
+- scoring / analysis flows
+- pattern tag rules
+- DB orchestration
+- logic that may be used by non-browser callers
 
-If some logic is likely to be reused outside the browser, it should probably live here instead of inside Next.js actions.
+If something feels like actual product behavior rather than web glue, it should probably live here.
 
-## Practical rule
+## What this means in practice
 
-When I add or touch intelligence-related logic, I should ask:
+When touching `client/app/actions.ts`, default question should be:
 
-1. Is this purely a web/BFF concern?
-2. If not, should it live in `leetcode-intelligence-service` instead?
-3. Can the Next.js side just become a thin adapter over that service?
+> is this just BFF glue, or is this actually core service logic wearing a Next.js hat?
 
-Default direction:
+If it is the second one, move it toward `services/leetcode-intelligence-service`.
 
-- reusable domain logic -> `services/leetcode-intelligence-service`
-- browser-only adapter logic -> `client/`
+## Why I am not doing a big rewrite
 
-## What should stay in the BFF
+This is not a "rewrite everything now" ADR.
 
-Stuff that is still reasonable in `client/`:
+It is just a direction:
 
-- admin auth and cookie/session handling
-- browser request validation
-- `revalidatePath` and other Next-specific glue
-- thin server actions that call the core service
-- UI-only shaping of results
+- keep `client/` deployable on its own
+- stop growing core logic inside Vercel handlers
+- move heavy/reusable logic into the intelligence service over time
 
-## What should move out over time
+## First things that should move
 
-Stuff that should gradually leave `client/app/actions.ts`:
+The first migration targets are the things that already caused confusion:
 
-- Prisma-heavy workflows
 - tag governance logic
-- cross-record mutation rules
-- logic that would also make sense for Discord / CLI / cron / batch
-- anything that starts feeling like the real source of truth for the intelligence domain
+- Prisma-heavy mutation flows
+- cross-submission / cross-record write rules
+- anything in server actions that I would also want from CLI or Discord later
 
-## Why not keep the current setup
+## Short version
 
-Because it is already showing two kinds of pain:
+The main lesson from the recent back and forth was simple:
 
-1. deployment pain
-   Vercel keeps exposing "this folder is actually its own isolated build root"
+- Vercel wants `client/` to be isolated
+- my domain logic does not want to be isolated inside `client/`
 
-2. ownership pain
-   the more logic I keep in Next.js actions, the fuzzier the boundary gets between:
-   - web adapter code
-   - actual intelligence-system behavior
+So the clean split is:
 
-I do not want `client/` to quietly become the real backend by accident.
-
-## Why not move everything at once
-
-Because that is probably overkill and risky for this project right now.
-
-I do not need a big rewrite. I just need a clear direction and a clean extraction path.
-
-So the plan is incremental:
-
-1. lock the boundary mentally first
-2. move the heaviest/reusable logic first
-3. let `client/` shrink into a proper BFF over time
-
-## First extraction targets
-
-The first things to move out of `client/app/actions.ts` should be:
-
-- tag governance
-- `PatternTag` / `SubmissionPatternTag` mutations
-- Prisma transaction-heavy logic
-- any write flow that I may want to reuse from other surfaces later
-
-## Desired end state
-
-Over time I want this shape:
-
-- `client/`
-  thin web layer, thin BFF, self-contained for Vercel
-
-- `services/leetcode-intelligence-service`
-  the actual long-term home of intelligence domain behavior
-
-That should make both the deploy story and the architecture story much less annoying.
+- `client/` = thin BFF
+- `services/leetcode-intelligence-service` = core service
