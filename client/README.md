@@ -1,6 +1,6 @@
 # LeetCode QA Client Deployment
 
-This Next.js client uses middleware + session-cookie check to enforce write-only access for mutation operations.
+This Next.js client is a thin BFF. It owns UI, admin session state, middleware, and request adaptation, while all database access and OpenRouter calls live in `services/leetcode-intelligence-service`.
 
 ## Access Model
 
@@ -19,8 +19,8 @@ This Next.js client uses middleware + session-cookie check to enforce write-only
 
 1. Point the Vercel project root to `client/`.
 2. Set environment variables:
-   - `DATABASE_URL`
-   - `OPEN_ROUTER_API_KEY`
+   - `BFF_SERVICE_URL` (required)
+   - `BFF_TOKEN` (required)
    - `ADMIN_PASSWORD` (required)
    - `ADMIN_SESSION_TOKEN` (recommended, separate from `ADMIN_PASSWORD`)
    - `ADMIN_COOKIE_NAME` (optional, default `leetcode-qa-admin`)
@@ -30,6 +30,8 @@ This Next.js client uses middleware + session-cookie check to enforce write-only
    - `NON_ADMIN_RATE_LIMIT_MAX_REQUESTS` (optional, default `120`)
    - `NON_ADMIN_RATE_LIMIT_WINDOW_SECONDS` (optional, default `60`)
 3. Deploy.
+
+The client no longer reads `DATABASE_URL` or `OPEN_ROUTER_API_KEY` directly on Vercel.
 
 ## Production rate limiting
 

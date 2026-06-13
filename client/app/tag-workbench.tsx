@@ -14,9 +14,13 @@ import {
 } from './actions';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import type { PatternTagOption, SubmissionRow } from '../lib/data';
-import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from '../lib/template-analyzer';
-import type { GeneratedTemplateDraft } from '../lib/template-generator';
+import type {
+  GeneratedTemplateDraft,
+  PatternTagOption,
+  SubmissionRow,
+  TemplateBenchmarkResult,
+  TemplateBenchmarkScore,
+} from '../lib/data';
 import { Spinner } from './components/spinner';
 import { PendingSubmitButton } from './components/pending-submit-button';
 import { Button } from './components/ui/button';

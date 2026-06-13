@@ -21,7 +21,7 @@ D2 source: [`../../docs/architecture/architecture-v1.d2`](../../docs/architectur
   - runtime composition
   - database boundary lifecycle
   - external dependency wiring
-  - process entrypoints, Discord, and HTTP startup
+  - process entrypoints, cron workers, Discord, and HTTP startup
 - Domain logic lives in [`src/core/README.md`](./src/core/README.md):
   - prompt generation
   - reply scoring
@@ -30,6 +30,13 @@ D2 source: [`../../docs/architecture/architecture-v1.d2`](../../docs/architectur
   - recommendation narrative generation
 
 If you want to understand how scoring, weight, and recommendation interact, start with [`src/core/README.md`](./src/core/README.md).
+
+Process entrypoints are grouped by surface:
+
+- `src/server.ts` for HTTP
+- `src/cron/` for scheduled workers
+- `src/discord/` for always-on Discord listeners
+- `src/cli.ts` for one-off local CLI flows
 
 ## Entry Points
 

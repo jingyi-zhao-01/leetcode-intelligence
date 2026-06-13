@@ -4,10 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prisma:generate": "prisma generate --schema ./prisma/schema.prisma",
-    "postinstall": "npm run prisma:generate",
     "dev": "next dev --port 3002",
-    "build": "npm run prisma:generate && next build",
+    "build": "next build",
     "start": "next start --port 3002",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix"
@@ -15,7 +13,6 @@
   "dependencies": {
     "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
-    "@prisma/client": "^5.22.0",
     "d3-force": "^3.0.0",
     "next": "^15.3.3",
     "react": "^19.0.0",
@@ -30,7 +27,6 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "eslint": "^9.39.0",
     "eslint-config-next": "^15.5.19",
-    "prisma": "^5.22.0",
     "typescript": "^5.7.2"
   }
 }

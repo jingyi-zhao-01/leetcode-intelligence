@@ -7,9 +7,20 @@ export type { IntelligenceService } from "./contracts.ts";
 export type { DomainServices, ExternalServices, PersistenceServices, RuntimeComposition } from "./composition.ts";
 export { loadIntelligenceConfig } from "../core/env.ts";
 
-export const createIntelligenceService = async () => {
+export const createIntelligenceServiceRuntime = () => {
   const config = loadIntelligenceConfig();
   const composition = createRuntimeComposition(config);
   const runtime = new IntelligenceRuntimeService(composition, config);
-  return new DatabaseBoundIntelligenceService(runtime, composition.persistence);
+  const service = new DatabaseBoundIntelligenceService(runtime, composition.persistence);
+
+  return {
+    config,
+    composition,
+    runtime,
+    service,
+  };
+};
+
+export const createIntelligenceService = async () => {
+  return createIntelligenceServiceRuntime().service;
 };

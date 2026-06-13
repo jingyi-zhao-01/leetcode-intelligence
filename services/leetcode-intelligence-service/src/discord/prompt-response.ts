@@ -1,6 +1,6 @@
-import { createIntelligenceService, loadIntelligenceConfig } from "./service-runtime/index.ts";
-import { createLogger } from "./logger.ts";
-import { PromptResponseClient } from "./client/index.ts";
+import { PromptResponseClient } from "../client/index.ts";
+import { createLogger } from "../logger.ts";
+import { createIntelligenceService, loadIntelligenceConfig } from "../service-runtime/index.ts";
 
 const logger = createLogger("prompt-response");
 

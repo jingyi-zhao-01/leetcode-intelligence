@@ -1,10 +1,14 @@
+import { timingSafeEqual } from "node:crypto";
+
 import express from "express";
 
-import { createIntelligenceService } from "./service-runtime/index.ts";
+import { createBffApi } from "./api/index.ts";
+import { createIntelligenceServiceRuntime } from "./service-runtime/index.ts";
 import { createLogger } from "./logger.ts";
 
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);
 const logger = createLogger("server");
+const BFF_TOKEN = process.env.BFF_TOKEN?.trim() || process.env.BFF_SERVICE_TOKEN?.trim() || "";
 
 const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,8 +22,41 @@ const formatError = (error: unknown): string => {
   return String(error);
 };
 
+const readBearerToken = (authorizationHeader: string | undefined): string | null => {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const [scheme, token] = authorizationHeader.split(" ", 2);
+  if (!scheme || !token || scheme.toLowerCase() !== "bearer") {
+    return null;
+  }
+
+  return token.trim() || null;
+};
+
+const tokenMatches = (candidate: string | null): boolean => {
+  if (!candidate || !BFF_TOKEN) {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(BFF_TOKEN);
+  const candidateBuffer = Buffer.from(candidate);
+
+  if (expectedBuffer.length !== candidateBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(expectedBuffer, candidateBuffer);
+};
+
 async function main(): Promise<void> {
-  const service = await createIntelligenceService();
+  if (!BFF_TOKEN) {
+    throw new Error("BFF_TOKEN is required for authenticated HTTP access.");
+  }
+
+  const { composition, service } = createIntelligenceServiceRuntime();
+  const bffApi = createBffApi({ prisma: composition.persistence.prisma });
   let ready = false;
   let startupError: unknown = null;
 
@@ -48,6 +85,20 @@ async function main(): Promise<void> {
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "1mb" }));
+  app.use((req, res, next) => {
+    if (req.path === "/health") {
+      next();
+      return;
+    }
+
+    const token = readBearerToken(req.header("authorization"));
+    if (!tokenMatches(token)) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    next();
+  });
 
   app.get("/health", async (_req, res) => {
     if (!ready) {
@@ -60,6 +111,160 @@ async function main(): Promise<void> {
     }
 
     res.json(await service.health());
+  });
+
+  app.get("/bff/tag-workbench", async (_req, res) => {
+    try {
+      res.json(await bffApi.getTagWorkbenchData());
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.get("/bff/templates-page", async (_req, res) => {
+    try {
+      res.json(await bffApi.getTemplatesPageData());
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.get("/bff/graph-page", async (_req, res) => {
+    try {
+      res.json(await bffApi.getGraphPageData());
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/submissions/:submissionId/tags", async (req, res) => {
+    try {
+      const submissionId = String(req.params.submissionId ?? "").trim();
+      const patternTagIds = Array.isArray(req.body?.patternTagIds)
+        ? req.body.patternTagIds.filter((value: unknown): value is string => typeof value === "string")
+        : [];
+
+      if (!submissionId) {
+        res.status(400).json({ error: "submissionId is required." });
+        return;
+      }
+
+      res.json(await bffApi.saveSubmissionTags(submissionId, patternTagIds));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/submissions/:submissionId/template-benchmark", async (req, res) => {
+    try {
+      const submissionId = String(req.params.submissionId ?? "").trim();
+      const excludedGroupKeys = Array.isArray(req.body?.excludedGroupKeys)
+        ? req.body.excludedGroupKeys.filter((value: unknown): value is string => typeof value === "string")
+        : [];
+
+      if (!submissionId) {
+        res.status(400).json({ error: "submissionId is required." });
+        return;
+      }
+
+      res.json(await bffApi.benchmarkSubmissionTemplates(submissionId, excludedGroupKeys));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/submissions/:submissionId/template-benchmark-opt-out", async (req, res) => {
+    try {
+      const submissionId = String(req.params.submissionId ?? "").trim();
+      const templateBenchmarkOptOut = Boolean(req.body?.templateBenchmarkOptOut);
+
+      if (!submissionId) {
+        res.status(400).json({ error: "submissionId is required." });
+        return;
+      }
+
+      res.json(await bffApi.setSubmissionTemplateOptOut(submissionId, templateBenchmarkOptOut));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/templates/draft", async (req, res) => {
+    try {
+      const groupKey = String(req.body?.groupKey ?? "").trim();
+      const submissionId = String(req.body?.submissionId ?? "").trim();
+      const prompt = String(req.body?.prompt ?? "").trim();
+      const model = typeof req.body?.model === "string" ? req.body.model : undefined;
+
+      if (!groupKey || !submissionId || !prompt) {
+        res.status(400).json({ error: "groupKey, submissionId, and prompt are required." });
+        return;
+      }
+
+      res.json(await bffApi.generateTemplateDraft({ groupKey, submissionId, prompt, model }));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/templates/generated", async (req, res) => {
+    try {
+      const groupKey = String(req.body?.groupKey ?? "").trim();
+      const draft = req.body?.draft;
+
+      if (!groupKey || !draft || typeof draft !== "object" || Array.isArray(draft)) {
+        res.status(400).json({ error: "groupKey and draft are required." });
+        return;
+      }
+
+      res.json(await bffApi.createGeneratedTemplate(groupKey, draft));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/template-groups", async (req, res) => {
+    try {
+      res.json(
+        await bffApi.createTemplateGroup({
+          label: String(req.body?.label ?? ""),
+          key: typeof req.body?.key === "string" ? req.body.key : undefined,
+          description: typeof req.body?.description === "string" ? req.body.description : undefined,
+        }),
+      );
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.post("/bff/templates/move", async (req, res) => {
+    try {
+      const templateId = String(req.body?.templateId ?? "").trim();
+      const targetGroupId = String(req.body?.targetGroupId ?? "").trim();
+
+      if (!templateId || !targetGroupId) {
+        res.status(400).json({ error: "templateId and targetGroupId are required." });
+        return;
+      }
+
+      res.json(await bffApi.moveTemplateToGroup({ templateId, targetGroupId }));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
+  });
+
+  app.delete("/bff/templates/:patternTagId", async (req, res) => {
+    try {
+      const patternTagId = String(req.params.patternTagId ?? "").trim();
+      if (!patternTagId) {
+        res.status(400).json({ error: "patternTagId is required." });
+        return;
+      }
+
+      res.json(await bffApi.deleteNonSeededTemplate(patternTagId));
+    } catch (error) {
+      res.status(500).json({ error: formatError(error) });
+    }
   });
 
   app.post("/trigger", async (_req, res) => {

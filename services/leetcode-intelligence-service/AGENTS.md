@@ -27,8 +27,8 @@ This service already has good code-adjacent docs. Use this file as the short rou
   Domain logic for prompting, scoring, weights, and recommendations.
 - `src/service-runtime/`
   Runtime composition, Prisma lifecycle, external clients, and orchestration.
-- `src/client/` and `src/cli/`
-  Delivery surfaces for Discord and CLI flows.
+- `src/client/`, `src/cli/`, `src/cron/`, and `src/discord/`
+  Delivery surfaces for Discord adapters, one-off CLI flows, and scheduled workers.
 
 Keep this split intact. Domain code should not grow implicit runtime wiring.
 
@@ -38,11 +38,11 @@ Keep this split intact. Domain code should not grow implicit runtime wiring.
   HTTP API surface.
 - `src/cli.ts`
   One-off CLI flow.
-- `src/cli/prompt-dispatch.ts`
+- `src/cron/prompt-dispatch.ts`
   Scheduled or one-shot prompt dispatch.
-- `src/prompt-response.ts`
+- `src/discord/prompt-response.ts`
   Discord reply listener.
-- `src/cli/recommender.ts`
+- `src/cron/recommender.ts`
   Scheduled or one-shot recommendation dispatch.
 
 ## Guardrails

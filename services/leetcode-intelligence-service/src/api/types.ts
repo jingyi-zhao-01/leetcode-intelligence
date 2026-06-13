@@ -1,7 +1,5 @@
-import { getIntelligenceServiceJson } from './intelligence-service';
-
-export type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
-export type PatternTagKind = 'template_group' | 'tag';
+export type PatternTagSource = "seeded" | "manually_created" | "llm_generated";
+export type PatternTagKind = "template_group" | "tag";
 
 export type TemplateMetadata = {
   classicProblems?: string[];
@@ -119,21 +117,3 @@ export type GraphSubmissionRow = {
     parentLabel: string | null;
   }>;
 };
-
-export async function getTagWorkbenchData() {
-  return getIntelligenceServiceJson<{
-    submissions: SubmissionRow[];
-    tags: PatternTagOption[];
-  }>('/bff/tag-workbench');
-}
-
-export async function getTemplatesPageData() {
-  return getIntelligenceServiceJson<{
-    submissions: TemplateCatalogSubmissionRow[];
-    tags: PatternTagOption[];
-  }>('/bff/templates-page');
-}
-
-export async function getGraphPageData() {
-  return getIntelligenceServiceJson<GraphSubmissionRow[]>('/bff/graph-page');
-}
