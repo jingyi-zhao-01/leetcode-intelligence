@@ -57,6 +57,7 @@ If you are only touching one service, stop after the relevant service-local docu
 
 ### Intelligence Service
 
+- [docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md](./docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md)
 - [services/leetcode-intelligence-service/AGENTS.md](./services/leetcode-intelligence-service/AGENTS.md)
 - [services/leetcode-intelligence-service/README.md](./services/leetcode-intelligence-service/README.md)
 - [docs/architecture/architecture-v1.d2](./docs/architecture/architecture-v1.d2)

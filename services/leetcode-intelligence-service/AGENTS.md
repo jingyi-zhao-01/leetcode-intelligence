@@ -15,10 +15,11 @@ This service already has good code-adjacent docs. Use this file as the short rou
 ## Read In This Order
 
 1. [README.md](./README.md)
-2. [../../docs/architecture/architecture-v1.d2](../../docs/architecture/architecture-v1.d2)
-3. [src/core/README.md](./src/core/README.md)
-4. [src/service-runtime/README.md](./src/service-runtime/README.md)
-5. [src/server.ts](./src/server.ts) or the relevant CLI entrypoint
+2. [../../docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md](../../docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md)
+3. [../../docs/architecture/architecture-v1.d2](../../docs/architecture/architecture-v1.d2)
+4. [src/core/README.md](./src/core/README.md)
+5. [src/service-runtime/README.md](./src/service-runtime/README.md)
+6. [src/server.ts](./src/server.ts) or the relevant CLI entrypoint
 
 ## Architectural Split
 
@@ -49,6 +50,7 @@ Keep this split intact. Domain code should not grow implicit runtime wiring.
 - Preserve score and weight semantics unless the user asks for behavior changes.
 - Keep OpenRouter-backed paths resilient with clear fallback behavior.
 - Treat Discord and HTTP as adapters around the runtime/domain layers, not places for core business rules.
+- Prefer moving reusable intelligence domain logic into this service instead of growing Next.js server actions in `client/`.
 
 ## Run And Verify
 
@@ -68,6 +70,7 @@ From repo root:
 
 - Keep architecture docs and diagrams under `../../docs/architecture/`.
 - Do not add service-specific architecture diagrams; update the single versioned repo diagram instead.
+- Update [../../docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md](../../docs/adrs/006-separate-vercel-bff-from-intelligence-core-service.md) if the BFF/core-service boundary changes.
 - Update [README.md](./README.md) when service capabilities, env vars, or deployment surfaces change.
 - Update [src/core/README.md](./src/core/README.md) when scoring/recommendation semantics change.
 - Update [src/service-runtime/README.md](./src/service-runtime/README.md) when runtime composition boundaries change.
