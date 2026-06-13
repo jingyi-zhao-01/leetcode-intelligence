@@ -133,6 +133,26 @@ type ActivePatternTag = PatternTagRecord & {
   };
 };
 
+type TagWorkbenchQuestionRecord = {
+  titleSlug: string;
+  title: string | null;
+  difficulty: string | null;
+  content: string | null;
+  relatedProblems: string[];
+};
+
+type TemplateCatalogQuestionRecord = {
+  titleSlug: string;
+  title: string | null;
+};
+
+type GraphQuestionRecord = {
+  titleSlug: string;
+  title: string | null;
+  difficulty: string | null;
+  relatedProblems: string[];
+};
+
 export type TemplateCatalogSubmissionRow = {
   id: string;
   titleSlug: string | null;
@@ -270,7 +290,7 @@ export async function getTagWorkbenchData() {
   const slugs = [
     ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
   ];
-  const questions = await prisma.question.findMany({
+  const questions: TagWorkbenchQuestionRecord[] = await prisma.question.findMany({
     where: { titleSlug: { in: slugs } },
     select: { titleSlug: true, title: true, difficulty: true, content: true, relatedProblems: true },
   });
@@ -403,7 +423,7 @@ export async function getTemplatesPageData() {
   const slugs = [
     ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
   ];
-  const questions = await prisma.question.findMany({
+  const questions: TemplateCatalogQuestionRecord[] = await prisma.question.findMany({
     where: { titleSlug: { in: slugs } },
     select: { titleSlug: true, title: true },
   });
@@ -467,7 +487,7 @@ export async function getGraphPageData() {
   const slugs = [
     ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
   ];
-  const questions = await prisma.question.findMany({
+  const questions: GraphQuestionRecord[] = await prisma.question.findMany({
     where: { titleSlug: { in: slugs } },
     select: { titleSlug: true, title: true, difficulty: true, relatedProblems: true },
   });
