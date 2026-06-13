@@ -76,58 +76,62 @@ type TemplateBenchmarkRecord = {
   updatedAt: Date;
 };
 
-type TagWorkbenchSubmission = Prisma.SubmissionGetPayload<{
-  include: {
-    SubmissionPatternTag: {
-      include: {
-        PatternTag: {
-          include: { parent: true };
-        };
-      };
-    };
-  };
-}>;
+type PatternTagParentRecord = {
+  id: string;
+  key: string;
+  label: string;
+};
 
-type TemplateCatalogSubmission = Prisma.SubmissionGetPayload<{
-  select: {
-    id: true;
-    titleSlug: true;
-    createdAt: true;
-    SubmissionPatternTag: {
-      include: {
-        PatternTag: {
-          include: { parent: true };
-        };
-      };
-    };
-  };
-}>;
+type PatternTagRecord = {
+  id: string;
+  key: string;
+  label: string;
+  dimension: string;
+  kind: PatternTagKind;
+  source: PatternTagSource;
+  description: string | null;
+  metadata: unknown;
+  parentId: string | null;
+  parent: PatternTagParentRecord | null;
+  sortOrder: number;
+};
 
-type GraphSubmission = Prisma.SubmissionGetPayload<{
-  select: {
-    id: true;
-    titleSlug: true;
-    createdAt: true;
-    SubmissionPatternTag: {
-      include: {
-        PatternTag: {
-          include: { parent: true };
-        };
-      };
-    };
-  };
-}>;
+type SubmissionPatternTagRecord = {
+  PatternTag: PatternTagRecord;
+};
 
-type ActivePatternTag = Prisma.PatternTagGetPayload<{
-  include: {
-    parent: true;
-    _count: {
-      select: {
-        SubmissionPatternTag: true;
-      };
-    };
+type TagWorkbenchSubmission = {
+  id: string;
+  titleSlug: string | null;
+  status: string;
+  createdAt: Date;
+  templateBenchmarkOptOut: boolean;
+  submissionDetails: unknown;
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  content: string;
+  SubmissionPatternTag: SubmissionPatternTagRecord[];
+};
+
+type TemplateCatalogSubmission = {
+  id: string;
+  titleSlug: string | null;
+  createdAt: Date;
+  SubmissionPatternTag: SubmissionPatternTagRecord[];
+};
+
+type GraphSubmission = {
+  id: string;
+  titleSlug: string | null;
+  createdAt: Date;
+  SubmissionPatternTag: SubmissionPatternTagRecord[];
+};
+
+type ActivePatternTag = PatternTagRecord & {
+  _count: {
+    SubmissionPatternTag: number;
   };
-}>;
+};
 
 export type TemplateCatalogSubmissionRow = {
   id: string;
