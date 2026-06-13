@@ -6,51 +6,27 @@ repos:
           - id: yamlfmt
     - repo: local
       hooks:
-          - id: ruff-format
-            name: Ruff format
-            entry: uv
-            args: [run, ruff, format]
-            language: system
-            types: [python]
-            pass_filenames: true
-            always_run: false
-          - id: ruff-check
-            name: Ruff lint
-            entry: uv
-            args: [run, ruff, check, --fix, --exit-non-zero-on-fix]
-            language: system
-            types: [python]
-            pass_filenames: true
-            always_run: false
-          - id: pycodestyle
-            name: PEP8 style check (pycodestyle)
-            entry: uv
-            args: [run, pycodestyle, --max-line-length=88, '--ignore=E203,E501,W503,E704']
-            language: system
-            types: [python]
-            pass_filenames: true
-            always_run: false
-          - id: pyright
-            name: Type check with pyright
-            entry: uv
-            args: [run, pyright]
-            language: system
-            types: [python]
-            pass_filenames: true
-            always_run: false
-          - id: prettier-services
-            name: Prettier (services)
+          - id: prettier-ts
+            name: Prettier (TypeScript surfaces)
             entry: npm
             args: [exec, --, prettier, --write]
             language: system
-            files: ^services/.*\.(js|cjs|mjs|ts|tsx|json|md|yml|yaml)$
+            files: ^(client|services|config)/.*\.(js|cjs|mjs|ts|tsx|json|md|css)$|^(package(-lock)?\.json|tsconfig.*\.json|eslint\.config\.mjs)$
             pass_filenames: true
             always_run: false
           - id: eslint-services
-            name: ESLint (tracked services)
+            name: ESLint (services)
             entry: npm
-            args: [exec, --, eslint]
+            args: [run, lint:services]
             language: system
-            files: ^services/(ingestor|leetcode-submission-service)/.*\.(js|mjs|cjs|ts|mts|cts)$
-            pass_filenames: true
+            files: ^services/|^config/eslint/|^eslint\.config\.mjs$|^services/tsconfig\.base\.json$|^tsconfig\.shared\.json$|^package(-lock)?\.json$
+            pass_filenames: false
+            always_run: false
+          - id: eslint-client
+            name: ESLint (client)
+            entry: npm
+            args: [run, lint:client]
+            language: system
+            files: ^client/|^client/eslint\.config\.mjs$|^client/tsconfig(\.base)?\.json$|^config/eslint/|^tsconfig\.shared\.json$|^package(-lock)?\.json$
+            pass_filenames: false
             always_run: false

@@ -64,9 +64,9 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
     select: { id: true },
   });
 
-  const allowedTagIds = new Set(allowedTags.map((tag) => tag.id));
+  const allowedTagIds = new Set(allowedTags.map((tag: { id: string }) => tag.id));
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: PatternTagWriter) => {
     await replaceTagsForSubmission(
       submissionId,
       patternTagIds.filter((patternTagId) => allowedTagIds.has(patternTagId)),
@@ -289,7 +289,14 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
       status: 'blocked' as const,
       tag: { key: tag.key, label: tag.label },
       assignmentCount: tag._count.SubmissionPatternTag,
-      submissions: tag.SubmissionPatternTag.map((entry) => ({
+      submissions: tag.SubmissionPatternTag.map((entry: {
+        Submission: {
+          id: string;
+          titleSlug: string;
+          status: string;
+          createdAt: Date;
+        };
+      }) => ({
         id: entry.Submission.id,
         titleSlug: entry.Submission.titleSlug,
         status: entry.Submission.status,

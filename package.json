@@ -4,12 +4,15 @@
   "workspaces": [
     "client",
     "services/leetcode-intelligence-service",
-    "services/leetcode-mcp-service",
     "services/leetcode-submission-service"
   ],
   "scripts": {
-    "lint": "eslint --no-error-on-unmatched-pattern \"services/ingestor/**/*.{js,mjs,cjs,ts,mts,cts}\" \"services/leetcode-submission-service/**/*.{js,mjs,cjs,ts,mts,cts}\"",
-    "lint:fix": "eslint --no-error-on-unmatched-pattern \"services/ingestor/**/*.{js,mjs,cjs,ts,mts,cts}\" \"services/leetcode-submission-service/**/*.{js,mjs,cjs,ts,mts,cts}\" --fix",
+    "lint": "npm run lint:services && npm run lint:client",
+    "lint:services": "eslint --max-warnings=0 --no-error-on-unmatched-pattern \"services/**/*.{js,mjs,cjs,ts,mts,cts}\"",
+    "lint:services:fix": "eslint --max-warnings=0 --no-error-on-unmatched-pattern \"services/**/*.{js,mjs,cjs,ts,mts,cts}\" --fix",
+    "lint:client": "npm run --workspace client lint",
+    "lint:client:fix": "npm run --workspace client lint:fix",
+    "lint:fix": "npm run lint:services:fix && npm run lint:client:fix",
     "postinstall": "prisma generate --schema services/shared/prisma/schema.prisma",
     "test": "vitest run",
     "format": "prettier --write \"services/**/*.{js,cjs,mjs,ts,tsx,json,md,yml,yaml}\"",

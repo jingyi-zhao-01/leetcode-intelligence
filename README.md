@@ -27,11 +27,9 @@ an AIO solution for tracking LeetCode submissions, analyzing problem-solving evo
 | ------------------------ | ------------- | --------------- | ------------------------------------------------------------ |
 | **Submission Service**   | 3000, 8000    | TCP, HTTP       | Submission tracking & analytics API                          |
 | **Intelligence Service** | HTTP, Discord | HTTP            | Prompt scoring & recommendations                             |
-| **MCP Service**          | 8000          | HTTP, stdio MCP | Tool access to persisted problem and submission intelligence |
 | **Ingestor**             | CLI           | Python          | ETL for LeetCode problem ingestion                           |
 
 Service docs:
 
 - Submission Service: [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
 - Intelligence Service: [services/leetcode-intelligence-service/README.md](./services/leetcode-intelligence-service/README.md)
-- MCP Service: [services/leetcode-mcp-service/README.md](./services/leetcode-mcp-service/README.md)

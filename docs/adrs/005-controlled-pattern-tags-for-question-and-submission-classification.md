@@ -5,7 +5,6 @@
 相关背景:
 
 - [services/shared/prisma/schema.prisma](../../services/shared/prisma/schema.prisma)
-- [services/leetcode-mcp-service/README.md](../../services/leetcode-mcp-service/README.md)
 - [services/leetcode-intelligence-service/README.md](../../services/leetcode-intelligence-service/README.md)
 
 ## 背景

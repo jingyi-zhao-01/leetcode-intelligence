@@ -1,4 +1,4 @@
-.PHONY: help install mcp mcp-stdio submission analytics dev-mcp prod-mcp dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop d2-render-architecture clean
+.PHONY: help install submission analytics dev-submission prod-submission dev-analytics dev-frontend test prisma-generate prisma-db-push prisma-db-pull submission-stats submission-image-start submission-image-stop d2-render-architecture clean
 
 help:
 	@echo "Available commands:"
@@ -9,11 +9,7 @@ help:
 	@echo "  make prisma-db-pull         - Pull schema from database with DATABASE_URL"
 	@echo ""
 	@echo "Local Run"
-	@echo "  make mcp                    - Start MCP server"
-	@echo "  make mcp-stdio              - Start MCP server in stdio mode"
 	@echo "  make submission             - Start Submission server"
-	@echo "  make dev-mcp                - Alias for make mcp"
-	@echo "  make prod-mcp               - Alias for make mcp"
 	@echo "  make analytics              - Start Analytics API"
 	@echo "  make dev-frontend           - Start Next.js frontend"
 	@echo "  make submission-stats       - Show submission statistics"
@@ -55,18 +51,6 @@ prisma-db-push:
 
 prisma-db-pull:
 	DATABASE_URL=$(DATABASE_URL) $(PRISMA_RUN_JS) db pull $(PRISMA_SCHEMA)
-
-# --- Local Run Targets ---
-mcp: prisma-generate
-	@echo "Starting MCP Server" >&2
-	@DATABASE_URL=$(DATABASE_URL) npm run --workspace services/leetcode-mcp-service mcp-server
-
-# Target specifically for stdio-based MCP servers (e.g. for VS Code config)
-# Redirects all build/setup output to stderr to keep stdout clean for JSON-RPC
-mcp-stdio:
-	@$(MAKE) prisma-generate >&2
-	@echo "Starting MCP Server (stdio)" >&2
-	@DATABASE_URL=$(DATABASE_URL) npm run --workspace services/leetcode-mcp-service --silent mcp-server-stdio
 
 submission: prisma-generate
 	@echo "Starting Submission Server" >&2

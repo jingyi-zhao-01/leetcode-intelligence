@@ -1,0 +1,62 @@
+name: lint
+
+on:
+  push:
+    paths:
+      - "client/**"
+      - "services/**"
+      - "config/eslint/**"
+      - "eslint.config.mjs"
+      - "client/eslint.config.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.shared.json"
+      - "services/tsconfig.base.json"
+      - "client/tsconfig.base.json"
+      - "client/tsconfig.json"
+      - ".github/workflows/lint.yml"
+  pull_request:
+    paths:
+      - "client/**"
+      - "services/**"
+      - "config/eslint/**"
+      - "eslint.config.mjs"
+      - "client/eslint.config.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.shared.json"
+      - "services/tsconfig.base.json"
+      - "client/tsconfig.base.json"
+      - "client/tsconfig.json"
+      - ".github/workflows/lint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint client and services
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint services
+        run: npm run lint:services
+
+      - name: Lint client
+        run: npm run lint:client
