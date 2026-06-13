@@ -3,9 +3,13 @@ import { timingSafeEqual } from "node:crypto";
 import express from "express";
 
 import { createBffApi } from "./api/index.ts";
-import { createIntelligenceServiceRuntime } from "./service-runtime/index.ts";
 import { createLogger } from "./logger.ts";
+import { runBffRoute } from "./observability/bff.ts";
+import { createHttpTracingMiddleware } from "./observability/http.ts";
+import { configureTracing, shutdownTracing } from "./observability/tracing.ts";
+import { createIntelligenceServiceRuntime } from "./service-runtime/index.ts";
 
+const SERVICE_NAME = "leetcode-intelligence-service";
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);
 const logger = createLogger("server");
 const BFF_TOKEN = process.env.BFF_TOKEN?.trim() || process.env.BFF_SERVICE_TOKEN?.trim() || "";
@@ -55,10 +59,13 @@ async function main(): Promise<void> {
     throw new Error("BFF_TOKEN is required for authenticated HTTP access.");
   }
 
+  await configureTracing(SERVICE_NAME);
+
   const { composition, service } = createIntelligenceServiceRuntime();
   const bffApi = createBffApi({ prisma: composition.persistence.prisma });
   let ready = false;
   let startupError: unknown = null;
+  let shutdownPromise: Promise<void> | null = null;
 
   const startInBackground = async (): Promise<void> => {
     let attempt = 0;
@@ -85,6 +92,7 @@ async function main(): Promise<void> {
   const app = express();
   app.disable("x-powered-by");
   app.use(express.json({ limit: "1mb" }));
+  app.use("/bff", createHttpTracingMiddleware(SERVICE_NAME, "bff"));
   app.use((req, res, next) => {
     if (req.path === "/health") {
       next();
@@ -104,7 +112,7 @@ async function main(): Promise<void> {
     if (!ready) {
       res.json({
         status: startupError ? "degraded" : "starting",
-        service: "leetcode-intelligence-service",
+        service: SERVICE_NAME,
         error: startupError ? formatError(startupError) : undefined,
       });
       return;
@@ -113,32 +121,20 @@ async function main(): Promise<void> {
     res.json(await service.health());
   });
 
-  app.get("/bff/tag-workbench", async (_req, res) => {
-    try {
-      res.json(await bffApi.getTagWorkbenchData());
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+  app.get("/bff/tag-workbench", async (req, res) => {
+    await runBffRoute(req, res, "tag_workbench", async () => bffApi.getTagWorkbenchData());
   });
 
-  app.get("/bff/templates-page", async (_req, res) => {
-    try {
-      res.json(await bffApi.getTemplatesPageData());
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+  app.get("/bff/templates-page", async (req, res) => {
+    await runBffRoute(req, res, "templates_page", async () => bffApi.getTemplatesPageData());
   });
 
-  app.get("/bff/graph-page", async (_req, res) => {
-    try {
-      res.json(await bffApi.getGraphPageData());
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+  app.get("/bff/graph-page", async (req, res) => {
+    await runBffRoute(req, res, "graph_page", async () => bffApi.getGraphPageData());
   });
 
   app.post("/bff/submissions/:submissionId/tags", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "submission_tags", async () => {
       const submissionId = String(req.params.submissionId ?? "").trim();
       const patternTagIds = Array.isArray(req.body?.patternTagIds)
         ? req.body.patternTagIds.filter((value: unknown): value is string => typeof value === "string")
@@ -149,14 +145,12 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.saveSubmissionTags(submissionId, patternTagIds));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.saveSubmissionTags(submissionId, patternTagIds);
+    });
   });
 
   app.post("/bff/submissions/:submissionId/template-benchmark", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "submission_template_benchmark", async () => {
       const submissionId = String(req.params.submissionId ?? "").trim();
       const excludedGroupKeys = Array.isArray(req.body?.excludedGroupKeys)
         ? req.body.excludedGroupKeys.filter((value: unknown): value is string => typeof value === "string")
@@ -167,14 +161,12 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.benchmarkSubmissionTemplates(submissionId, excludedGroupKeys));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.benchmarkSubmissionTemplates(submissionId, excludedGroupKeys);
+    });
   });
 
   app.post("/bff/submissions/:submissionId/template-benchmark-opt-out", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "submission_template_benchmark_opt_out", async () => {
       const submissionId = String(req.params.submissionId ?? "").trim();
       const templateBenchmarkOptOut = Boolean(req.body?.templateBenchmarkOptOut);
 
@@ -183,14 +175,12 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.setSubmissionTemplateOptOut(submissionId, templateBenchmarkOptOut));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.setSubmissionTemplateOptOut(submissionId, templateBenchmarkOptOut);
+    });
   });
 
   app.post("/bff/templates/draft", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "template_draft", async () => {
       const groupKey = String(req.body?.groupKey ?? "").trim();
       const submissionId = String(req.body?.submissionId ?? "").trim();
       const prompt = String(req.body?.prompt ?? "").trim();
@@ -201,14 +191,12 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.generateTemplateDraft({ groupKey, submissionId, prompt, model }));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.generateTemplateDraft({ groupKey, submissionId, prompt, model });
+    });
   });
 
   app.post("/bff/templates/generated", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "generated_template", async () => {
       const groupKey = String(req.body?.groupKey ?? "").trim();
       const draft = req.body?.draft;
 
@@ -217,28 +205,22 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.createGeneratedTemplate(groupKey, draft));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.createGeneratedTemplate(groupKey, draft);
+    });
   });
 
   app.post("/bff/template-groups", async (req, res) => {
-    try {
-      res.json(
-        await bffApi.createTemplateGroup({
-          label: String(req.body?.label ?? ""),
-          key: typeof req.body?.key === "string" ? req.body.key : undefined,
-          description: typeof req.body?.description === "string" ? req.body.description : undefined,
-        }),
-      );
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+    await runBffRoute(req, res, "template_group_create", async () =>
+      bffApi.createTemplateGroup({
+        label: String(req.body?.label ?? ""),
+        key: typeof req.body?.key === "string" ? req.body.key : undefined,
+        description: typeof req.body?.description === "string" ? req.body.description : undefined,
+      }),
+    );
   });
 
   app.post("/bff/templates/move", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "template_move", async () => {
       const templateId = String(req.body?.templateId ?? "").trim();
       const targetGroupId = String(req.body?.targetGroupId ?? "").trim();
 
@@ -247,24 +229,20 @@ async function main(): Promise<void> {
         return;
       }
 
-      res.json(await bffApi.moveTemplateToGroup({ templateId, targetGroupId }));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.moveTemplateToGroup({ templateId, targetGroupId });
+    });
   });
 
   app.delete("/bff/templates/:patternTagId", async (req, res) => {
-    try {
+    await runBffRoute(req, res, "template_delete", async () => {
       const patternTagId = String(req.params.patternTagId ?? "").trim();
       if (!patternTagId) {
         res.status(400).json({ error: "patternTagId is required." });
         return;
       }
 
-      res.json(await bffApi.deleteNonSeededTemplate(patternTagId));
-    } catch (error) {
-      res.status(500).json({ error: formatError(error) });
-    }
+      return bffApi.deleteNonSeededTemplate(patternTagId);
+    });
   });
 
   app.post("/trigger", async (_req, res) => {
@@ -359,14 +337,30 @@ async function main(): Promise<void> {
     logger.info({ host, port }, "HTTP server listening");
   });
 
-  process.on("SIGINT", async () => {
-    await service.stop();
-    process.exit(0);
+  const shutdown = async (signal: NodeJS.Signals) => {
+    if (!shutdownPromise) {
+      shutdownPromise = (async () => {
+        logger.info({ signal }, "shutdown requested");
+        await service.stop();
+        await shutdownTracing();
+      })();
+    }
+
+    try {
+      await shutdownPromise;
+      process.exit(0);
+    } catch (error) {
+      logger.error({ signal, err: error }, "shutdown failed");
+      process.exit(1);
+    }
+  };
+
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
   });
 
-  process.on("SIGTERM", async () => {
-    await service.stop();
-    process.exit(0);
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
   });
 }
 

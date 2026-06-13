@@ -1,9 +1,21 @@
+import { trace } from "@opentelemetry/api";
 import pino, { type Logger } from "pino";
 
 const serviceLogger = pino({
   level: process.env.LOG_LEVEL ?? "info",
   base: {
     service: "leetcode-intelligence-service",
+  },
+  mixin() {
+    const spanContext = trace.getActiveSpan()?.spanContext();
+    if (!spanContext?.traceId || !spanContext?.spanId) {
+      return {};
+    }
+
+    return {
+      trace_id: spanContext.traceId,
+      span_id: spanContext.spanId,
+    };
   },
   formatters: {
     level(label, number) {
