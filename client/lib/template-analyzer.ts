@@ -29,6 +29,27 @@ type TemplateCandidate = {
   metadata: TemplateMetadata | null;
 };
 
+type TemplateAnalyzerSubmissionRecord = {
+  id: string;
+  titleSlug: string | null;
+  content: string;
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  submissionDetails: unknown;
+};
+
+type TemplateAnalyzerTagRecord = {
+  id: string;
+  key: string;
+  label: string;
+  description: string | null;
+  metadata: unknown;
+  dimension: string;
+  parent: {
+    key: string;
+  } | null;
+};
+
 function normalizeExcludedGroupKeys(groupKeys: string[]) {
   return [...new Set(groupKeys.map((key) => key.trim()).filter(Boolean))].sort();
 }
@@ -234,7 +255,7 @@ export async function analyzeSubmissionTemplates(
     throw new Error('OPEN_ROUTER_API_KEY is required for template benchmark analysis.');
   }
 
-  const [submission, tags] = await Promise.all([
+  const [submission, tags]: [TemplateAnalyzerSubmissionRecord | null, TemplateAnalyzerTagRecord[]] = await Promise.all([
     prisma.submission.findFirst({
       where: { id: submissionId, status: 'Accepted' },
       select: {
@@ -257,9 +278,9 @@ export async function analyzeSubmissionTemplates(
     throw new Error('Accepted submission was not found.');
   }
 
-  const candidates = tags
+  const candidates: TemplateCandidate[] = tags
     .filter((tag) => !excludedGroups.includes(tag.parent?.key ?? tag.dimension))
-    .map<TemplateCandidate>((tag) => ({
+    .map((tag) => ({
       id: tag.id,
       key: tag.key,
       label: tag.label,

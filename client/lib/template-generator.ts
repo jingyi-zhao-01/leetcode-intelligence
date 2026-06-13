@@ -15,6 +15,37 @@ export type TemplateGenerationInput = {
   model?: string;
 };
 
+type TemplateGeneratorChildTagRecord = {
+  key: string;
+  label: string;
+  description: string | null;
+};
+
+type TemplateGeneratorGroupRecord = {
+  id: string;
+  label: string;
+  description: string | null;
+  children: TemplateGeneratorChildTagRecord[];
+};
+
+type TemplateGeneratorSubmissionRecord = {
+  titleSlug: string | null;
+  content: string;
+  timeComplexity: string | null;
+  spaceComplexity: string | null;
+  submissionDetails: unknown;
+};
+
+type TemplateGeneratorQuestionRecord = {
+  title: string | null;
+  difficulty: string | null;
+  content: string | null;
+};
+
+type TemplateGeneratorGroupLookupRecord = {
+  id: string;
+};
+
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
 
@@ -147,7 +178,7 @@ export async function generateTemplateDraft({
     throw new Error('OPEN_ROUTER_API_KEY is required for template generation.');
   }
 
-  const [group, submission] = await Promise.all([
+  const [group, submission]: [TemplateGeneratorGroupRecord | null, TemplateGeneratorSubmissionRecord | null] = await Promise.all([
     prisma.patternTag.findFirst({
       where: { key: groupKey, dimension: 'template', kind: 'template_group', isActive: true },
       include: {
@@ -177,7 +208,7 @@ export async function generateTemplateDraft({
     throw new Error('Accepted submission was not found.');
   }
 
-  const question = submission.titleSlug
+  const question: TemplateGeneratorQuestionRecord | null = submission.titleSlug
     ? await prisma.question.findUnique({
         where: { titleSlug: submission.titleSlug },
         select: { title: true, difficulty: true, content: true },
@@ -202,7 +233,7 @@ export async function generateTemplateDraft({
           content: createPrompt({
             groupLabel: group.label,
             groupDescription: group.description,
-            existingTemplates: group.children.map((tag) => ({
+            existingTemplates: group.children.map((tag): { key: string; label: string; description: string | null } => ({
               key: tag.key,
               label: tag.label,
               description: tag.description,
@@ -246,7 +277,7 @@ export async function generateTemplateDraft({
 }
 
 export async function createGeneratedTemplate(groupKey: string, draft: GeneratedTemplateDraft) {
-  const group = await prisma.patternTag.findFirst({
+  const group: TemplateGeneratorGroupLookupRecord | null = await prisma.patternTag.findFirst({
     where: { key: groupKey, dimension: 'template', kind: 'template_group', isActive: true },
     select: { id: true },
   });
