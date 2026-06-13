@@ -14,19 +14,11 @@ repos:
             files: ^(client|services|config)/.*\.(js|cjs|mjs|ts|tsx|json|md|css)$|^(package(-lock)?\.json|tsconfig.*\.json|eslint\.config\.mjs)$
             pass_filenames: true
             always_run: false
-          - id: eslint-services
-            name: ESLint (services)
+          - id: lint-client-and-services
+            name: Lint (client and services)
             entry: npm
-            args: [run, lint:services]
+            args: [run, lint]
             language: system
-            files: ^services/|^config/eslint/|^eslint\.config\.mjs$|^services/tsconfig\.base\.json$|^tsconfig\.shared\.json$|^package(-lock)?\.json$
-            pass_filenames: false
-            always_run: false
-          - id: eslint-client
-            name: ESLint (client)
-            entry: npm
-            args: [run, lint:client]
-            language: system
-            files: ^client/|^client/eslint\.config\.mjs$|^client/tsconfig(\.base)?\.json$|^config/eslint/|^tsconfig\.shared\.json$|^package(-lock)?\.json$
+            files: ^(client|services|config)/|^eslint\.config\.mjs$|^tsconfig\.shared\.json$|^package(-lock)?\.json$
             pass_filenames: false
             always_run: false

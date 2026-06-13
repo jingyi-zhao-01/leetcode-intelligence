@@ -4,14 +4,12 @@ import {
   readLanguage,
   readQuestionDescription,
   type ActivePatternTag,
-  type PatternTagRecord,
   type SubmissionPatternTagRecord,
   type TemplateBenchmarkRecord,
 } from "./shared.ts";
 import type {
   GraphSubmissionRow,
   PatternTagKind,
-  PatternTagSource,
   SubmissionRow,
   TemplateBenchmarkResult,
   TemplateCatalogSubmissionRow,
