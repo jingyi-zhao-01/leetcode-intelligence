@@ -1,4 +1,5 @@
 # LeetCode Intelligence
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/53115064-eff5-4274-bac8-5a579335febd" />
 
 ## WHY
 
