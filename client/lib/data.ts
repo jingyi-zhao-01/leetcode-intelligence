@@ -76,6 +76,59 @@ type TemplateBenchmarkRecord = {
   updatedAt: Date;
 };
 
+type TagWorkbenchSubmission = Prisma.SubmissionGetPayload<{
+  include: {
+    SubmissionPatternTag: {
+      include: {
+        PatternTag: {
+          include: { parent: true };
+        };
+      };
+    };
+  };
+}>;
+
+type TemplateCatalogSubmission = Prisma.SubmissionGetPayload<{
+  select: {
+    id: true;
+    titleSlug: true;
+    createdAt: true;
+    SubmissionPatternTag: {
+      include: {
+        PatternTag: {
+          include: { parent: true };
+        };
+      };
+    };
+  };
+}>;
+
+type GraphSubmission = Prisma.SubmissionGetPayload<{
+  select: {
+    id: true;
+    titleSlug: true;
+    createdAt: true;
+    SubmissionPatternTag: {
+      include: {
+        PatternTag: {
+          include: { parent: true };
+        };
+      };
+    };
+  };
+}>;
+
+type ActivePatternTag = Prisma.PatternTagGetPayload<{
+  include: {
+    parent: true;
+    _count: {
+      select: {
+        SubmissionPatternTag: true;
+      };
+    };
+  };
+}>;
+
 export type TemplateCatalogSubmissionRow = {
   id: string;
   titleSlug: string | null;
@@ -187,7 +240,7 @@ function readComplexity(value: unknown): TemplateMetadata['defaultComplexity'] |
 }
 
 export async function getTagWorkbenchData() {
-  const [submissions, tags] = await Promise.all([
+  const [submissions, tags]: [TagWorkbenchSubmission[], ActivePatternTag[]] = await Promise.all([
     prisma.submission.findMany({
       where: { status: 'Accepted' },
       orderBy: { createdAt: 'desc' },
@@ -317,7 +370,7 @@ export async function getTagWorkbenchData() {
 }
 
 export async function getTemplatesPageData() {
-  const [submissions, tags] = await Promise.all([
+  const [submissions, tags]: [TemplateCatalogSubmission[], ActivePatternTag[]] = await Promise.all([
     prisma.submission.findMany({
       where: { status: 'Accepted' },
       orderBy: { createdAt: 'desc' },
@@ -388,7 +441,7 @@ export async function getTemplatesPageData() {
 }
 
 export async function getGraphPageData() {
-  const submissions = await prisma.submission.findMany({
+  const submissions: GraphSubmission[] = await prisma.submission.findMany({
     where: { status: 'Accepted' },
     orderBy: { createdAt: 'desc' },
     take: 250,
