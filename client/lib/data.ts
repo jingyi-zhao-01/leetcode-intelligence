@@ -1,6 +1,5 @@
 import { prisma } from './prisma';
 import type { TemplateBenchmarkResult, TemplateBenchmarkScore } from './template-analyzer';
-import { Prisma } from '@prisma/client';
 
 export type PatternTagOption = {
   id: string;
@@ -296,23 +295,29 @@ export async function getTagWorkbenchData() {
   });
   const questionBySlug = new Map(questions.map((question) => [question.titleSlug, question]));
   const submissionIds = submissions.map((submission) => submission.id);
-  const benchmarkRecords = submissionIds.length
-    ? await prisma.$queryRaw<TemplateBenchmarkRecord[]>`
-        SELECT
-          "submissionId",
-          "patternTagId",
-          "templateKey",
-          "model",
-          "score",
-          "confidence",
-          "reason",
-          "evidence",
-          "excludedGroupKeys",
-          "updatedAt"
-        FROM "TemplateBenchmarkScore"
-        WHERE "submissionId" IN (${Prisma.join(submissionIds)})
-        ORDER BY "submissionId" ASC, "score" DESC, "updatedAt" DESC
-      `
+  const benchmarkRecords: TemplateBenchmarkRecord[] = submissionIds.length
+    ? await prisma.templateBenchmarkScore.findMany({
+        where: {
+          submissionId: { in: submissionIds },
+        },
+        select: {
+          submissionId: true,
+          patternTagId: true,
+          templateKey: true,
+          model: true,
+          score: true,
+          confidence: true,
+          reason: true,
+          evidence: true,
+          excludedGroupKeys: true,
+          updatedAt: true,
+        },
+        orderBy: [
+          { submissionId: 'asc' },
+          { score: 'desc' },
+          { updatedAt: 'desc' },
+        ],
+      })
     : [];
   const benchmarkRecordsBySubmission = new Map<string, TemplateBenchmarkRecord[]>();
   for (const record of benchmarkRecords) {
