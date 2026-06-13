@@ -289,14 +289,7 @@ export async function deleteNonSeededTemplate(patternTagId: string) {
       status: 'blocked' as const,
       tag: { key: tag.key, label: tag.label },
       assignmentCount: tag._count.SubmissionPatternTag,
-      submissions: tag.SubmissionPatternTag.map((entry: {
-        Submission: {
-          id: string;
-          titleSlug: string;
-          status: string;
-          createdAt: Date;
-        };
-      }) => ({
+      submissions: tag.SubmissionPatternTag.map((entry) => ({
         id: entry.Submission.id,
         titleSlug: entry.Submission.titleSlug,
         status: entry.Submission.status,
