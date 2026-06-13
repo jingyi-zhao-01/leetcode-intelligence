@@ -25,8 +25,9 @@ Shared persistence lives in `services/shared/prisma/schema.prisma`.
 ## Read In This Order
 
 1. [README.md](./README.md)
-2. [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
-3. [services/leetcode-intelligence-service/AGENTS.md](./services/leetcode-intelligence-service/AGENTS.md)
+2. [docs/architecture/README.md](./docs/architecture/README.md)
+3. [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
+4. [services/leetcode-intelligence-service/AGENTS.md](./services/leetcode-intelligence-service/AGENTS.md)
 
 If you are only touching one service, stop after the relevant service-local documents.
 
@@ -34,6 +35,8 @@ If you are only touching one service, stop after the relevant service-local docu
 
 - `README.md`
   Product-level overview and service list.
+- `docs/architecture/`
+  Canonical location for the single repo-level architecture diagram and its README.
 - `services/shared/prisma/schema.prisma`
   Shared database schema used by the TypeScript services.
 - `services/leetcode-submission-service/`
@@ -50,12 +53,13 @@ If you are only touching one service, stop after the relevant service-local docu
 - [docs/adrs/003-mem0-session-snapshot-persistence.md](./docs/adrs/003-mem0-session-snapshot-persistence.md)
 - [docs/adrs/004-mem0-recall-lifecycle-and-hydration.md](./docs/adrs/004-mem0-recall-lifecycle-and-hydration.md)
 - [services/leetcode-submission-service/AGENTS.md](./services/leetcode-submission-service/AGENTS.md)
-- [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
+- [docs/architecture/README.md](./docs/architecture/README.md)
 
 ### Intelligence Service
 
 - [services/leetcode-intelligence-service/AGENTS.md](./services/leetcode-intelligence-service/AGENTS.md)
 - [services/leetcode-intelligence-service/README.md](./services/leetcode-intelligence-service/README.md)
+- [docs/architecture/architecture-v1.d2](./docs/architecture/architecture-v1.d2)
 - [services/leetcode-intelligence-service/src/core/README.md](./services/leetcode-intelligence-service/src/core/README.md)
 - [services/leetcode-intelligence-service/src/service-runtime/README.md](./services/leetcode-intelligence-service/src/service-runtime/README.md)
 
@@ -97,6 +101,9 @@ Service-local scripts are documented in each service's own `AGENTS.md` or `READM
 
 ## Documentation Policy
 
+- All architecture docs and D2 assets belong under `docs/architecture/`.
+- Keep exactly one canonical diagram version there, for example `architecture-v1.d2` plus `architecture-v1.svg`.
+- Do not add granular per-service architecture diagrams.
 - If you add or change a runtime entrypoint, update the nearest service doc.
 - If you change cross-service behavior, update root `README.md` and any affected service docs.
 - If a service gains enough complexity that this file starts to grow, move detail downward instead of expanding this file.

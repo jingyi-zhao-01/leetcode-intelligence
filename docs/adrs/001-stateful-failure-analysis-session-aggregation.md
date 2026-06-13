@@ -2,7 +2,7 @@
 
 日期: 2026-05-27
 
-相关背景: [services/leetcode-submission-service/ARCHITECTURE.md](../services/leetcode-submission-service/ARCHITECTURE.md)
+相关背景: [docs/architecture/README.md](../architecture/README.md)
 
 ## 为什么要做
 

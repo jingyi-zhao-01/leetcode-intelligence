@@ -1,0 +1,222 @@
+...@../../services/shared/d2/rendering
+
+direction: right
+
+architecture_version: {
+  label: "Architecture Version\nv1\nAs of 2026-06-12"
+  shape: rectangle
+  style.stroke: "#9ca3af"
+  style.fill: "#f8fafc"
+}
+
+clients: {
+  label: "Clients"
+  style.stroke: "#16a34a"
+  style.fill: "#ffffff"
+
+  browser: {
+    label: "Web Browser\n(Next.js Frontend)"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+
+  codecompanion: {
+    label: "VS Code +\nCodeCompanion"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+
+  nvim: {
+    label: "Neovim +\nleetcode.nvim"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+}
+
+vercel: {
+  label: "Vercel (Next.js App - Monolithic Full-Stack)"
+  style.stroke: "#2563eb"
+  style.fill: "#ffffff"
+
+  next_app: {
+    label: "Next.js App (client/)"
+    style.stroke: "#3b82f6"
+    style.fill: "#eff6ff"
+
+    ui_layer: {
+      label: "UI Layer\n- Pages / App Router\n- Server Components\n- Client Components\n- Admin UI"
+      shape: rectangle
+      style.stroke: "#60a5fa"
+      style.fill: "#dbeafe"
+    }
+
+    server_logic: {
+      label: "Server-Side Logic (in Vercel)\n- Route Handlers\n- Server Actions\n- API Routes\n- getTagWorkbrenchData()\n- isWriteAllowed()"
+      shape: rectangle
+      style.stroke: "#60a5fa"
+      style.fill: "#dbeafe"
+    }
+
+    internal_libraries: {
+      label: "Internal Libraries\n- lib/data.ts (direct Prisma queries)\n- lib/prisma.ts\n- lib/access-control.ts (admin auth)"
+      shape: rectangle
+      style.stroke: "#60a5fa"
+      style.fill: "#dbeafe"
+    }
+
+    env_vars: {
+      label: "Environment Variables (Vercel)\n- DATABASE_URL (Neon)\n- ADMIN_PASSWORD\n- ADMIN_SESSION_TOKEN\n- Other service configs"
+      shape: rectangle
+      style.stroke: "#60a5fa"
+      style.fill: "#e0f2fe"
+    }
+  }
+
+  prisma_access: {
+    label: "Direct DB Access\n(from Vercel)\n\nPrisma\n- Prisma Client\n- Direct queries\n- Connection via DATABASE_URL to Neon"
+    shape: rectangle
+    style.stroke: "#9ca3af"
+    style.fill: "#ffffff"
+  }
+}
+
+databases: {
+  label: "Databases (Neon)"
+  style.stroke: "#16a34a"
+  style.fill: "#ffffff"
+
+  postgres: {
+    label: "PostgreSQL (Neon)\n- submission\n- question\n- pattern_tag\n- template_benchmark\n- recommendation\n- mem0_* (via integrations)\n- ..."
+    shape: cylinder
+    style.stroke: "#15803d"
+    style.fill: "#ffffff"
+  }
+}
+
+external_services: {
+  label: "External Services"
+  style.stroke: "#9333ea"
+  style.fill: "#ffffff"
+
+  openrouter: {
+    label: "OpenRouter\n(LLM API)"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+
+  discord: {
+    label: "Discord API\n(Intelligence Service)"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+
+  mem0: {
+    label: "Mem0 Cloud\n(Memory Service)"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+
+  upstash: {
+    label: "Upstash Redis\n(Planned / Optional)"
+    shape: rectangle
+    style.stroke: "#111827"
+    style.fill: "#ffffff"
+  }
+}
+
+local_environment: {
+  label: "Local Environment (User Machine / VPS)"
+  direction: right
+  style.stroke: "#d97706"
+  style.fill: "#fff7ed"
+
+  submission_service: {
+    label: "LeetCode Submission Service\n(services/leetcode-submission-service/)\n- TCP Server (for leetcode.nvim)\n- OpenAI-compatible HTTP API\n  (for CodeCompanion)\n- Local state (in-memory)\n  - Active timers\n  - Active session scope\n  - Recent submission cache\n- Persistence: PostgreSQL (Neon)"
+    shape: rectangle
+    style.stroke: "#f59e0b"
+    style.fill: "#fffbeb"
+  }
+
+  intelligence_service: {
+    label: "LeetCode Intelligence Service\n(services/leetcode-intelligence-service/)\n- Discord Bot\n- Recommendation Engine\n- Failure Pattern Analysis\n- Prompt Generation & Scoring\n- HTTP Server (port 8080)\n- Persistence: PostgreSQL (Neon)\n- Mem0 Integration\n- LLM Integration (OpenRouter)"
+    shape: rectangle
+    style.stroke: "#f59e0b"
+    style.fill: "#fffbeb"
+  }
+}
+
+ci_cd: {
+  label: "CI/CD (GitHub Actions)\n- Workflow: ci.yml\n- Lint & Type Check (All Packages)\n- Build Client (Next.js)\n- Build Services (Go)\n- Run Tests"
+  shape: rectangle
+  style.stroke: "#9ca3af"
+  style.fill: "#f9fafb"
+}
+
+monorepo: {
+  label: "Monorepo Structure\n\nleetcode-qa/\n|- client/\n|- services/\n|  |- leetcode-submission-service/\n|  |- leetcode-intelligence-service/\n|  |- shared/\n|     |- prisma/\n|- .github/workflows/\n|- docs/"
+  shape: rectangle
+  style.stroke: "#8b5cf6"
+  style.stroke-dash: 4
+  style.fill: "#faf5ff"
+}
+
+shared_schema: {
+  label: "Shared Database Schema\n(services/shared/prisma/)\n- Prisma Schema\n- Generated Prisma Client"
+  shape: rectangle
+  style.stroke: "#6366f1"
+  style.fill: "#eef2ff"
+}
+
+legend: {
+  label: "Legend\n- solid: HTTP/HTTPS request\n- dashed: TCP / custom protocol\n- dotted: database connection\n- box: external system / service"
+  shape: rectangle
+  style.stroke: "#9ca3af"
+  style.fill: "#ffffff"
+}
+
+clients.browser -> vercel.next_app.ui_layer: "HTTPS"
+clients.codecompanion -> local_environment.submission_service: "HTTP\n(OpenAI-compatible API)"
+clients.nvim -> local_environment.submission_service: "TCP / JSON Lines\n(Port configurable)"
+
+vercel.next_app.server_logic -> vercel.next_app.internal_libraries: "calls"
+vercel.next_app.internal_libraries -> vercel.prisma_access: "Prisma Client"
+vercel.prisma_access -> databases.postgres: "DATABASE_URL"
+
+local_environment.submission_service -> databases.postgres: "Persistence"
+local_environment.intelligence_service -> databases.postgres: "Persistence"
+local_environment.intelligence_service -> external_services.discord: "Bot API"
+local_environment.intelligence_service -> external_services.openrouter: "LLM requests"
+local_environment.intelligence_service -> external_services.mem0: "Memory sync"
+local_environment.intelligence_service -> external_services.upstash: "Optional cache"
+
+ci_cd -> vercel.next_app: "Build + verify"
+ci_cd -> local_environment.intelligence_service: "Build + test"
+ci_cd -> local_environment.submission_service: "Build + test"
+monorepo -> local_environment.submission_service: "source"
+monorepo -> local_environment.intelligence_service: "source"
+monorepo -> vercel.next_app: "source"
+shared_schema -> databases.postgres: "SQL"
+local_environment.submission_service -> shared_schema: "Prisma ORM"
+local_environment.intelligence_service -> shared_schema: "Prisma ORM"
+
+(clients.nvim -> local_environment.submission_service)[0]: {
+  style.stroke-dash: 4
+}
+
+(vercel.prisma_access -> databases.postgres)[0]: {
+  style.stroke-dash: 2
+}
+
+(local_environment.submission_service -> databases.postgres)[0]: {
+  style.stroke-dash: 2
+}
+
+(local_environment.intelligence_service -> databases.postgres)[0]: {
+  style.stroke-dash: 2
+}

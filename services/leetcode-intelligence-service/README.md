@@ -13,7 +13,9 @@ Service runtime for prompting, scoring, and focus recommendations on top of shar
 
 This directory is split into a service runtime layer and a domain core.
 
-![Intelligence service architecture](./docs/architecture.svg)
+![System architecture](../../docs/architecture/architecture-v1.svg)
+
+D2 source: [`../../docs/architecture/architecture-v1.d2`](../../docs/architecture/architecture-v1.d2)
 
 - Service runtime concerns live in [`src/service-runtime`](./src/service-runtime):
   - runtime composition

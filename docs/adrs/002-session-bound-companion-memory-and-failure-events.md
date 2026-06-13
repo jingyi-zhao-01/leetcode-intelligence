@@ -5,7 +5,7 @@
 相关背景:
 
 - [001-stateful-failure-analysis-session-aggregation.md](./001-stateful-failure-analysis-session-aggregation.md)
-- [services/leetcode-submission-service/ARCHITECTURE.md](../../services/leetcode-submission-service/ARCHITECTURE.md)
+- [docs/architecture/README.md](../architecture/README.md)
 
 ## 背景
 

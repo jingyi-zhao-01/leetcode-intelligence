@@ -6,7 +6,7 @@
 
 - [003-mem0-session-snapshot-persistence.md](./003-mem0-session-snapshot-persistence.md)
 - [002-session-bound-companion-memory-and-failure-events.md](./002-session-bound-companion-memory-and-failure-events.md)
-- [services/leetcode-submission-service/ARCHITECTURE.md](../../services/leetcode-submission-service/ARCHITECTURE.md)
+- [docs/architecture/README.md](../architecture/README.md)
 
 ## 背景
 

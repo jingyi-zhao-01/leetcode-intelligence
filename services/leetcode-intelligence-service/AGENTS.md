@@ -15,9 +15,10 @@ This service already has good code-adjacent docs. Use this file as the short rou
 ## Read In This Order
 
 1. [README.md](./README.md)
-2. [src/core/README.md](./src/core/README.md)
-3. [src/service-runtime/README.md](./src/service-runtime/README.md)
-4. [src/server.ts](./src/server.ts) or the relevant CLI entrypoint
+2. [../../docs/architecture/architecture-v1.d2](../../docs/architecture/architecture-v1.d2)
+3. [src/core/README.md](./src/core/README.md)
+4. [src/service-runtime/README.md](./src/service-runtime/README.md)
+5. [src/server.ts](./src/server.ts) or the relevant CLI entrypoint
 
 ## Architectural Split
 
@@ -65,6 +66,8 @@ From repo root:
 
 ## When To Update Docs
 
+- Keep architecture docs and diagrams under `../../docs/architecture/`.
+- Do not add service-specific architecture diagrams; update the single versioned repo diagram instead.
 - Update [README.md](./README.md) when service capabilities, env vars, or deployment surfaces change.
 - Update [src/core/README.md](./src/core/README.md) when scoring/recommendation semantics change.
 - Update [src/service-runtime/README.md](./src/service-runtime/README.md) when runtime composition boundaries change.

@@ -13,7 +13,7 @@ help:
 	@echo "  make analytics              - Start Analytics API"
 	@echo "  make dev-frontend           - Start Next.js frontend"
 	@echo "  make submission-stats       - Show submission statistics"
-	@echo "  make d2-render-architecture - Render all architecture.d2 files to architecture.svg"
+	@echo "  make d2-render-architecture - Render docs/architecture/architecture-v1.d2"
 	@echo "  make test                   - Run Python tests"
 	@echo ""
 	@echo "Image Run"
@@ -77,11 +77,8 @@ submission-image-stop:
 
 d2-render-architecture:
 	@command -v d2 >/dev/null 2>&1 || { echo "d2 CLI not found" >&2; exit 1; }
-	@find . -name 'architecture.d2' -print0 | while IFS= read -r -d '' file; do \
-		output="$${file%.d2}.svg"; \
-		echo "Rendering $$file -> $$output"; \
-		d2 "$$file" "$$output"; \
-	done
+	@echo "Rendering ./docs/architecture/architecture-v1.d2 -> ./docs/architecture/architecture-v1.svg"; \
+	d2 ./docs/architecture/architecture-v1.d2 ./docs/architecture/architecture-v1.svg
 
 clean:
 	rm -rf .venv __pycache__ .pytest_cache

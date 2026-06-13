@@ -2,7 +2,7 @@
 
 Agent map for `services/leetcode-submission-service`.
 
-Read ADRs first when changing session behavior, companion behavior, or failure-analysis lifecycles. Use [ARCHITECTURE.md](./ARCHITECTURE.md) and code after that.
+Read ADRs first when changing session behavior, companion behavior, or failure-analysis lifecycles. Use [the repo architecture doc](../../docs/architecture/README.md) and code after that.
 
 ## What This Service Owns
 
@@ -20,7 +20,7 @@ Read ADRs first when changing session behavior, companion behavior, or failure-a
 2. [../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md](../../docs/adrs/002-session-bound-companion-memory-and-failure-events.md)
 3. [../../docs/adrs/003-mem0-session-snapshot-persistence.md](../../docs/adrs/003-mem0-session-snapshot-persistence.md)
 4. [../../docs/adrs/004-mem0-recall-lifecycle-and-hydration.md](../../docs/adrs/004-mem0-recall-lifecycle-and-hydration.md)
-5. [ARCHITECTURE.md](./ARCHITECTURE.md)
+5. [../../docs/architecture/README.md](../../docs/architecture/README.md)
 6. [src/server.ts](./src/server.ts)
 7. [src/session/scope.ts](./src/session/scope.ts)
 8. [src/session/mem0.ts](./src/session/mem0.ts)
@@ -78,5 +78,7 @@ From repo root:
 
 - Update ADRs first when session scope, failure lifecycle, companion/session contracts, or session persistence behavior change.
 - Update ADRs first when Mem0 persistence, title-slug recall, hydrate timing, or recalled prompt shape change.
-- Update [ARCHITECTURE.md](./ARCHITECTURE.md) when actions, runtime boundaries, or persistence behavior change.
+- Keep architecture docs and diagrams under `../../docs/architecture/`.
+- Do not add service-specific architecture diagrams; update the single versioned repo diagram instead.
+- Update [../../docs/architecture/README.md](../../docs/architecture/README.md) when actions, runtime boundaries, or persistence behavior change.
 - Update this file only when the navigation map or edit guardrails change.

@@ -19,7 +19,11 @@ a systematic way to handle leetcode solving to manage the entire life cycle:
 
 an AIO solution for tracking LeetCode submissions, analyzing problem-solving evolution, and receiving rule based recommendations (GenAI optional).
 
-![System architecture](./architecture.svg)
+![System architecture](./docs/architecture/architecture-v1.svg)
+
+D2 source: [`docs/architecture/architecture-v1.d2`](./docs/architecture/architecture-v1.d2)
+
+All architecture docs and diagrams live under [`docs/architecture/`](./docs/architecture/README.md).
 
 ## Services
 
@@ -31,5 +35,5 @@ an AIO solution for tracking LeetCode submissions, analyzing problem-solving evo
 
 Service docs:
 
-- Submission Service: [services/leetcode-submission-service/ARCHITECTURE.md](./services/leetcode-submission-service/ARCHITECTURE.md)
+- System Architecture: [docs/architecture/README.md](./docs/architecture/README.md)
 - Intelligence Service: [services/leetcode-intelligence-service/README.md](./services/leetcode-intelligence-service/README.md)
