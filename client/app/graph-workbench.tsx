@@ -25,6 +25,8 @@ type GraphClusterDirectory = {
   }>;
 };
 
+const GRAPH_GROUP_TONES = ['teal', 'blue', 'amber', 'purple', 'green'] as const;
+
 function defaultClusterHue(key: string) {
   let hash = 0;
   for (let index = 0; index < key.length; index += 1) {
@@ -70,6 +72,16 @@ function filterGraph(
 function buildClusterTree(graph: SubmissionGraph, templateCatalog: TemplateGroupCatalog[]): GraphClusterDirectory[] {
   const groupCounts = new Map<string, { label: string; slugs: Set<string> }>();
   const templateCounts = new Map<string, Set<string>>();
+  const graphTemplatesByGroup = new Map<
+    string,
+    Map<
+      string,
+      {
+        label: string;
+        slugs: Set<string>;
+      }
+    >
+  >();
 
   for (const node of graph.nodes) {
     for (const group of node.templateGroups) {
@@ -85,24 +97,77 @@ function buildClusterTree(graph: SubmissionGraph, templateCatalog: TemplateGroup
       const entry = templateCounts.get(template.key) ?? new Set<string>();
       entry.add(node.slug);
       templateCounts.set(template.key, entry);
+
+      if (template.parentKey) {
+        const groupTemplates = graphTemplatesByGroup.get(template.parentKey) ?? new Map();
+        const groupTemplate = groupTemplates.get(template.key) ?? {
+          label: template.label,
+          slugs: new Set<string>(),
+        };
+        groupTemplate.slugs.add(node.slug);
+        groupTemplates.set(template.key, groupTemplate);
+        graphTemplatesByGroup.set(template.parentKey, groupTemplates);
+      }
     }
   }
 
-  return templateCatalog
-    .map((group) => ({
+  const catalogGroupKeys = new Set(templateCatalog.map((group) => group.key));
+  const catalogGroups = templateCatalog.map((group) => {
+    const templatesByKey = new Map(
+      group.templates.map((entry) => [
+        entry.template.key,
+        {
+          key: entry.template.key,
+          label: entry.template.label,
+          questionCount: templateCounts.get(entry.template.key)?.size ?? 0,
+        },
+      ]),
+    );
+    const graphTemplates = graphTemplatesByGroup.get(group.key);
+
+    for (const [templateKey, template] of graphTemplates?.entries() ?? []) {
+      if (!templatesByKey.has(templateKey)) {
+        templatesByKey.set(templateKey, {
+          key: templateKey,
+          label: template.label,
+          questionCount: template.slugs.size,
+        });
+      }
+    }
+
+    const templates = [...templatesByKey.values()].sort(
+      (left, right) => right.questionCount - left.questionCount || left.label.localeCompare(right.label),
+    );
+
+    return {
       key: group.key,
       label: group.label,
       uniqueQuestionCount: groupCounts.get(group.key)?.slugs.size ?? 0,
-      templateMatchCount: group.templates.reduce(
-        (count, entry) => count + (templateCounts.get(entry.template.key)?.size ?? 0),
-        0,
-      ),
-      templates: group.templates.map((entry) => ({
-        key: entry.template.key,
-        label: entry.template.label,
-        questionCount: templateCounts.get(entry.template.key)?.size ?? 0,
-      })),
-    }))
+      templateMatchCount: templates.reduce((count, entry) => count + entry.questionCount, 0),
+      templates,
+    };
+  });
+  const graphOnlyGroups = [...groupCounts.entries()]
+    .filter(([groupKey]) => !catalogGroupKeys.has(groupKey))
+    .map(([groupKey, group]) => {
+      const templates = [...(graphTemplatesByGroup.get(groupKey)?.entries() ?? [])]
+        .map(([templateKey, template]) => ({
+          key: templateKey,
+          label: template.label,
+          questionCount: template.slugs.size,
+        }))
+        .sort((left, right) => right.questionCount - left.questionCount || left.label.localeCompare(right.label));
+
+      return {
+        key: groupKey,
+        label: group.label,
+        uniqueQuestionCount: group.slugs.size,
+        templateMatchCount: templates.reduce((count, entry) => count + entry.questionCount, 0),
+        templates,
+      };
+    });
+
+  return [...catalogGroups, ...graphOnlyGroups]
     .sort(
       (left, right) =>
         right.uniqueQuestionCount - left.uniqueQuestionCount || left.label.localeCompare(right.label),
@@ -117,7 +182,11 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
   const [hoveredTemplateGroupKey, setHoveredTemplateGroupKey] = useState<string | null>(null);
   const templateGroupTree = useMemo(() => buildClusterTree(graph, templateCatalog), [graph, templateCatalog]);
   const [expandedTemplateGroupKeys, setExpandedTemplateGroupKeys] = useState<Set<string>>(
-    () => new Set(templateCatalog.map((group) => group.key)),
+    () =>
+      new Set([
+        ...templateCatalog.map((group) => group.key),
+        ...graph.nodes.flatMap((node) => node.templateGroups.map((group) => group.key)),
+      ]),
   );
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
     Object.fromEntries(buildClusterTree(graph, templateCatalog).map((group) => [group.key, defaultClusterHue(group.key)])),
@@ -224,13 +293,14 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
               </Button>
             </div>
             <div className="graph-cluster-tree" role="list" aria-label="Template group selector">
-              {templateGroupTree.map((group) => {
+              {templateGroupTree.map((group, groupIndex) => {
                 const isGroupSelected = selectedTemplateGroupKeys.has(group.key);
                 const hue = clusterHueByKey[group.key] ?? defaultClusterHue(group.key);
                 const isExpanded = expandedTemplateGroupKeys.has(group.key);
+                const tone = GRAPH_GROUP_TONES[groupIndex % GRAPH_GROUP_TONES.length];
 
                 return (
-                  <section className="graph-cluster-branch" key={group.key}>
+                  <section className={`graph-cluster-branch graph-cluster-branch-${tone}`} key={group.key}>
                     <div
                       className={`graph-cluster-row primary ${isGroupSelected ? 'selected' : ''}`}
                       onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
