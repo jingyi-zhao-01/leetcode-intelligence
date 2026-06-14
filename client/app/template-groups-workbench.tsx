@@ -67,6 +67,12 @@ export function TemplateGroupsWorkbench({
     setIsCreateModalOpen(true);
   }
 
+  function openTemplateGenerationHint(groupLabel: string) {
+    setMessage(
+      `To generate a new template for ${groupLabel}, open Submission Taxonomy, select a representative submission, then use Generate template in that template group.`,
+    );
+  }
+
   function closeCreateModal() {
     if (isCreatePending) return;
     setIsCreateModalOpen(false);
@@ -295,7 +301,7 @@ export function TemplateGroupsWorkbench({
                 })}
 
                 {canWrite ? (
-                  <button className="template-directory-create" type="button" onClick={openCreateModal}>
+                  <button className="template-directory-create" type="button" onClick={() => openTemplateGenerationHint(cluster.label)}>
                     <span className="template-create-icon">+</span>
                     <div>
                       <strong>Generate template</strong>
