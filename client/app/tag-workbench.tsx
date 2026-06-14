@@ -1,14 +1,12 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState, useTransition } from 'react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
   deleteNonSeededTemplate,
   generateTemplateDraft,
-  logoutAdmin,
   setSubmissionTemplateOptOut,
   saveSubmissionTags,
 } from './actions';
@@ -22,7 +20,6 @@ import type {
   TemplateBenchmarkScore,
 } from '../lib/data';
 import { Spinner } from './components/spinner';
-import { PendingSubmitButton } from './components/pending-submit-button';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
@@ -46,14 +43,6 @@ type SubmissionDayGroup = {
   label: string;
   dayStart: Date;
   problems: SubmissionProblemGroup[];
-};
-
-type LeftPanelFeatureKey = 'submission-history' | 'insights' | 'graph';
-
-type LeftPanelFeature = {
-  key: LeftPanelFeatureKey;
-  label: string;
-  description: string;
 };
 
 type TemplateForm = {
@@ -95,6 +84,9 @@ type DeleteTemplateBlocker = {
 type SubmissionHistoryPanelProps = {
   query: string;
   setQuery: (value: string) => void;
+  filterValue: SubmissionFilterValue;
+  setFilterValue: (value: SubmissionFilterValue) => void;
+  summary: SubmissionSummary;
   filteredDays: SubmissionDayGroup[];
   selectedSubmission: SubmissionRow | null;
   collapsedDayKeys: Set<string>;
@@ -102,15 +94,13 @@ type SubmissionHistoryPanelProps = {
   onSelectSubmission: (submission: SubmissionRow) => void;
 };
 
-type LeftPanelGraphModuleProps = {
-  selectedSubmission: SubmissionRow | null;
-  onOpenGraph: () => void;
-};
+type SubmissionFilterValue = 'all' | 'tagged' | 'untagged' | 'benchmarked';
 
-type LeftPanelInsightsProps = {
-  selectedSubmission: SubmissionRow | null;
-  submissionCount: number;
-  tags: PatternTagOption[];
+type SubmissionSummary = {
+  total: number;
+  accepted: number;
+  tagged: number;
+  benchmarked: number;
 };
 
 const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
@@ -139,24 +129,6 @@ const TEMPLATE_FORM_ROWS: Array<{
   { field: 'spaceComplexity', label: 'Space Complexity', placeholder: 'O(1)' },
   { field: 'relatedDataStructures', label: 'Data Structures', multiline: true, placeholder: 'One item per line' },
   { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line' },
-];
-
-const LEFT_PANEL_FEATURES: LeftPanelFeature[] = [
-  {
-    key: 'submission-history',
-    label: 'Submission History',
-    description: 'Browse attempts, group by day, and select a submission.',
-  },
-  {
-    key: 'insights',
-    label: 'Insights',
-    description: 'Future work area for stats, review, and learning metrics.',
-  },
-  {
-    key: 'graph',
-    label: 'Graph',
-    description: 'Quick access to the graph explorer and relationship drills.',
-  },
 ];
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -341,9 +313,8 @@ function valueFromDraftField(draft: GeneratedTemplateDraft, field: keyof Templat
 
 export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
+  const [filterValue, setFilterValue] = useState<SubmissionFilterValue>('all');
   const [selectedId, setSelectedId] = useState(submissions[0]?.id ?? '');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     submissions[0]?.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null,
@@ -368,14 +339,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [isDeleteTemplatePending, startDeleteTemplateTransition] = useTransition();
   const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
   const [deleteTemplateBlocker, setDeleteTemplateBlocker] = useState<DeleteTemplateBlocker | null>(null);
-  const [collapsedDayKeys, setCollapsedDayKeys] = useState<Set<string>>(() => new Set());
-  const [leftPanelFeature, setLeftPanelFeature] = useState<LeftPanelFeatureKey>('submission-history');
-  const hasInitializedDayCollapse = useRef(false);
-  const returnTo = useMemo(() => {
-    const query = searchParams.toString();
-    const current = query ? `${pathname}?${query}` : pathname;
-    return current || '/';
-  }, [pathname, searchParams]);
+  const [collapsedDayKeys, setCollapsedDayKeys] = useState<Set<string>>(() =>
+    new Set(submissions.map((submission) => startOfDayUTC(new Date(submission.createdAt)).toISOString()).slice(2)),
+  );
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? submissions[0] ?? null;
   const selectedTags = tags.filter((tag) => draftTagIds.has(tag.id));
@@ -385,9 +351,32 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     return new Map(benchmark?.scores.map((score) => [score.patternTagId, score]) ?? []);
   }, [benchmark]);
   const selectedTemplateScore = selectedTemplate ? scoreByTagId.get(selectedTemplate.id) : null;
+  const summary = useMemo<SubmissionSummary>(
+    () => ({
+      total: submissions.length,
+      accepted: submissions.filter((submission) => submission.status === 'Accepted').length,
+      tagged: submissions.filter((submission) => submission.tags.some((tag) => tag.kind === 'tag')).length,
+      benchmarked: submissions.filter(
+        (submission) => Boolean(submission.templateBenchmark) && !submission.templateBenchmarkOptOut,
+      ).length,
+    }),
+    [submissions],
+  );
   const filteredSubmissionDays = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = submissions.filter((submission) => {
+      if (filterValue === 'tagged' && !submission.tags.some((tag) => tag.kind === 'tag')) {
+        return false;
+      }
+
+      if (filterValue === 'untagged' && submission.tags.some((tag) => tag.kind === 'tag')) {
+        return false;
+      }
+
+      if (filterValue === 'benchmarked' && (!submission.templateBenchmark || submission.templateBenchmarkOptOut)) {
+        return false;
+      }
+
       const haystack = [submission.titleSlug, submission.title, submission.status, submission.language]
         .filter(Boolean)
         .join(' ')
@@ -435,34 +424,26 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             new Date(left.submissions[0]?.createdAt ?? 0).getTime(),
         ),
       }));
-  }, [query, submissions]);
+  }, [filterValue, query, submissions]);
 
   const tagGroups = useMemo(() => groupTags(tags), [tags]);
   const benchmarkableGroupCount = tagGroups.filter((group) =>
     group.tags.some((tag) => isTemplateLeaf(tag)),
   ).length;
   const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
-  const defaultCollapsedDayKeys = useMemo(
-    () => new Set(filteredSubmissionDays.slice(2).map((day) => day.key)),
-    [filteredSubmissionDays],
-  );
-
-  useEffect(() => {
-    setTemplateBenchmarkOptOut(selectedSubmission?.templateBenchmarkOptOut ?? false);
-  }, [selectedSubmission?.id, selectedSubmission?.templateBenchmarkOptOut]);
-
-  useEffect(() => {
-    if (hasInitializedDayCollapse.current) return;
-    if (!filteredSubmissionDays.length) return;
-    setCollapsedDayKeys(defaultCollapsedDayKeys);
-    hasInitializedDayCollapse.current = true;
-  }, [defaultCollapsedDayKeys, filteredSubmissionDays.length]);
+  const attemptsForSelectedProblem = useMemo(() => {
+    if (!selectedSubmission) return 0;
+    return submissions.filter((submission) => getProblemKey(submission) === getProblemKey(selectedSubmission)).length;
+  }, [selectedSubmission, submissions]);
+  const taxonomyState = selectedSubmission ? submissionTaxonomyState(selectedSubmission) : 'none';
+  const [activeContextTab, setActiveContextTab] = useState<'code' | 'statement'>('code');
 
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
     setTemplateBenchmarkOptOut(submission.templateBenchmarkOptOut);
     setDraftTagIds(new Set(submission.tags.filter((tag) => tag.kind === 'tag').map((tag) => tag.id)));
     setSelectedTemplateId(submission.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null);
+    setActiveContextTab('code');
     setMessage('');
     setBenchmarkError('');
   }
@@ -477,11 +458,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       }
       return next;
     });
-  }
-
-  function openGraphView() {
-    const selectedSlug = selectedSubmission?.titleSlug?.toLowerCase() ?? null;
-    router.push(selectedSlug ? `/graph?slug=${encodeURIComponent(selectedSlug)}` : '/graph');
   }
 
   function toggleTag(tagId: string) {
@@ -745,95 +721,39 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 
   return (
     <main className="workspace">
-      <Button className="floating-view-toggle" type="button" onClick={openGraphView}>
-        Graph view
-      </Button>
-
       <section className="sidebar">
-        <div className="brand">
-          <div>
-            <p className="eyebrow">Pattern Tag Workbench</p>
-            <h1>Submission taxonomy</h1>
-          </div>
-          <div className="admin-access">
-            {canWrite ? (
-              <form action={logoutAdmin}>
-                <PendingSubmitButton className="admin-control-button" pendingText="Signing out...">
-                  Sign out
-                </PendingSubmitButton>
-              </form>
-            ) : (
-              <Link className="admin-control-button" href={`/admin/login?returnTo=${encodeURIComponent(returnTo)}`}>
-                Sign in
-              </Link>
-            )}
-            <span className={`write-badge ${canWrite ? 'write-enabled' : 'write-disabled'}`}>
-              {canWrite ? 'Write enabled' : 'Read-only'}
-            </span>
-          </div>
-        </div>
-
-        <div className="left-panel-section-header">
-          <div>
-            <p className="eyebrow">Workspace modules</p>
-            <h2>Switch the left panel</h2>
-          </div>
-          <span>{LEFT_PANEL_FEATURES.length} views</span>
-        </div>
-
-        <nav className="left-panel-nav" role="tablist" aria-label="Left panel modules">
-          {LEFT_PANEL_FEATURES.map((feature) => {
-            const isActive = feature.key === leftPanelFeature;
-            return (
-              <Button
-                key={feature.key}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`left-panel-tab ${isActive ? 'left-panel-tab-active' : ''}`}
-                onClick={() => setLeftPanelFeature(feature.key)}
-              >
-                <span>{feature.label}</span>
-                <small>{feature.description}</small>
-              </Button>
-            );
-          })}
-        </nav>
-
-        <div className="left-panel-body">
-          {leftPanelFeature === 'submission-history' ? (
-            <SubmissionHistoryPanel
-              query={query}
-              setQuery={setQuery}
-              filteredDays={filteredSubmissionDays}
-              selectedSubmission={selectedSubmission}
-              collapsedDayKeys={collapsedDayKeys}
-              onToggleDay={toggleDayCollapsed}
-              onSelectSubmission={selectSubmission}
-            />
-          ) : null}
-
-          {leftPanelFeature === 'graph' ? (
-            <LeftPanelGraphModule selectedSubmission={selectedSubmission} onOpenGraph={openGraphView} />
-          ) : null}
-
-          {leftPanelFeature === 'insights' ? (
-            <LeftPanelInsights selectedSubmission={selectedSubmission} submissionCount={submissions.length} tags={tags} />
-          ) : null}
-        </div>
+        <SubmissionHistoryPanel
+          query={query}
+          setQuery={setQuery}
+          filterValue={filterValue}
+          setFilterValue={setFilterValue}
+          summary={summary}
+          filteredDays={filteredSubmissionDays}
+          selectedSubmission={selectedSubmission}
+          collapsedDayKeys={collapsedDayKeys}
+          onToggleDay={toggleDayCollapsed}
+          onSelectSubmission={selectSubmission}
+        />
       </section>
 
       <section className="detail">
         {selectedSubmission ? (
           <>
             <div className="detail-header">
-              <div>
-                <p className="eyebrow">{selectedSubmission.titleSlug ?? 'no slug'}</p>
+              <div className="detail-title-block">
+                <div className="detail-status-row">
+                  <span className={`submission-difficulty difficulty-${(selectedSubmission.difficulty ?? 'unknown').toLowerCase()}`}>
+                    {selectedSubmission.difficulty ?? 'Unknown'}
+                  </span>
+                  <span className="submission-status-pill">{selectedSubmission.status}</span>
+                  <span className="submission-header-meta">{selectedSubmission.language ?? 'unknown language'}</span>
+                  <span className="submission-header-meta">{attemptsForSelectedProblem} attempts</span>
+                  <span className={`taxonomy-state-pill taxonomy-${taxonomyState}`}>
+                    {taxonomyState === 'complete' ? 'In taxonomy' : taxonomyState === 'partial' ? 'Partial taxonomy' : 'Not in taxonomy'}
+                  </span>
+                </div>
                 <h2>{selectedSubmission.title ?? selectedSubmission.titleSlug ?? 'Submission'}</h2>
-                <p className="detail-meta">
-                  {selectedSubmission.status} · {selectedSubmission.difficulty ?? 'unknown difficulty'} ·{' '}
-                  {selectedSubmission.language ?? 'unknown language'}
-                </p>
+                <p className="detail-slug">/{selectedSubmission.titleSlug ?? 'unknown-problem'}</p>
                 <label className="template-optout-control">
                   <input
                     type="checkbox"
@@ -855,9 +775,14 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               <div className="complexity">
                 <span>Time {selectedSubmission.timeComplexity ?? 'n/a'}</span>
                 <span>Space {selectedSubmission.spaceComplexity ?? 'n/a'}</span>
+                {benchmark ? <span>Benchmarked {benchmark.scores.length}</span> : null}
               </div>
             </div>
 
+            <section className="template-tag-stage">
+              <div className="section-title-row">
+                <h3>Algorithm Template Tags</h3>
+              </div>
             <div className="selected-tags">
               {selectedTags.length ? (
                 selectedTags.map((tag) => (
@@ -878,6 +803,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                 <span className="untagged">untagged</span>
               )}
             </div>
+            </section>
 
             <div className="benchmark-status">
               {isBenchmarkPending ? (
@@ -896,116 +822,118 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               {benchmarkError ? <span className="error">{benchmarkError}</span> : null}
             </div>
 
-            <SubmissionContext submission={selectedSubmission} />
+            <SubmissionContext
+              activeTab={activeContextTab}
+              onChangeTab={setActiveContextTab}
+              submission={selectedSubmission}
+            />
 
             <div className="taxonomy-layout">
-              <div className="tag-grid">
-                {tagGroups.map((group) => (
-                  <section
-                    className={[
-                      'tag-group',
-                      dimensionClass(group.tags[0]?.dimension ?? 'unknown'),
-                      excludedBenchmarkGroupKeys.has(group.key) ? 'excluded' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    key={group.key}
-                  >
-                    <div className="tag-group-header">
-                      <div>
-                        <h3>{group.label}</h3>
-                        {excludedBenchmarkGroupKeys.has(group.key) ? <small>Excluded from LLM benchmark</small> : null}
-                      </div>
-                      {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
-                        <button
-                          className="exclude-group-button"
-                          onClick={() => toggleBenchmarkGroup(group.key)}
-                          type="button"
-                          aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
-                          aria-label={
-                            excludedBenchmarkGroupKeys.has(group.key)
-                              ? `Include ${group.label} in LLM benchmark`
-                              : `Exclude ${group.label} from LLM benchmark`
-                          }
-                          title={
-                            excludedBenchmarkGroupKeys.has(group.key)
-                              ? 'Include this group in LLM benchmark'
-                              : 'Exclude this group from LLM benchmark'
-                          }
-                        >
-                          ×
-                        </button>
-                      ) : null}
+              {tagGroups.map((group) => (
+                <section
+                  className={[
+                    'tag-group',
+                    dimensionClass(group.tags[0]?.dimension ?? 'unknown'),
+                    excludedBenchmarkGroupKeys.has(group.key) ? 'excluded' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  key={group.key}
+                >
+                  <div className="tag-group-header">
+                    <div>
+                      <h3>{group.label}</h3>
+                      <small>{group.tags.length} templates</small>
                     </div>
-                    <div className="tag-options">
-                      {group.tags.map((tag) => {
-                        const score = scoreByTagId.get(tag.id);
-                        return (
-                          <button
-                            key={tag.id}
-                            className={[
-                              'tag-option',
-                              dimensionClass(tag.dimension),
-                              tag.source !== 'seeded' ? 'custom-template' : '',
-                              draftTagIds.has(tag.id) ? 'selected' : '',
-                              selectedTemplate?.id === tag.id ? 'focused' : '',
-                              score ? `score-${benchmarkTone(score.score)}` : '',
-                            ]
+                    {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
+                      <button
+                        className="exclude-group-button"
+                        onClick={() => toggleBenchmarkGroup(group.key)}
+                        type="button"
+                        aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
+                        aria-label={
+                          excludedBenchmarkGroupKeys.has(group.key)
+                            ? `Include ${group.label} in LLM benchmark`
+                            : `Exclude ${group.label} from LLM benchmark`
+                        }
+                        title={
+                          excludedBenchmarkGroupKeys.has(group.key)
+                            ? 'Include this group in LLM benchmark'
+                            : 'Exclude this group from LLM benchmark'
+                        }
+                      >
+                        {excludedBenchmarkGroupKeys.has(group.key) ? 'Excluded' : 'Included'}
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="tag-options">
+                    {group.tags.map((tag) => {
+                      const score = scoreByTagId.get(tag.id);
+                      return (
+                        <button
+                          key={tag.id}
+                          className={[
+                            'tag-option',
+                            dimensionClass(tag.dimension),
+                            tag.source !== 'seeded' ? 'custom-template' : '',
+                            draftTagIds.has(tag.id) ? 'selected' : '',
+                            selectedTemplate?.id === tag.id ? 'focused' : '',
+                            score ? `score-${benchmarkTone(score.score)}` : '',
+                          ]
                             .filter(Boolean)
                             .join(' ')}
-                            onClick={() => {
-                              setSelectedTemplateId(tag.id);
-                              if (canWrite) {
-                                toggleTag(tag.id);
-                              }
-                            }}
-                            title={tag.description ?? tag.label}
-                          >
-                            {score ? <strong className="benchmark-score">{score.score}</strong> : null}
-                            {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
-                              <span
-                                className="delete-template-button"
-                                role="button"
-                                tabIndex={0}
-                                aria-label={`Delete ${tag.label}`}
-                                onClick={(event) => {
+                          onClick={() => {
+                            setSelectedTemplateId(tag.id);
+                            if (canWrite) {
+                              toggleTag(tag.id);
+                            }
+                          }}
+                          title={tag.description ?? tag.label}
+                        >
+                          {score ? <strong className="benchmark-score">{score.score}</strong> : null}
+                          {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
+                            <span
+                              className="delete-template-button"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Delete ${tag.label}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteTemplate(tag);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
                                   event.stopPropagation();
                                   deleteTemplate(tag);
-                                }}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    deleteTemplate(tag);
-                                  }
-                                }}
-                              >
-                                ×
-                              </span>
-                            ) : null}
-                            <span>{tag.label}</span>
-                            <small>{tag.key}</small>
-                            <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
-                            {tag.metadata ? <em>documented</em> : null}
-                          </button>
-                        );
-                      })}
-                      {canWrite && group.tags.some((tag) => isTemplateLeaf(tag)) ? (
-                        <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
-                          <span>+</span>
-                          <strong>Generate template</strong>
-                          <small>{group.label}</small>
+                                }
+                              }}
+                            >
+                              ×
+                            </span>
+                          ) : null}
+                          <span>{tag.label}</span>
+                          <small>{tag.key}</small>
+                          <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
+                          {tag.metadata ? <em>documented</em> : null}
                         </button>
-                      ) : null}
-                    </div>
-                  </section>
-                ))}
-              </div>
-
-              {selectedTemplate ? (
-                <TemplateControlPlane template={selectedTemplate} tags={tags} benchmarkScore={selectedTemplateScore} />
-              ) : null}
+                      );
+                    })}
+                    {canWrite && group.tags.some((tag) => isTemplateLeaf(tag)) ? (
+                      <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
+                        <span>+</span>
+                        <strong>Generate template</strong>
+                        <small>{group.label}</small>
+                      </button>
+                    ) : null}
+                  </div>
+                </section>
+              ))}
             </div>
+
+            {selectedTemplate ? (
+              <TemplateControlPlane template={selectedTemplate} tags={tags} benchmarkScore={selectedTemplateScore} />
+            ) : null}
 
             {templateGeneratorModal ? (
               <TemplateGeneratorModal
@@ -1073,6 +1001,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
 function SubmissionHistoryPanel({
   query,
   setQuery,
+  filterValue,
+  setFilterValue,
+  summary,
   filteredDays,
   selectedSubmission,
   collapsedDayKeys,
@@ -1081,13 +1012,43 @@ function SubmissionHistoryPanel({
 }: SubmissionHistoryPanelProps) {
   return (
     <>
-        <div className="filters">
+      <div className="submission-sidebar-header">
+        <div className="submission-kpi-grid">
+          <article>
+            <strong>{summary.total}</strong>
+            <span>Total</span>
+          </article>
+          <article>
+            <strong>{summary.accepted}</strong>
+            <span>AC</span>
+          </article>
+          <article>
+            <strong>{summary.tagged}</strong>
+            <span>Tagged</span>
+          </article>
+          <article>
+            <strong>{summary.benchmarked}</strong>
+            <span>Benched</span>
+          </article>
+        </div>
+      </div>
+
+      <div className="filters">
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search slug, title, language"
+          placeholder="Search problems..."
           aria-label="Search submissions"
         />
+        <label className="submission-filter">
+          <span className="sr-only">Submission filter</span>
+          <select value={filterValue} onChange={(event) => setFilterValue(event.target.value as SubmissionFilterValue)}>
+            <option value="all">All</option>
+            <option value="tagged">Tagged</option>
+            <option value="untagged">Untagged</option>
+            <option value="benchmarked">Benchmarked</option>
+          </select>
+        </label>
       </div>
 
       <div className="submission-list">
@@ -1105,7 +1066,7 @@ function SubmissionHistoryPanel({
                     aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} day ${day.label}`}
                   >
                     <h3>{day.label}</h3>
-                    <span>{day.problems.reduce((count, problem) => count + problem.submissions.length, 0)} submissions</span>
+                    <span>{day.problems.length}</span>
                   </button>
                   {!isCollapsed && (
                     <div className="submission-problem-list">
@@ -1122,7 +1083,11 @@ function SubmissionHistoryPanel({
                               onClick={() => onSelectSubmission(problem.submissions[0])}
                             >
                               <span className="submission-title">{problem.title}</span>
-                              <span className="submission-problem-count">{problem.submissions.length}</span>
+                              <span className="submission-problem-count">
+                                {problem.submissions[0]?.tags.filter((tag) => tag.kind === 'tag').length
+                                  ? `${problem.submissions[0].tags.filter((tag) => tag.kind === 'tag').length} tag`
+                                  : 'untagged'}
+                              </span>
                             </button>
                             <div className="submission-attempt-list">
                               {problem.submissions.map((submission) => {
@@ -1148,23 +1113,17 @@ function SubmissionHistoryPanel({
                                     onClick={() => onSelectSubmission(submission)}
                                   >
                                     <span className="submission-meta">
-                                      {submission.status} · {formatDate(submission.createdAt)}
+                                      {submission.difficulty ?? 'Unknown'} · {submission.language ?? 'Unknown'}
                                     </span>
-                                    <span className="tag-preview">
-                                      {submission.tags.filter((tag) => tag.kind === 'tag').length
-                                        ? submission.tags
-                                            .filter((tag) => tag.kind === 'tag')
-                                            .map((tag) => tag.key)
-                                            .join(', ')
-                                        : 'untagged'}
-                                    </span>
-                                    <span
-                                      className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}
-                                    >
-                                      {submission.templateBenchmarkOptOut
-                                        ? 'Template benchmark: opt out'
-                                        : 'Template benchmark: included'}
-                                    </span>
+                                    <div className="submission-attempt-footer">
+                                      <span className="tag-preview">
+                                        {submission.tags.filter((tag) => tag.kind === 'tag').length || 0} tag
+                                        {submission.tags.filter((tag) => tag.kind === 'tag').length === 1 ? '' : 's'}
+                                      </span>
+                                      <span className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}>
+                                        {submission.templateBenchmarkOptOut ? 'opted out' : formatDate(submission.createdAt)}
+                                      </span>
+                                    </div>
                                   </button>
                                 );
                               })}
@@ -1183,67 +1142,6 @@ function SubmissionHistoryPanel({
         </div>
       </div>
     </>
-  );
-}
-
-function LeftPanelGraphModule({ selectedSubmission, onOpenGraph }: LeftPanelGraphModuleProps) {
-  return (
-    <section className="left-panel-card">
-      <p className="eyebrow">Graph workspace</p>
-      <h3>Submission Relationship Explorer</h3>
-      <p>
-        Open graph mode from the currently selected submission or jump straight into a full traversal with your current focus.
-      </p>
-      <p className="muted-copy">
-        Current focus: {selectedSubmission ? selectedSubmission.titleSlug ?? selectedSubmission.title ?? 'selected submission' : 'none'}
-      </p>
-      <Button type="button" className="primary" onClick={onOpenGraph}>
-        Open graph view
-      </Button>
-      <p className="detail-meta">Graph pages include first-depth related-problem links and submission filtering by date.</p>
-    </section>
-  );
-}
-
-function LeftPanelInsights({ selectedSubmission, submissionCount, tags }: LeftPanelInsightsProps) {
-  const seededTemplateCount = tags.filter((tag) => tag.source === 'seeded' && isTemplateLeaf(tag)).length;
-  const customTemplateCount = tags.filter((tag) => tag.source === 'manually_created' && isTemplateLeaf(tag)).length;
-  const llmTemplateCount = tags.filter((tag) => tag.source === 'llm_generated' && isTemplateLeaf(tag)).length;
-
-  return (
-    <section className="left-panel-card">
-      <p className="eyebrow">Insights</p>
-      <h3>Convergence dashboard</h3>
-      <p className="detail-meta">
-        Use this panel for quick context before refining metadata, benchmarks, and canonical taxonomy.
-      </p>
-      <div className="left-panel-kpi-grid">
-        <article>
-          <p>Accepted submissions</p>
-          <strong>{submissionCount}</strong>
-        </article>
-        <article>
-          <p>Template tags (seeded)</p>
-          <strong>{seededTemplateCount}</strong>
-        </article>
-        <article>
-          <p>Template tags (custom)</p>
-          <strong>{customTemplateCount}</strong>
-        </article>
-        <article>
-          <p>Template tags (LLM)</p>
-          <strong>{llmTemplateCount}</strong>
-        </article>
-      </div>
-      {selectedSubmission ? (
-        <div className="left-panel-highlight">
-          <p>Selected</p>
-          <strong>{selectedSubmission.titleSlug ?? selectedSubmission.title ?? 'Untitled'}</strong>
-          <p className="muted-copy">{selectedSubmission.language ?? 'language unknown'} · {selectedSubmission.difficulty ?? 'difficulty unknown'}</p>
-        </div>
-      ) : null}
-      <p className="muted-copy">更多分析（例如复盘率、标签覆盖率、失败模式）可以在这里继续扩展。</p>
-    </section>
   );
 }
 
@@ -1420,37 +1318,55 @@ function DeleteTemplateBlockedModal({
   );
 }
 
-function SubmissionContext({ submission }: { submission: SubmissionRow }) {
+function SubmissionContext({
+  submission,
+  activeTab,
+  onChangeTab,
+}: {
+  submission: SubmissionRow;
+  activeTab: 'code' | 'statement';
+  onChangeTab: (tab: 'code' | 'statement') => void;
+}) {
   const submissionCode = submission.submissionCode || 'No submission code found.';
   const language = submission.language?.toLowerCase() ?? '';
   const isPythonLanguage = language.includes('python') || language.includes('py');
 
   return (
-    <section className="submission-context">
-      <details className="context-card" open>
-        <summary>
-          <span>Problem Description</span>
-          <small>{submission.titleSlug ?? 'question'}</small>
-        </summary>
-        {submission.questionDescription ? (
-          <pre className="problem-description">{submission.questionDescription}</pre>
-        ) : (
-          <p className="context-empty">No question description found for this submission.</p>
-        )}
-      </details>
-
-      <details className="context-card code-context" open>
-        <summary>
-          <span>Submission Code</span>
-          <small>{submission.language ?? 'code'}</small>
-        </summary>
-        {isPythonLanguage ? (
+    <section className="submission-context-card">
+      <div className="context-tab-strip" role="tablist" aria-label="Submission context">
+        <button
+          type="button"
+          role="tab"
+          className={`context-tab ${activeTab === 'code' ? 'active' : ''}`}
+          aria-selected={activeTab === 'code'}
+          onClick={() => onChangeTab('code')}
+        >
+          Submission Code
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`context-tab ${activeTab === 'statement' ? 'active' : ''}`}
+          aria-selected={activeTab === 'statement'}
+          onClick={() => onChangeTab('statement')}
+        >
+          Problem Statement
+        </button>
+      </div>
+      <div className="context-panel-shell">
+        {activeTab === 'statement' ? (
+          submission.questionDescription ? (
+            <pre className="problem-description">{submission.questionDescription}</pre>
+          ) : (
+            <p className="context-empty">No question description found for this submission.</p>
+          )
+        ) : isPythonLanguage ? (
           <SyntaxHighlighter
             className="submission-code python-code"
             language="python"
             style={oneDark}
             wrapLongLines
-            customStyle={{ margin: 0, maxHeight: 360, overflow: 'auto', borderTop: '1px solid var(--line)' }}
+            customStyle={{ margin: 0, minHeight: 320, overflow: 'auto' }}
             PreTag="div"
           >
             {submissionCode}
@@ -1460,7 +1376,7 @@ function SubmissionContext({ submission }: { submission: SubmissionRow }) {
             <code>{submissionCode}</code>
           </pre>
         )}
-      </details>
+      </div>
     </section>
   );
 }
@@ -1480,7 +1396,7 @@ function TemplateControlPlane({
     .filter((tag): tag is PatternTagOption => Boolean(tag));
 
   return (
-    <aside className="template-plane">
+    <section className="template-plane">
       <div className="template-plane-header">
         <div>
           <p className="eyebrow">Template Control Plane</p>
@@ -1550,7 +1466,7 @@ function TemplateControlPlane({
           <p>This template exists in the controlled tag set, but its control-plane details have not been seeded yet.</p>
         </div>
       )}
-    </aside>
+    </section>
   );
 }
 

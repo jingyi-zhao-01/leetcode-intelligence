@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { createTemplateGroup, moveTemplateToGroup } from './actions';
@@ -184,10 +183,12 @@ export function TemplateGroupsWorkbench({
     <main className="template-builder-page">
       <header className="template-builder-header">
         <div>
-          <p className="eyebrow">Template Builder</p>
           <h1>Template Groups</h1>
           <p className="template-builder-copy">
             Create new groups and drag canonical templates across groups to keep the taxonomy converged.
+          </p>
+          <p className="template-builder-stats">
+            {clusters.length} groups · {clusters.reduce((count, cluster) => count + cluster.templates.length, 0)} templates
           </p>
         </div>
         <div className="template-builder-actions">
@@ -198,9 +199,6 @@ export function TemplateGroupsWorkbench({
           ) : (
             <span className="template-builder-readonly">Read-only</span>
           )}
-          <Link className="template-workbench-back ui-btn ui-btn-outline" href="/submission-history">
-            Back to submission workbench
-          </Link>
         </div>
       </header>
 
@@ -249,6 +247,12 @@ export function TemplateGroupsWorkbench({
             >
               <div className="template-cluster-heading">
                 <div>
+                  <h2>{cluster.label}</h2>
+                  <p className="cluster-description">
+                    {cluster.description ?? 'Template group with reusable approach metadata.'}
+                  </p>
+                </div>
+                <div className="template-cluster-stats">
                   <button
                     type="button"
                     className="template-directory-toggle"
@@ -257,15 +261,8 @@ export function TemplateGroupsWorkbench({
                     aria-controls={`template-directory-${cluster.id}`}
                   >
                     <span className="template-directory-chevron">{expandedGroupKeys.has(cluster.id) ? '▾' : '▸'}</span>
-                    <span className="template-directory-folder">📁</span>
                     <span>Directory</span>
                   </button>
-                  <h2>{cluster.label}</h2>
-                  <p className="cluster-description">
-                    {cluster.description ?? 'Template group with reusable approach metadata.'}
-                  </p>
-                </div>
-                <div className="template-cluster-stats">
                   <span>{cluster.templates.length} templates</span>
                   <span>
                     {cluster.templates.reduce((count, entry) => count + entry.problems.length, 0)} associated problems
@@ -351,16 +348,14 @@ export function TemplateGroupsWorkbench({
                     );
                   })}
 
-                  <Link className="template-directory-create" href="/submission-history">
-                    <span className="template-directory-branch-line" aria-hidden="true">
-                      └
-                    </span>
+                  <div className="template-directory-create" aria-hidden="true">
+                    <span className="template-directory-branch-line">└</span>
                     <span className="template-create-icon">+</span>
                     <div>
-                      <strong>Generate template</strong>
+                      <strong>Generate template from Submission Taxonomy</strong>
                       <small>{cluster.label}</small>
                     </div>
-                  </Link>
+                  </div>
                 </div>
               ) : null}
             </section>

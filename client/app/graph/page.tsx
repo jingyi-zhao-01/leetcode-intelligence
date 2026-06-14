@@ -2,6 +2,8 @@ import { GraphWorkbench } from '../graph-workbench';
 import { getGraphPageData, getTemplatesPageData } from '../../lib/data';
 import { buildSubmissionGraph } from '../../lib/submission-graph';
 import { buildTemplateCatalog } from '../../lib/template-catalog';
+import { isWriteAllowed } from '../../lib/access-control';
+import { WorkspaceShell } from '../components/workspace-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +25,17 @@ export default async function GraphPage({
   searchParams: Promise<SearchParams>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const [submissions, templateData] = await Promise.all([getGraphPageData(), getTemplatesPageData()]);
+  const [submissions, templateData, canWrite] = await Promise.all([
+    getGraphPageData(),
+    getTemplatesPageData(),
+    isWriteAllowed(),
+  ]);
   const graph = buildSubmissionGraph(submissions);
   const templateCatalog = buildTemplateCatalog(templateData.tags, templateData.submissions);
 
-  return <GraphWorkbench graph={graph} templateCatalog={templateCatalog} initialSelectedSlug={readSlug(resolvedSearchParams)} />;
+  return (
+    <WorkspaceShell activeRoute="graph" canWrite={canWrite} returnTo="/graph" title="Problem Graph">
+      <GraphWorkbench graph={graph} templateCatalog={templateCatalog} initialSelectedSlug={readSlug(resolvedSearchParams)} />
+    </WorkspaceShell>
+  );
 }

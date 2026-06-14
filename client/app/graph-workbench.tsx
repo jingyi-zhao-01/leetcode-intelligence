@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { SubmissionGraphView } from './submission-graph';
 import { type SubmissionGraph } from '../lib/submission-graph';
@@ -184,15 +183,10 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
 
   return (
     <main className="graph-fullscreen">
-      <header className="graph-fullscreen-header">
-        <div>
-          <p className="eyebrow">Problem Graph</p>
-          <h1>Solved question relationships</h1>
-        </div>
-          <Link href="/submission-history" className="ui-btn ui-btn-outline">
-            Back to submission workbench
-          </Link>
-        </header>
+      <header className="graph-page-header">
+        <h1>Problem Graph</h1>
+        <p>Explore solved-question relationships through the current template taxonomy.</p>
+      </header>
 
       <section className="graph-workbench-shell">
         <aside className="graph-control-panel">
