@@ -4489,6 +4489,65 @@ body {
   background: rgba(28, 138, 121, 0.06) !important;
 }
 
+.detail > .submission-context-card {
+  display: block !important;
+  flex: 0 0 auto;
+  min-height: 332px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(27, 40, 32, 0.12);
+  background: var(--panel);
+}
+
+.context-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px 8px;
+  border-bottom: 1px solid rgba(27, 40, 32, 0.08);
+}
+
+.context-card-header h3 {
+  margin: 1px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.context-card-header span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.detail > .submission-context-card .context-tab-strip {
+  display: flex !important;
+  background: var(--panel);
+}
+
+.detail > .submission-context-card .context-panel-shell {
+  display: block !important;
+  height: clamp(260px, 34vh, 420px);
+  min-height: 260px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.detail > .submission-context-card .submission-code,
+.detail > .submission-context-card .python-code,
+.detail > .submission-context-card .problem-description {
+  display: block !important;
+  width: 100%;
+  min-height: 100%;
+  max-height: none;
+}
+
+.detail > .submission-context-card .context-empty {
+  margin: 0;
+  padding: 18px 20px;
+  color: var(--muted);
+}
+
 @media (max-width: 1180px) {
   .workspace-with-inspector {
     grid-template-columns: 272px minmax(0, 1fr);

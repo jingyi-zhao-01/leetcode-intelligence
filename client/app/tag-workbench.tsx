@@ -1353,6 +1353,13 @@ function SubmissionContext({
 
   return (
     <section className="submission-context-card">
+      <div className="context-card-header">
+        <div>
+          <p className="eyebrow">Submission Context</p>
+          <h3>Code and problem source</h3>
+        </div>
+        <span>{submission.language ?? 'unknown language'}</span>
+      </div>
       <div className="context-tab-strip" role="tablist" aria-label="Submission context">
         <button
           type="button"
