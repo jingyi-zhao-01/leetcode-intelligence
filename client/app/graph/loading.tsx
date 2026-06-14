@@ -1,13 +1,12 @@
+import { PageLoadingScreen } from '../components/page-loading-screen';
+
 export default function GraphLoading() {
   return (
-    <main className="graph-fullscreen">
-      <header className="graph-fullscreen-header">
-        <div>
-          <p className="eyebrow">Problem Graph</p>
-          <h1>Solved question relationships</h1>
-        </div>
-      </header>
-      <p className="template-builder-message">Loading graph workspace...</p>
-    </main>
+    <PageLoadingScreen
+      kind="graph"
+      returnTo="/graph"
+      title="Problem Graph"
+      description="Loading solved-question relationships and template graph clusters."
+    />
   );
 }

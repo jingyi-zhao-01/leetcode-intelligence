@@ -1,17 +1,12 @@
+import { PageLoadingScreen } from '../components/page-loading-screen';
+
 export default function SubmissionHistoryLoading() {
   return (
-    <main className="workspace">
-      <section className="sidebar">
-        <div className="brand">
-          <div>
-            <p className="eyebrow">Pattern Tag Workbench</p>
-            <h1>Submission taxonomy</h1>
-          </div>
-        </div>
-      </section>
-      <section className="detail">
-        <p className="template-builder-message">Loading submission history...</p>
-      </section>
-    </main>
+    <PageLoadingScreen
+      kind="submissions"
+      returnTo="/submission-history"
+      title="Submission Taxonomy"
+      description="Loading accepted submissions, taxonomy tags, code, and problem statements."
+    />
   );
 }
