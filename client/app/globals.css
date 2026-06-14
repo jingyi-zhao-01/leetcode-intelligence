@@ -1,4 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --background: #f3efe7;
+  --foreground: #1b2820;
+  --card: #f8f6f1;
+  --card-foreground: #1b2820;
+  --popover: #f8f6f1;
+  --popover-foreground: #1b2820;
+  --primary: #1b2820;
+  --primary-foreground: #f3efe7;
+  --secondary: #e4ddd1;
+  --secondary-foreground: #1b2820;
+  --muted-foreground: #6a7870;
+  --accent-foreground: #ffffff;
+  --destructive: #c44b36;
+  --destructive-foreground: #ffffff;
+  --border: rgba(27, 40, 32, 0.11);
+  --input: #ede8df;
+  --ring: #1c8a79;
+  --chart-1: #c97c2a;
+  --chart-2: #1c8a79;
+  --chart-3: #2d5fc4;
+  --chart-4: #8b4dc4;
+  --chart-5: #2b7a4b;
+  --radius: 0.5rem;
+  --sidebar: #f8f6f1;
+  --sidebar-foreground: #1b2820;
+  --sidebar-primary: #1b2820;
+  --sidebar-primary-foreground: #f3efe7;
+  --sidebar-accent: #e4ddd1;
+  --sidebar-accent-foreground: #1b2820;
+  --sidebar-border: rgba(27, 40, 32, 0.11);
+  --sidebar-ring: #1c8a79;
   --bg: #f7f1e8;
   --panel: #fffdf8;
   --panel-soft: #eef0ea;
@@ -245,6 +282,11 @@ body {
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.02em;
+}
+
+.app-brand-mark svg {
+  width: 15px;
+  height: 15px;
 }
 
 .app-topbar-divider,

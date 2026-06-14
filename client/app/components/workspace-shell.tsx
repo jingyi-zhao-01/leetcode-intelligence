@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BookOpen, Brain, FileText, Network } from 'lucide-react';
 import { logoutAdmin } from '../actions';
 
 type WorkspaceRouteKey = 'submission-history' | 'templates' | 'graph';
@@ -41,32 +42,14 @@ const routes: Array<{
 
 function RouteIcon({ routeKey }: { routeKey: WorkspaceRouteKey }) {
   if (routeKey === 'submission-history') {
-    return (
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M4 1.5h5l3 3V14a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 4 14z" fill="none" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M9 1.5v3h3" fill="none" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M6 7.25h4M6 9.75h4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-      </svg>
-    );
+    return <FileText aria-hidden="true" />;
   }
 
   if (routeKey === 'templates') {
-    return (
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M2 3.5h12v9H2z" fill="none" stroke="currentColor" strokeWidth="1.3" />
-        <path d="M8 3.5v9M2 8h12" fill="none" stroke="currentColor" strokeWidth="1.3" />
-      </svg>
-    );
+    return <BookOpen aria-hidden="true" />;
   }
 
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden="true">
-      <circle cx="3.5" cy="4" r="1.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="12.5" cy="4" r="1.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="8" cy="12" r="1.3" fill="none" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M4.6 4h6.8M4.3 5l2.9 5.8M11.7 5 8.8 10.8" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
+  return <Network aria-hidden="true" />;
 }
 
 export function WorkspaceShell({
@@ -86,7 +69,7 @@ export function WorkspaceShell({
         <div className="app-topbar-branding">
           <Link href="/submission-history" className="app-brand-link">
             <span className="app-brand-mark" aria-hidden="true">
-              &lt;/&gt;
+              <Brain aria-hidden="true" />
             </span>
             <span>LeetCode Intelligence</span>
           </Link>
