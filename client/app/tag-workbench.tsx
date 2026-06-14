@@ -720,7 +720,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   }
 
   return (
-    <main className="workspace">
+    <main className={`workspace ${selectedTemplate ? 'workspace-with-inspector' : ''}`}>
       <section className="sidebar">
         <SubmissionHistoryPanel
           query={query}
@@ -739,7 +739,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       <section className="detail">
         {selectedSubmission ? (
           <>
-            <div className="detail-header">
+            <div className="detail-header detail-hero">
               <div className="detail-title-block">
                 <div className="detail-status-row">
                   <span className={`submission-difficulty difficulty-${(selectedSubmission.difficulty ?? 'unknown').toLowerCase()}`}>
@@ -747,6 +747,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                   </span>
                   <span className="submission-status-pill">{selectedSubmission.status}</span>
                   <span className="submission-header-meta">{selectedSubmission.language ?? 'unknown language'}</span>
+                  <span className="submission-header-meta">{formatDate(selectedSubmission.createdAt)}</span>
                   <span className="submission-header-meta">{attemptsForSelectedProblem} attempts</span>
                   <span className={`taxonomy-state-pill taxonomy-${taxonomyState}`}>
                     {taxonomyState === 'complete' ? 'In taxonomy' : taxonomyState === 'partial' ? 'Partial taxonomy' : 'Not in taxonomy'}
@@ -772,40 +773,44 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                   </span>
                 </label>
               </div>
-              <div className="complexity">
+              <div className="complexity detail-metric-grid">
                 <span>Time {selectedSubmission.timeComplexity ?? 'n/a'}</span>
                 <span>Space {selectedSubmission.spaceComplexity ?? 'n/a'}</span>
-                {benchmark ? <span>Benchmarked {benchmark.scores.length}</span> : null}
+                <span>{selectedTags.length} selected tags</span>
+                <span>{benchmark ? `Benchmarked ${benchmark.scores.length}` : 'No benchmark yet'}</span>
               </div>
             </div>
 
-            <section className="template-tag-stage">
-              <div className="section-title-row">
+            <section className="template-tag-stage surface-card">
+              <div className="section-title-row section-title-row-spread">
                 <h3>Algorithm Template Tags</h3>
+                <span className="section-meta-pill">
+                  {selectedTags.length ? `${selectedTags.length} selected` : 'No tags selected'}
+                </span>
               </div>
-            <div className="selected-tags">
-              {selectedTags.length ? (
-                selectedTags.map((tag) => (
-                  <button
-                    key={tag.id}
-                    className={['selected-tag', dimensionClass(tag.dimension)].filter(Boolean).join(' ')}
-                    disabled={!canWrite}
-                    onClick={() => {
-                      if (!canWrite) return;
-                      removeTag(tag.id);
-                    }}
-                  >
-                    <span>{tag.key}</span>
-                    <small>Remove</small>
-                  </button>
-                ))
-              ) : (
-                <span className="untagged">untagged</span>
-              )}
-            </div>
+              <div className="selected-tags">
+                {selectedTags.length ? (
+                  selectedTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      className={['selected-tag', dimensionClass(tag.dimension)].filter(Boolean).join(' ')}
+                      disabled={!canWrite}
+                      onClick={() => {
+                        if (!canWrite) return;
+                        removeTag(tag.id);
+                      }}
+                    >
+                      <span>{tag.key}</span>
+                      <small>Remove</small>
+                    </button>
+                  ))
+                ) : (
+                  <span className="untagged">untagged</span>
+                )}
+              </div>
             </section>
 
-            <div className="benchmark-status">
+            <div className="benchmark-status surface-card surface-card-inline">
               {isBenchmarkPending ? (
                 <span className="loading-inline">
                   <Spinner size="small" />
@@ -828,7 +833,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               submission={selectedSubmission}
             />
 
-            <div className="taxonomy-layout">
+            <div className="taxonomy-layout taxonomy-surface-stack">
               {tagGroups.map((group) => (
                 <section
                   className={[
@@ -890,7 +895,11 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                           }}
                           title={tag.description ?? tag.label}
                         >
-                          {score ? <strong className="benchmark-score">{score.score}</strong> : null}
+                          {score ? (
+                            <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
+                              {score.score}
+                            </strong>
+                          ) : null}
                           {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
                             <span
                               className="delete-template-button"
@@ -931,10 +940,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               ))}
             </div>
 
-            {selectedTemplate ? (
-              <TemplateControlPlane template={selectedTemplate} tags={tags} benchmarkScore={selectedTemplateScore} />
-            ) : null}
-
             {templateGeneratorModal ? (
               <TemplateGeneratorModal
                 modal={templateGeneratorModal}
@@ -954,7 +959,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               <DeleteTemplateBlockedModal blocker={deleteTemplateBlocker} onClose={() => setDeleteTemplateBlocker(null)} />
             ) : null}
 
-            <div className="actions">
+            <div className="actions surface-card surface-card-inline sticky-action-bar">
               <Button
                 className="primary"
                 onClick={saveSelectedSubmission}
@@ -994,6 +999,14 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
           <div className="empty">No submissions found.</div>
         )}
       </section>
+      {selectedTemplate ? (
+        <TemplateControlPlane
+          template={selectedTemplate}
+          tags={tags}
+          benchmarkScore={selectedTemplateScore}
+          onClose={() => setSelectedTemplateId(null)}
+        />
+      ) : null}
     </main>
   );
 }
@@ -1013,6 +1026,13 @@ function SubmissionHistoryPanel({
   return (
     <>
       <div className="submission-sidebar-header">
+        <div className="sidebar-context-header">
+          <p className="eyebrow">Submission Inbox</p>
+          <h2>Accepted runs</h2>
+          <p className="sidebar-context-copy">
+            Search recent problems, review attempts, and jump into taxonomy tagging without leaving the workbench.
+          </p>
+        </div>
         <div className="submission-kpi-grid">
           <article>
             <strong>{summary.total}</strong>
@@ -1353,7 +1373,7 @@ function SubmissionContext({
           Problem Statement
         </button>
       </div>
-      <div className="context-panel-shell">
+      <div className={`context-panel-shell context-panel-${activeTab}`}>
         {activeTab === 'statement' ? (
           submission.questionDescription ? (
             <pre className="problem-description">{submission.questionDescription}</pre>
@@ -1385,10 +1405,12 @@ function TemplateControlPlane({
   template,
   tags,
   benchmarkScore,
+  onClose,
 }: {
   template: PatternTagOption;
   tags: PatternTagOption[];
   benchmarkScore?: TemplateBenchmarkScore | null;
+  onClose: () => void;
 }) {
   const metadata = template.metadata;
   const similarTemplates = metadata?.similarTemplates
@@ -1396,77 +1418,93 @@ function TemplateControlPlane({
     .filter((tag): tag is PatternTagOption => Boolean(tag));
 
   return (
-    <section className="template-plane">
-      <div className="template-plane-header">
-        <div>
-          <p className="eyebrow">Template Control Plane</p>
-          <h2>{template.label}</h2>
-          <div className="template-identity">
-            <p>{template.key}</p>
-            <strong className={`source-badge source-${template.source}`}>{sourceLabel(template.source)}</strong>
+    <aside
+      className="template-plane template-plane-inspector"
+      role="complementary"
+      aria-labelledby="template-plane-title"
+    >
+        <div className="template-plane-header">
+          <div>
+            <p className="eyebrow">Template Control Plane</p>
+            <h2 id="template-plane-title">{template.label}</h2>
+            <div className="template-identity">
+              <p>{template.key}</p>
+              <strong className={`source-badge source-${template.source}`}>{sourceLabel(template.source)}</strong>
+            </div>
+          </div>
+          <div className="template-plane-header-actions">
+            {metadata?.defaultComplexity ? (
+              <div className="plane-complexity">
+                <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
+                <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
+                {benchmarkScore ? (
+                  <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
+                ) : null}
+              </div>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="template-plane-close"
+              onClick={onClose}
+              aria-label="Close template drawer"
+            >
+              ×
+            </Button>
           </div>
         </div>
-        {metadata?.defaultComplexity ? (
-          <div className="plane-complexity">
-            <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
-            <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
+
+        {template.description ? <p className="template-description">{template.description}</p> : null}
+
+        {metadata ? (
+          <div className="template-plane-grid">
             {benchmarkScore ? (
-              <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
+              <section className="template-card wide benchmark-card">
+                <h3>LLM Benchmark</h3>
+                <p>
+                  Score {benchmarkScore.score}/100 · Confidence {benchmarkScore.confidence}/100
+                </p>
+                {benchmarkScore.reason ? <p>{benchmarkScore.reason}</p> : null}
+                {benchmarkScore.evidence.length ? (
+                  <ul>
+                    {benchmarkScore.evidence.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : null}
+            <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
+            <TemplateList title="When To Use" items={metadata.whenToUse} />
+            <TemplateList title="When Not To Use" items={metadata.whenNotToUse} />
+            <TemplateList title="Signals" items={metadata.signals} compact />
+            <TemplateList title="Invariants" items={metadata.invariants} />
+            {metadata.pseudocode?.length ? (
+              <section className="template-card wide">
+                <h3>Pseudocode</h3>
+                <pre>{metadata.pseudocode.join('\n')}</pre>
+              </section>
+            ) : null}
+            <TemplateList title="Data Structures" items={metadata.relatedDataStructures} compact />
+            {similarTemplates?.length ? (
+              <section className="template-card">
+                <h3>Similar Templates</h3>
+                <div className="related-tags">
+                  {similarTemplates.map((tag) => (
+                    <span key={tag.id}>{tag.key}</span>
+                  ))}
+                </div>
+              </section>
             ) : null}
           </div>
-        ) : null}
-      </div>
-
-      {template.description ? <p className="template-description">{template.description}</p> : null}
-
-      {metadata ? (
-        <div className="template-plane-grid">
-          {benchmarkScore ? (
-            <section className="template-card wide benchmark-card">
-              <h3>LLM Benchmark</h3>
-              <p>
-                Score {benchmarkScore.score}/100 · Confidence {benchmarkScore.confidence}/100
-              </p>
-              {benchmarkScore.reason ? <p>{benchmarkScore.reason}</p> : null}
-              {benchmarkScore.evidence.length ? (
-                <ul>
-                  {benchmarkScore.evidence.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </section>
-          ) : null}
-          <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
-          <TemplateList title="When To Use" items={metadata.whenToUse} />
-          <TemplateList title="When Not To Use" items={metadata.whenNotToUse} />
-          <TemplateList title="Signals" items={metadata.signals} compact />
-          <TemplateList title="Invariants" items={metadata.invariants} />
-          {metadata.pseudocode?.length ? (
-            <section className="template-card wide">
-              <h3>Pseudocode</h3>
-              <pre>{metadata.pseudocode.join('\n')}</pre>
-            </section>
-          ) : null}
-          <TemplateList title="Data Structures" items={metadata.relatedDataStructures} compact />
-          {similarTemplates?.length ? (
-            <section className="template-card">
-              <h3>Similar Templates</h3>
-              <div className="related-tags">
-                {similarTemplates.map((tag) => (
-                  <span key={tag.id}>{tag.key}</span>
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </div>
-      ) : (
-        <div className="template-card wide">
-          <h3>No metadata yet</h3>
-          <p>This template exists in the controlled tag set, but its control-plane details have not been seeded yet.</p>
-        </div>
-      )}
-    </section>
+        ) : (
+          <div className="template-card wide">
+            <h3>No metadata yet</h3>
+            <p>This template exists in the controlled tag set, but its control-plane details have not been seeded yet.</p>
+          </div>
+        )}
+    </aside>
   );
 }
 

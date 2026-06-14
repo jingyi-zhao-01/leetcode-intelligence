@@ -184,8 +184,16 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
   return (
     <main className="graph-fullscreen">
       <header className="graph-page-header">
-        <h1>Problem Graph</h1>
-        <p>Explore solved-question relationships through the current template taxonomy.</p>
+        <div>
+          <p className="eyebrow">Graph Explorer</p>
+          <h1>Problem Graph</h1>
+          <p>Explore solved-question relationships through the current template taxonomy.</p>
+        </div>
+        <div className="graph-header-summary">
+          <span>{graph.nodes.length} problems</span>
+          <span>{graph.edges.length} edges</span>
+          <span>{templateGroupTree.length} groups</span>
+        </div>
       </header>
 
       <section className="graph-workbench-shell">

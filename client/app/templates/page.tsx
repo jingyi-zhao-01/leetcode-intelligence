@@ -11,7 +11,13 @@ export default async function TemplatesPage() {
   const clusters = buildTemplateCatalog(tags, submissions);
 
   return (
-    <WorkspaceShell activeRoute="templates" canWrite={canWrite} returnTo="/templates" title="Template Groups">
+    <WorkspaceShell
+      activeRoute="templates"
+      canWrite={canWrite}
+      returnTo="/templates"
+      title="Template Groups"
+      description="Organize canonical templates into reusable groups and keep the taxonomy converged."
+    >
       <TemplateGroupsWorkbench clusters={clusters} canWrite={canWrite} />
     </WorkspaceShell>
   );

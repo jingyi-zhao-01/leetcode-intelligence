@@ -13,6 +13,7 @@ export default async function SubmissionHistoryPage() {
       canWrite={canWrite}
       returnTo="/submission-history"
       title="Submission Taxonomy"
+      description="Review accepted submissions, assign taxonomy tags, and benchmark reusable templates."
     >
       <TagWorkbench submissions={data.submissions} tags={data.tags} canWrite={canWrite} />
     </WorkspaceShell>

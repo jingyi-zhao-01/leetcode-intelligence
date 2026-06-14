@@ -34,7 +34,13 @@ export default async function GraphPage({
   const templateCatalog = buildTemplateCatalog(templateData.tags, templateData.submissions);
 
   return (
-    <WorkspaceShell activeRoute="graph" canWrite={canWrite} returnTo="/graph" title="Problem Graph">
+    <WorkspaceShell
+      activeRoute="graph"
+      canWrite={canWrite}
+      returnTo="/graph"
+      title="Problem Graph"
+      description="Explore solved-question relationships through the current template taxonomy."
+    >
       <GraphWorkbench graph={graph} templateCatalog={templateCatalog} initialSelectedSlug={readSlug(resolvedSearchParams)} />
     </WorkspaceShell>
   );

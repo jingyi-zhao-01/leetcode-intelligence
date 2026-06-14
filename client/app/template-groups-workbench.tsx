@@ -183,6 +183,7 @@ export function TemplateGroupsWorkbench({
     <main className="template-builder-page">
       <header className="template-builder-header">
         <div>
+          <p className="eyebrow">Template Library</p>
           <h1>Template Groups</h1>
           <p className="template-builder-copy">
             Create new groups and drag canonical templates across groups to keep the taxonomy converged.
@@ -210,7 +211,7 @@ export function TemplateGroupsWorkbench({
       ) : null}
 
       {clusters.length ? (
-        <section className="template-builder-grid">
+        <section className="template-builder-grid template-builder-board">
           {clusters.map((cluster) => (
             <section
               className={[

@@ -9,6 +9,7 @@ type WorkspaceShellProps = {
   returnTo: string;
   title: string;
   sectionLabel?: string;
+  description?: string;
   children: React.ReactNode;
 };
 
@@ -74,8 +75,11 @@ export function WorkspaceShell({
   returnTo,
   title,
   sectionLabel = 'Workbench',
+  description,
   children,
 }: WorkspaceShellProps) {
+  const activeRouteMeta = routes.find((route) => route.key === activeRoute);
+
   return (
     <div className="app-shell">
       <header className="app-topbar">
@@ -95,6 +99,13 @@ export function WorkspaceShell({
         </div>
 
         <div className="app-topbar-actions">
+          <div className="app-workspace-status" aria-hidden="true">
+            <span className="app-workspace-status-dot" />
+            <div>
+              <strong>{activeRouteMeta?.longLabel ?? title}</strong>
+              <small>{description ?? 'Workspace ready'}</small>
+            </div>
+          </div>
           <span className={`app-mode-pill ${canWrite ? 'write-enabled' : 'write-disabled'}`}>
             {canWrite ? 'Write enabled' : 'Read only'}
           </span>
@@ -114,6 +125,9 @@ export function WorkspaceShell({
 
       <div className="app-body">
         <aside className="app-rail" aria-label="Primary workspace navigation">
+          <div className="app-rail-heading">
+            <span>Workspaces</span>
+          </div>
           {routes.map((route) => {
             const active = route.key === activeRoute;
             return (
@@ -129,6 +143,9 @@ export function WorkspaceShell({
               </Link>
             );
           })}
+          <div className="app-rail-footer">
+            <p>{canWrite ? 'Editing mode enabled' : 'Viewing in safe mode'}</p>
+          </div>
         </aside>
 
         <div className="app-content">{children}</div>
