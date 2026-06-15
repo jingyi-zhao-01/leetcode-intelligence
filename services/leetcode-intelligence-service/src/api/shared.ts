@@ -384,10 +384,10 @@ Required JSON schema:
 }
 
 Field rules:
-- `classicProblems`, `whenToUse`, `whenNotToUse`, `signals`, `pseudocode`, `invariants`, and `relatedDataStructures` must each contain at least one non-empty string.
-- `similarTemplates` may be empty, but if present it must only reference keys from the existing templates list below.
-- `signals` should describe what a solver notices in the prompt or constraints, not implementation details.
-- `pseudocode` should be concise and reusable across many problems.
+- "classicProblems", "whenToUse", "whenNotToUse", "signals", "pseudocode", "invariants", and "relatedDataStructures" must each contain at least one non-empty string.
+- "similarTemplates" may be empty, but if present it must only reference keys from the existing templates list below.
+- "signals" should describe what a solver notices in the prompt or constraints, not implementation details.
+- "pseudocode" should be concise and reusable across many problems.
 
 Primary group:
 ${JSON.stringify({ groupLabel, groupDescription })}
