@@ -3,11 +3,14 @@ import { timingSafeEqual } from "node:crypto";
 import express from "express";
 
 import { createBffApi } from "./api/index.ts";
+import { ensureServiceEnvLoaded } from "./core/load-env.ts";
 import { createLogger } from "./logger.ts";
 import { runBffRoute } from "./observability/bff.ts";
 import { createHttpTracingMiddleware } from "./observability/http.ts";
 import { configureTracing, shutdownTracing } from "./observability/tracing.ts";
 import { createIntelligenceServiceRuntime } from "./service-runtime/index.ts";
+
+ensureServiceEnvLoaded();
 
 const SERVICE_NAME = "leetcode-intelligence-service";
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);

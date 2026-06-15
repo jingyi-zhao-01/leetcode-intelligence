@@ -1,9 +1,7 @@
-import path from "node:path";
-
-import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
 
 import type { IntelligenceConfig, PromptCooldownRule } from "./types.ts";
+import { ensureServiceEnvLoaded } from "./load-env.ts";
 
 const DEFAULT_PROMPT_COOLDOWN_RULES: PromptCooldownRule[] = [
   {
@@ -12,7 +10,7 @@ const DEFAULT_PROMPT_COOLDOWN_RULES: PromptCooldownRule[] = [
   },
 ];
 
-loadDotenv({ path: path.resolve(process.cwd(), ".env") });
+ensureServiceEnvLoaded();
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
