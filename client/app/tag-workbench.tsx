@@ -115,6 +115,7 @@ const TEMPLATE_FORM_ROWS: Array<{
   label: string;
   multiline?: boolean;
   placeholder?: string;
+  required?: boolean;
 }> = [
   { field: 'key', label: 'Key', placeholder: 'canonical-template-key' },
   { field: 'label', label: 'Label', placeholder: 'Canonical Template Name' },
@@ -128,7 +129,7 @@ const TEMPLATE_FORM_ROWS: Array<{
   { field: 'timeComplexity', label: 'Time Complexity', placeholder: 'O(n)' },
   { field: 'spaceComplexity', label: 'Space Complexity', placeholder: 'O(1)' },
   { field: 'relatedDataStructures', label: 'Data Structures', multiline: true, placeholder: 'One item per line' },
-  { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line' },
+  { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line', required: false },
 ];
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -303,7 +304,7 @@ function draftFromForm(form: TemplateForm): GeneratedTemplateDraft {
 }
 
 function isTemplateFormComplete(form: TemplateForm) {
-  return TEMPLATE_FORM_ROWS.every((row) => form[row.field].trim().length > 0);
+  return TEMPLATE_FORM_ROWS.every((row) => row.required === false || form[row.field].trim().length > 0);
 }
 
 function valueFromDraftField(draft: GeneratedTemplateDraft, field: keyof TemplateForm) {
@@ -1244,7 +1245,7 @@ function TemplateGeneratorModal({
                     placeholder={row.placeholder}
                     rows={4}
                     disabled={!canWrite}
-                    required
+                    required={row.required !== false}
                   />
                 ) : (
                   <Input
@@ -1252,7 +1253,7 @@ function TemplateGeneratorModal({
                     onChange={(event) => onChangeField(row.field, event.target.value)}
                     placeholder={row.placeholder}
                     disabled={!canWrite}
-                    required
+                    required={row.required !== false}
                   />
                 )}
               </Label>
@@ -1266,7 +1267,7 @@ function TemplateGeneratorModal({
         {modal.error ? <p className="generator-error">{modal.error}</p> : null}
 
         <div className="modal-footer">
-          <p>{isComplete ? 'Ready to create.' : 'Fill every row before creating this template.'}</p>
+          <p>{isComplete ? 'Ready to create.' : 'Fill every required row before creating this template.'}</p>
           <div>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel

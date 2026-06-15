@@ -360,6 +360,34 @@ Task:
 - Classic problems are only examples in metadata, not the template identity.
 - Keep key lowercase kebab-case.
 - Return strict JSON only. No markdown.
+- Do not omit fields. Populate every required property in the schema below.
+
+Required JSON schema:
+{
+  "key": "kebab-case-key",
+  "label": "Human readable label",
+  "description": "1-3 sentence reusable template description",
+  "metadata": {
+    "classicProblems": ["one example problem per item"],
+    "whenToUse": ["one signal per item"],
+    "whenNotToUse": ["one caution per item"],
+    "signals": ["observable clue from the problem statement per item"],
+    "pseudocode": ["one pseudocode step per item"],
+    "invariants": ["one invariant per item"],
+    "defaultComplexity": {
+      "time": "Big-O time complexity",
+      "space": "Big-O space complexity"
+    },
+    "relatedDataStructures": ["one data structure per item"],
+    "similarTemplates": ["existing template keys only when genuinely similar"]
+  }
+}
+
+Field rules:
+- `classicProblems`, `whenToUse`, `whenNotToUse`, `signals`, `pseudocode`, `invariants`, and `relatedDataStructures` must each contain at least one non-empty string.
+- `similarTemplates` may be empty, but if present it must only reference keys from the existing templates list below.
+- `signals` should describe what a solver notices in the prompt or constraints, not implementation details.
+- `pseudocode` should be concise and reusable across many problems.
 
 Primary group:
 ${JSON.stringify({ groupLabel, groupDescription })}
