@@ -23,6 +23,18 @@ export async function saveSubmissionTags(submissionId: string, patternTagIds: st
   revalidatePath('/');
 }
 
+export async function updateSubmissionThought(submissionId: string, thought: string) {
+  await assertWriteAccess();
+  const result = await getIntelligenceServiceJson<
+    { status: 'not_found' } | { status: 'updated'; thought: string | null }
+  >(`/bff/submissions/${submissionId}/thought`, {
+    method: 'POST',
+    body: { thought },
+  });
+  revalidatePath('/');
+  return result;
+}
+
 export async function benchmarkSubmissionTemplates(submissionId: string, excludedGroupKeys: string[] = []) {
   await assertWriteAccess();
   return getIntelligenceServiceJson<TemplateBenchmarkResult>(`/bff/submissions/${submissionId}/template-benchmark`, {

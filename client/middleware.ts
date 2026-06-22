@@ -14,7 +14,7 @@ function isLocalRequest(req: NextRequest) {
 }
 
 function isLocalWriteBypassEnabled() {
-  return process.env.NODE_ENV !== 'production';
+  return process.env.ENABLE_LOCAL_WRITE_BYPASS === 'true';
 }
 
 function isProductionDeployment() {

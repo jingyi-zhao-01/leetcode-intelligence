@@ -69,6 +69,7 @@ export type SubmissionRow = {
   language: string | null;
   timeComplexity: string | null;
   spaceComplexity: string | null;
+  thought: string | null;
   questionDescription: string | null;
   submissionCode: string;
   templateBenchmark: TemplateBenchmarkResult | null;

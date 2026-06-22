@@ -191,8 +191,33 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
     return { status: "deleted" as const, key: tag.key };
   };
 
+  const updateSubmissionThought = async (submissionId: string, thought: string) => {
+    const submission = await prisma.submission.findFirst({
+      where: { id: submissionId, status: "Accepted" },
+      select: { id: true },
+    });
+
+    if (!submission) {
+      return { status: "not_found" as const };
+    }
+
+    const normalizedThought = thought.trim();
+    await prisma.submission.update({
+      where: { id: submissionId },
+      data: {
+        thought: normalizedThought.length > 0 ? normalizedThought : null,
+      },
+    });
+
+    return {
+      status: "updated" as const,
+      thought: normalizedThought.length > 0 ? normalizedThought : null,
+    };
+  };
+
   return {
     saveSubmissionTags,
+    updateSubmissionThought,
     createTemplateGroup,
     moveTemplateToGroup,
     deleteNonSeededTemplate,

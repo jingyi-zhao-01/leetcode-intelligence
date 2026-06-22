@@ -152,6 +152,20 @@ async function main(): Promise<void> {
     });
   });
 
+  app.post("/bff/submissions/:submissionId/thought", async (req, res) => {
+    await runBffRoute(req, res, "submission_thought", async () => {
+      const submissionId = String(req.params.submissionId ?? "").trim();
+      const thought = typeof req.body?.thought === "string" ? req.body.thought : "";
+
+      if (!submissionId) {
+        res.status(400).json({ error: "submissionId is required." });
+        return;
+      }
+
+      return bffApi.updateSubmissionThought(submissionId, thought);
+    });
+  });
+
   app.post("/bff/submissions/:submissionId/template-benchmark", async (req, res) => {
     await runBffRoute(req, res, "submission_template_benchmark", async () => {
       const submissionId = String(req.params.submissionId ?? "").trim();

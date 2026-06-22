@@ -24,6 +24,7 @@ type TagWorkbenchSubmission = {
   submissionDetails: unknown;
   timeComplexity: string | null;
   spaceComplexity: string | null;
+  thought: string | null;
   content: string;
   SubmissionPatternTag: SubmissionPatternTagRecord[];
 };
@@ -185,6 +186,7 @@ export function createReadModelsApi({ prisma }: ApiContext) {
           language: readLanguage(submission.submissionDetails),
           timeComplexity: submission.timeComplexity,
           spaceComplexity: submission.spaceComplexity,
+          thought: submission.thought,
           questionDescription: readQuestionDescription(question?.content ?? null),
           submissionCode: submission.content,
           templateBenchmark: readTemplateBenchmark(submission.id),

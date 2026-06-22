@@ -37,7 +37,7 @@ The client no longer reads `DATABASE_URL` or `OPEN_ROUTER_API_KEY` directly on V
 
 - In production, all non-admin requests are rate-limited by client IP in middleware.
 - Admin sessions bypass the limiter.
-- Local development bypass remains available.
+- Optional local write bypass is available only when `ENABLE_LOCAL_WRITE_BYPASS=true`.
 - Vercel Preview deployments are not treated as production for this limiter.
 
 ## First write authentication

@@ -288,11 +288,19 @@ export function TemplateGroupsWorkbench({
                           <h3>{entry.template.label}</h3>
                           <p>{entry.template.key}</p>
                         </div>
-                        <span className={`template-source-tag source-${sourceClass}`}>{entry.template.source === 'seeded' ? 'seed' : entry.template.source.replaceAll('_', ' ')}</span>
+                      </div>
+                      <div className="template-directory-item-meta">
+                        <span className={`template-source-tag source-${sourceClass}`}>
+                          {entry.template.source === 'seeded' ? 'seeded' : entry.template.source.replaceAll('_', ' ')}
+                        </span>
+                        <span className={`template-doc-state ${entry.template.metadata ? 'documented' : 'undocumented'}`}>
+                          {entry.template.metadata ? 'Documented' : 'Needs docs'}
+                        </span>
                       </div>
                       <p className="template-complexity">
-                        <span>{complexityTime}</span>
-                        <strong>{entry.template.assignmentCount || entry.problems.length || 0}</strong>
+                        <span>Time {complexityTime}</span>
+                        <span>Space {complexitySpace}</span>
+                        <strong>{entry.template.assignmentCount || entry.problems.length || 0} uses</strong>
                         <span>{entry.problems.length} probs</span>
                       </p>
                       <div className="template-card-accent" aria-hidden="true" />

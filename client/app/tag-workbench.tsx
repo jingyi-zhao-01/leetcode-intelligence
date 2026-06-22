@@ -9,6 +9,7 @@ import {
   generateTemplateDraft,
   setSubmissionTemplateOptOut,
   saveSubmissionTags,
+  updateSubmissionThought,
 } from './actions';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -326,6 +327,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   );
   const [message, setMessage] = useState('');
   const [isPending, startTransition] = useTransition();
+  const [isThoughtPending, startThoughtTransition] = useTransition();
   const [isBenchmarkPending, startBenchmarkTransition] = useTransition();
   const [benchmarkError, setBenchmarkError] = useState('');
   const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>(() =>
@@ -438,6 +440,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   }, [selectedSubmission, submissions]);
   const taxonomyState = selectedSubmission ? submissionTaxonomyState(selectedSubmission) : 'none';
   const [activeContextTab, setActiveContextTab] = useState<'code' | 'statement'>('code');
+  const [thoughtDraft, setThoughtDraft] = useState(submissions[0]?.thought ?? '');
 
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
@@ -445,6 +448,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     setDraftTagIds(new Set(submission.tags.filter((tag) => tag.kind === 'tag').map((tag) => tag.id)));
     setSelectedTemplateId(submission.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null);
     setActiveContextTab('code');
+    setThoughtDraft(submission.thought ?? '');
     setMessage('');
     setBenchmarkError('');
   }
@@ -511,6 +515,26 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       await saveSubmissionTags(selectedSubmission.id, []);
       router.refresh();
       setMessage('Cleared tags for this submission.');
+    });
+  }
+
+  function saveThought() {
+    if (!canWrite) {
+      setMessage('Read-only mode. Please sign in to save thought.');
+      return;
+    }
+    if (!selectedSubmission) return;
+
+    startThoughtTransition(async () => {
+      const result = await updateSubmissionThought(selectedSubmission.id, thoughtDraft);
+      if (result.status === 'not_found') {
+        setMessage('Unable to update because this submission is no longer available.');
+        return;
+      }
+
+      setThoughtDraft(result.thought ?? '');
+      setMessage(result.thought ? 'Saved thought for this submission.' : 'Cleared thought for this submission.');
+      router.refresh();
     });
   }
 
@@ -828,6 +852,31 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               {benchmarkError ? <span className="error">{benchmarkError}</span> : null}
             </div>
 
+            <section className="surface-card submission-thought-card">
+              <div className="section-title-row section-title-row-spread">
+                <div>
+                  <h3>Thought</h3>
+                  <p className="section-copy">Record why this accepted version worked or what you want to remember.</p>
+                </div>
+                <Button
+                  type="button"
+                  className="primary"
+                  onClick={saveThought}
+                  disabled={isThoughtPending || !canWrite}
+                  title={canWrite ? undefined : 'Sign in to save thought'}
+                >
+                  <AsyncButtonLabel isPending={isThoughtPending} label="Save thought" pendingLabel="Saving..." />
+                </Button>
+              </div>
+              <Textarea
+                value={thoughtDraft}
+                onChange={(event) => setThoughtDraft(event.target.value)}
+                placeholder="What pattern mattered here? What was the key invariant? What should future-you remember?"
+                rows={5}
+                disabled={!canWrite}
+              />
+            </section>
+
             <SubmissionContext
               activeTab={activeContextTab}
               onChangeTab={setActiveContextTab}
@@ -896,36 +945,44 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                           }}
                           title={tag.description ?? tag.label}
                         >
-                          {score ? (
-                            <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
-                              {score.score}
-                            </strong>
-                          ) : null}
-                          {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
-                            <span
-                              className="delete-template-button"
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`Delete ${tag.label}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                deleteTemplate(tag);
-                              }}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  event.stopPropagation();
-                                  deleteTemplate(tag);
-                                }
-                              }}
-                            >
-                              ×
-                            </span>
-                          ) : null}
-                          <span>{tag.label}</span>
-                          <small>{tag.key}</small>
-                          <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
-                          {tag.metadata ? <em>documented</em> : null}
+                          <div className="tag-option-top-row">
+                            <div className="tag-option-title-stack">
+                              <span className="tag-option-label">{tag.label}</span>
+                              <small className="tag-option-key">{tag.key}</small>
+                            </div>
+                            <div className="tag-option-controls">
+                              {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
+                                <span
+                                  className="delete-template-button"
+                                  role="button"
+                                  tabIndex={0}
+                                  aria-label={`Delete ${tag.label}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteTemplate(tag);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      deleteTemplate(tag);
+                                    }
+                                  }}
+                                >
+                                  ×
+                                </span>
+                              ) : null}
+                              {score ? (
+                                <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
+                                  {score.score}
+                                </strong>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="tag-option-footer">
+                            <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
+                            {tag.metadata ? <em>documented</em> : null}
+                          </div>
                         </button>
                       );
                     })}

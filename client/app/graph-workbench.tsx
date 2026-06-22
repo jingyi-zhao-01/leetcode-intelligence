@@ -181,13 +181,6 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
   const [selectedTemplateKey, setSelectedTemplateKey] = useState<string | null>(null);
   const [hoveredTemplateGroupKey, setHoveredTemplateGroupKey] = useState<string | null>(null);
   const templateGroupTree = useMemo(() => buildClusterTree(graph, templateCatalog), [graph, templateCatalog]);
-  const [expandedTemplateGroupKeys, setExpandedTemplateGroupKeys] = useState<Set<string>>(
-    () =>
-      new Set([
-        ...templateCatalog.map((group) => group.key),
-        ...graph.nodes.flatMap((node) => node.templateGroups.map((group) => group.key)),
-      ]),
-  );
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
     Object.fromEntries(buildClusterTree(graph, templateCatalog).map((group) => [group.key, defaultClusterHue(group.key)])),
   );
@@ -221,25 +214,6 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
     setSelectedTemplateKey(null);
   }
 
-  function updateClusterHue(clusterKey: string, hue: number) {
-    setClusterHueByKey((current) => ({
-      ...current,
-      [clusterKey]: hue,
-    }));
-  }
-
-  function toggleTemplateGroupExpanded(groupKey: string) {
-    setExpandedTemplateGroupKeys((current) => {
-      const next = new Set(current);
-      if (next.has(groupKey)) {
-        next.delete(groupKey);
-      } else {
-        next.add(groupKey);
-      }
-      return next;
-    });
-  }
-
   function selectTemplateDirectoryEntry(groupKey: string, templateKey: string) {
     setSelectedTemplateKey(templateKey);
     setSelectedTemplateGroupKeys((current) => {
@@ -247,7 +221,6 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
       next.add(groupKey);
       return next;
     });
-    setExpandedTemplateGroupKeys((current) => new Set(current).add(groupKey));
   }
 
   return (
@@ -268,105 +241,68 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
       <section className="graph-workbench-shell">
         <aside className="graph-control-panel">
           <section className="graph-fullscreen-toolbar">
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search in graph labels"
-              aria-label="Search in graph"
-            />
-            <div className="graph-selected-meta">
-              <span>{filteredGraph.nodes.length} problems</span>
-              <span>{filteredGraph.edges.length} edges</span>
-              <span>{selectedTemplateGroupKeys.size} template group filters</span>
-              <span>{selectedNodeExists ? `Selected: ${selectedNodeExists.title}` : 'Select a node to focus'}</span>
+            <div className="graph-search-stack">
+              <p className="graph-panel-title">Template groups</p>
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Filter nodes..."
+                aria-label="Search in graph"
+              />
+            </div>
+            <div className="graph-toolbar-summary">
+              <span>{selectedTemplateGroupKeys.size ? `${selectedTemplateGroupKeys.size} selected` : 'All groups'}</span>
+              {selectedTemplateGroupKeys.size ? (
+                <Button type="button" variant="outline" onClick={clearTemplateGroupFilters}>
+                  Clear
+                </Button>
+              ) : null}
             </div>
           </section>
 
           <section className="graph-cluster-filter-panel">
-            <div className="graph-cluster-filter-header">
-              <div>
-                <p className="eyebrow">Template Group Selector</p>
-                <h2>Template groups</h2>
-              </div>
-              <Button type="button" variant="outline" onClick={clearTemplateGroupFilters} disabled={!selectedTemplateGroupKeys.size}>
-                Clear template group filters
-              </Button>
-            </div>
             <div className="graph-cluster-tree" role="list" aria-label="Template group selector">
               {templateGroupTree.map((group, groupIndex) => {
                 const isGroupSelected = selectedTemplateGroupKeys.has(group.key);
-                const hue = clusterHueByKey[group.key] ?? defaultClusterHue(group.key);
-                const isExpanded = expandedTemplateGroupKeys.has(group.key);
                 const tone = GRAPH_GROUP_TONES[groupIndex % GRAPH_GROUP_TONES.length];
 
                 return (
-                  <section className={`graph-cluster-branch graph-cluster-branch-${tone}`} key={group.key}>
-                    <div
-                      className={`graph-cluster-row primary ${isGroupSelected ? 'selected' : ''}`}
-                      onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
-                      onMouseLeave={() => setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))}
+                  <section
+                    className={`graph-group-list-section graph-group-list-item-${tone} ${isGroupSelected ? 'selected' : ''}`}
+                    key={group.key}
+                    onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
+                    onMouseLeave={() => setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))}
+                  >
+                    <button
+                      type="button"
+                      className={`graph-group-list-item ${isGroupSelected ? 'selected' : ''}`}
+                      onClick={() => toggleTemplateGroup(group.key)}
+                      aria-pressed={isGroupSelected}
                     >
-                      <button
-                        type="button"
-                        className="graph-cluster-expand"
-                        onClick={() => toggleTemplateGroupExpanded(group.key)}
-                        aria-expanded={isExpanded}
-                        aria-controls={`graph-template-group-${group.key}`}
-                      >
-                        {isExpanded ? '▾' : '▸'}
-                      </button>
-                      <label className="graph-cluster-toggle">
-                        <input
-                          type="checkbox"
-                          checked={isGroupSelected}
-                          onChange={() => toggleTemplateGroup(group.key)}
-                        />
-                        <span className="graph-cluster-label-text">{group.label}</span>
-                      </label>
-                      <div className="graph-cluster-hue-control">
-                        <span
-                          className="graph-cluster-hue-swatch"
-                          style={{ background: `hsl(${hue} 78% 52%)` }}
-                          aria-hidden="true"
-                        />
-                        <input
-                          type="range"
-                          min={0}
-                          max={360}
-                          value={hue}
-                          onChange={(event) => updateClusterHue(group.key, Number(event.target.value))}
-                          aria-label={`Adjust hue for ${group.label}`}
-                        />
-                      </div>
-                    </div>
-                    <div className="graph-cluster-stats-row">
-                      <small>
-                        {group.uniqueQuestionCount} unique problems
-                        {group.templateMatchCount > group.uniqueQuestionCount
-                          ? ` · ${group.templateMatchCount} template matches`
-                          : ''}
-                      </small>
-                    </div>
-                    {isExpanded ? (
-                      <div className="graph-template-tree" id={`graph-template-group-${group.key}`}>
-                        {group.templates.map((template) => (
-                          <button
-                            key={`${group.key}:${template.key}`}
-                            type="button"
-                            className={`graph-template-leaf ${selectedTemplateKey === template.key ? 'selected' : ''}`}
-                            onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
-                            onMouseLeave={() =>
-                              setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))
-                            }
-                            onClick={() => selectTemplateDirectoryEntry(group.key, template.key)}
-                          >
-                            <span className="graph-template-leaf-branch" aria-hidden="true">
-                              └
-                            </span>
-                            <span className="graph-template-leaf-label">{template.label}</span>
-                            <small>{template.questionCount} questions</small>
-                          </button>
-                        ))}
+                      <span className="graph-group-list-dot" aria-hidden="true" />
+                      <span className="graph-group-list-label">{group.label}</span>
+                      <span className="graph-group-list-count">{group.uniqueQuestionCount}</span>
+                    </button>
+                    {isGroupSelected ? (
+                      <div className="graph-template-tree" role="list" aria-label={`${group.label} templates`}>
+                        {group.templates.length ? (
+                          group.templates.map((template) => (
+                            <button
+                              key={`${group.key}:${template.key}`}
+                              type="button"
+                              className={`graph-template-leaf ${selectedTemplateKey === template.key ? 'selected' : ''}`}
+                              onClick={() => selectTemplateDirectoryEntry(group.key, template.key)}
+                            >
+                              <span className="graph-template-leaf-branch" aria-hidden="true">
+                                └
+                              </span>
+                              <span className="graph-template-leaf-label">{template.label}</span>
+                              <small>{template.questionCount}</small>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="graph-template-empty">No templates in this group yet</p>
+                        )}
                       </div>
                     ) : null}
                   </section>
@@ -377,6 +313,11 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
         </aside>
 
         <section className="graph-stage-panel">
+          <div className="graph-stage-header">
+            <span>{filteredGraph.nodes.length} problems</span>
+            <span>{filteredGraph.edges.length} connections</span>
+            <span>{selectedNodeExists ? `Focus: ${selectedNodeExists.title}` : 'No focused node'}</span>
+          </div>
           <SubmissionGraphView
             graph={filteredGraph}
             visiblePrimaryClusterKeys={selectedTemplateGroupKeys}
