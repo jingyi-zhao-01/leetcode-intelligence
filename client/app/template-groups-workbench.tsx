@@ -11,7 +11,17 @@ import { Textarea } from './components/ui/textarea';
 import type { TemplateGroupCatalog } from '../lib/template-catalog';
 
 const UNKNOWN_TIME = 'unknown';
-const GROUP_TONES = ['teal', 'blue', 'amber', 'purple', 'green'] as const;
+
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  month: 'short',
+  day: '2-digit',
+  year: 'numeric',
+});
+
+function formatDate(value: string) {
+  return DATE_FORMATTER.format(new Date(value));
+}
 
 function AsyncLabel({
   isPending,
@@ -52,8 +62,21 @@ export function TemplateGroupsWorkbench({
   const [dropTargetGroupKey, setDropTargetGroupKey] = useState<string | null>(null);
   const [isCreatePending, startCreateTransition] = useTransition();
   const [isMovePending, startMoveTransition] = useTransition();
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Set<string>>(() => new Set(clusters.map((cluster) => cluster.id)));
 
   const groupByKey = useMemo(() => new Map(clusters.map((cluster) => [cluster.id, cluster])), [clusters]);
+
+  function toggleGroupExpanded(groupId: string) {
+    setExpandedGroupKeys((current) => {
+      const next = new Set(current);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }
 
   function resetCreateForm() {
     setGroupLabel('');
@@ -67,16 +90,14 @@ export function TemplateGroupsWorkbench({
     setIsCreateModalOpen(true);
   }
 
-  function openTemplateGenerationHint(groupLabel: string) {
-    setMessage(
-      `To generate a new template for ${groupLabel}, open Submission Taxonomy, select a representative submission, then use Generate template in that template group.`,
-    );
-  }
-
   function closeCreateModal() {
     if (isCreatePending) return;
     setIsCreateModalOpen(false);
     resetCreateForm();
+  }
+
+  function openTemplateGenerationHint(groupLabel: string) {
+    setMessage(`To generate a template for ${groupLabel}, run "Generate template" from a submission in the Submission Taxonomy.`);
   }
 
   function submitCreateGroup() {
@@ -166,7 +187,11 @@ export function TemplateGroupsWorkbench({
     <main className="template-builder-page">
       <header className="template-builder-header">
         <div>
-          <h1>Template Group Builder</h1>
+          <p className="eyebrow">Template Library</p>
+          <h1>Template Groups</h1>
+          <p className="template-builder-copy">
+            Create new groups and drag canonical templates across groups to keep the taxonomy converged.
+          </p>
           <p className="template-builder-stats">
             {clusters.length} groups · {clusters.reduce((count, cluster) => count + cluster.templates.length, 0)} templates
           </p>
@@ -191,27 +216,10 @@ export function TemplateGroupsWorkbench({
 
       {clusters.length ? (
         <section className="template-builder-grid template-builder-board">
-          {clusters.map((cluster, clusterIndex) => {
-            const tone = GROUP_TONES[clusterIndex % GROUP_TONES.length];
-            const associatedProblems = [
-              ...new Map(
-                cluster.templates.flatMap((entry) => entry.problems).map((problem) => [problem.id, problem]),
-              ).values(),
-            ]
-              .sort((left, right) => {
-                if (right.attempts !== left.attempts) {
-                  return right.attempts - left.attempts;
-                }
-
-                return right.latest.localeCompare(left.latest);
-              })
-              .slice(0, 5);
-
-            return (
+          {clusters.map((cluster) => (
             <section
               className={[
                 'template-builder-cluster',
-                `template-builder-cluster-${tone}`,
                 canWrite ? 'template-builder-cluster-droppable' : '',
                 dropTargetGroupKey === cluster.id ? 'drop-target-active' : '',
               ]
@@ -244,11 +252,27 @@ export function TemplateGroupsWorkbench({
             >
               <div className="template-cluster-heading">
                 <div>
-                  <span className="template-cluster-dot" aria-hidden="true" />
                   <h2>{cluster.label}</h2>
-                  <span className="template-cluster-count">{cluster.templates.length}</span>
+                  <p className="cluster-description">
+                    {cluster.description ?? 'Template group with reusable approach metadata.'}
+                  </p>
                 </div>
-                <span className="template-cluster-chevron" aria-hidden="true">⌄</span>
+                <div className="template-cluster-stats">
+                  <button
+                    type="button"
+                    className="template-directory-toggle"
+                    onClick={() => toggleGroupExpanded(cluster.id)}
+                    aria-expanded={expandedGroupKeys.has(cluster.id)}
+                    aria-controls={`template-directory-${cluster.id}`}
+                  >
+                    <span className="template-directory-chevron">{expandedGroupKeys.has(cluster.id) ? '▾' : '▸'}</span>
+                    <span>Directory</span>
+                  </button>
+                  <span>{cluster.templates.length} templates</span>
+                  <span>
+                    {cluster.templates.reduce((count, entry) => count + entry.problems.length, 0)} associated problems
+                  </span>
+                </div>
               </div>
 
               {canWrite ? (
@@ -259,84 +283,92 @@ export function TemplateGroupsWorkbench({
                 </p>
               ) : null}
 
-              <div className="template-directory" id={`template-directory-${cluster.id}`}>
-                {cluster.templates.map((entry) => {
-                  const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
-                  const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
-                  const sourceClass = entry.template.source.replaceAll('_', '-');
+              {expandedGroupKeys.has(cluster.id) ? (
+                <div className="template-directory" id={`template-directory-${cluster.id}`}>
+                  {cluster.templates.map((entry) => {
+                    const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
+                    const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
+                    const sourceClass = entry.template.source.replaceAll('_', '-');
+                    const previewProblems = entry.problems.slice(0, 3);
 
-                  return (
-                    <article
-                      key={entry.template.id}
-                      className={[
-                        'template-directory-item',
-                        canWrite ? 'template-directory-item-draggable' : '',
-                        draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      draggable={canWrite}
-                      onDragStart={(event) => {
-                        beginDrag(entry.template.id, entry.template.label);
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData('text/plain', entry.template.id);
-                      }}
-                      onDragEnd={clearDragState}
-                    >
-                      <div className="template-directory-item-header">
-                        <div className="template-directory-item-heading">
-                          <h3>{entry.template.label}</h3>
-                          <p>{entry.template.key}</p>
+                    return (
+                      <article
+                        key={entry.template.id}
+                        className={[
+                          'template-directory-item',
+                          canWrite ? 'template-directory-item-draggable' : '',
+                          draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        draggable={canWrite}
+                        onDragStart={(event) => {
+                          beginDrag(entry.template.id, entry.template.label);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', entry.template.id);
+                        }}
+                        onDragEnd={clearDragState}
+                      >
+                        <div className="template-directory-item-header">
+                          <div className="template-directory-item-heading">
+                            <span className="template-directory-branch-line" aria-hidden="true">
+                              └
+                            </span>
+                            <div>
+                              <h3>{entry.template.label}</h3>
+                              <p>{entry.template.key}</p>
+                            </div>
+                          </div>
+                          <div className="template-directory-item-badges">
+                            <span className={`template-source-tag source-${sourceClass}`}>{entry.template.source}</span>
+                            <span className="template-directory-count">{entry.problems.length} problems</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="template-directory-item-meta">
-                        <span className={`template-source-tag source-${sourceClass}`}>
-                          {entry.template.source === 'seeded' ? 'seeded' : entry.template.source.replaceAll('_', ' ')}
-                        </span>
-                        <span className={`template-doc-state ${entry.template.metadata ? 'documented' : 'undocumented'}`}>
-                          {entry.template.metadata ? 'Documented' : 'Needs docs'}
-                        </span>
-                      </div>
-                      <p className="template-complexity">
-                        <span>Time {complexityTime}</span>
-                        <span>Space {complexitySpace}</span>
-                        <strong>{entry.template.assignmentCount || entry.problems.length || 0} uses</strong>
-                        <span>{entry.problems.length} probs</span>
-                      </p>
-                      <div className="template-card-accent" aria-hidden="true" />
-                    </article>
-                  );
-                })}
+                        {entry.template.description ? <p className="template-desc">{entry.template.description}</p> : null}
 
-                {canWrite ? (
-                  <button className="template-directory-create" type="button" onClick={() => openTemplateGenerationHint(cluster.label)}>
+                        <p className="template-complexity">
+                          Time {complexityTime} · Space {complexitySpace}
+                        </p>
+
+                        <div className="template-problem-list">
+                          {previewProblems.length ? (
+                            <ul>
+                              {previewProblems.map((problem) => (
+                                <li key={problem.id}>
+                                  <span>{problem.title}</span>
+                                  <small>
+                                    {problem.attempts} attempt{problem.attempts === 1 ? '' : 's'} · latest {formatDate(problem.latest)}
+                                  </small>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="template-empty-problem">No problems tagged yet.</p>
+                          )}
+                          {entry.problems.length > previewProblems.length ? (
+                            <p className="template-more-problems">+ {entry.problems.length - previewProblems.length} more problems</p>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    className="template-directory-create"
+                    onClick={() => openTemplateGenerationHint(cluster.label)}
+                  >
+                    <span className="template-directory-branch-line">└</span>
                     <span className="template-create-icon">+</span>
                     <div>
                       <strong>Generate template</strong>
                       <small>{cluster.label}</small>
                     </div>
                   </button>
-                ) : null}
-              </div>
-
-              <div className="template-associated-problems">
-                <h3>Associated Problems</h3>
-                {associatedProblems.length ? (
-                  <ul>
-                    {associatedProblems.map((problem) => (
-                      <li key={problem.id}>
-                        <span aria-hidden="true" />
-                        <p>{problem.title}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="template-empty-problem">No associated problems yet.</p>
-                )}
-              </div>
+                </div>
+              ) : null}
             </section>
-            );
-          })}
+          ))}
         </section>
       ) : (
         <p className="template-empty">No template data found. Seed templates first, then refresh this page.</p>

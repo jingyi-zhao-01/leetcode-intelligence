@@ -330,6 +330,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [isThoughtPending, startThoughtTransition] = useTransition();
   const [isBenchmarkPending, startBenchmarkTransition] = useTransition();
   const [benchmarkError, setBenchmarkError] = useState('');
+  const [thoughtDraft, setThoughtDraft] = useState(submissions[0]?.thought ?? '');
   const [benchmarksBySubmission, setBenchmarksBySubmission] = useState<Record<string, TemplateBenchmarkResult>>(() =>
     Object.fromEntries(
       submissions
@@ -440,7 +441,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   }, [selectedSubmission, submissions]);
   const taxonomyState = selectedSubmission ? submissionTaxonomyState(selectedSubmission) : 'none';
   const [activeContextTab, setActiveContextTab] = useState<'code' | 'statement'>('code');
-  const [thoughtDraft, setThoughtDraft] = useState(submissions[0]?.thought ?? '');
 
   function selectSubmission(submission: SubmissionRow) {
     setSelectedId(submission.id);
@@ -462,6 +462,26 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
         next.add(dayKey);
       }
       return next;
+    });
+  }
+
+  function saveThought() {
+    if (!canWrite) {
+      setMessage('Read-only mode. Please sign in to save thought.');
+      return;
+    }
+    if (!selectedSubmission) return;
+
+    startThoughtTransition(async () => {
+      const result = await updateSubmissionThought(selectedSubmission.id, thoughtDraft);
+      if (result.status === 'not_found') {
+        setMessage('Unable to update because this submission is no longer available.');
+        return;
+      }
+
+      setThoughtDraft(result.thought ?? '');
+      setMessage(result.thought ? 'Saved thought for this submission.' : 'Cleared thought for this submission.');
+      router.refresh();
     });
   }
 
@@ -515,26 +535,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
       await saveSubmissionTags(selectedSubmission.id, []);
       router.refresh();
       setMessage('Cleared tags for this submission.');
-    });
-  }
-
-  function saveThought() {
-    if (!canWrite) {
-      setMessage('Read-only mode. Please sign in to save thought.');
-      return;
-    }
-    if (!selectedSubmission) return;
-
-    startThoughtTransition(async () => {
-      const result = await updateSubmissionThought(selectedSubmission.id, thoughtDraft);
-      if (result.status === 'not_found') {
-        setMessage('Unable to update because this submission is no longer available.');
-        return;
-      }
-
-      setThoughtDraft(result.thought ?? '');
-      setMessage(result.thought ? 'Saved thought for this submission.' : 'Cleared thought for this submission.');
-      router.refresh();
     });
   }
 
@@ -945,44 +945,36 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                           }}
                           title={tag.description ?? tag.label}
                         >
-                          <div className="tag-option-top-row">
-                            <div className="tag-option-title-stack">
-                              <span className="tag-option-label">{tag.label}</span>
-                              <small className="tag-option-key">{tag.key}</small>
-                            </div>
-                            <div className="tag-option-controls">
-                              {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
-                                <span
-                                  className="delete-template-button"
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label={`Delete ${tag.label}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    deleteTemplate(tag);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      deleteTemplate(tag);
-                                    }
-                                  }}
-                                >
-                                  ×
-                                </span>
-                              ) : null}
-                              {score ? (
-                                <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
-                                  {score.score}
-                                </strong>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="tag-option-footer">
-                            <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
-                            {tag.metadata ? <em>documented</em> : null}
-                          </div>
+                          {score ? (
+                            <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
+                              {score.score}
+                            </strong>
+                          ) : null}
+                          {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
+                            <span
+                              className="delete-template-button"
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Delete ${tag.label}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteTemplate(tag);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  deleteTemplate(tag);
+                                }
+                              }}
+                            >
+                              ×
+                            </span>
+                          ) : null}
+                          <span>{tag.label}</span>
+                          <small>{tag.key}</small>
+                          <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
+                          {tag.metadata ? <em>documented</em> : null}
                         </button>
                       );
                     })}
