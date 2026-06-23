@@ -780,23 +780,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                 </div>
                 <h2>{selectedSubmission.title ?? selectedSubmission.titleSlug ?? 'Submission'}</h2>
                 <p className="detail-slug">/{selectedSubmission.titleSlug ?? 'unknown-problem'}</p>
-                <label className="template-optout-control">
-                  <input
-                    type="checkbox"
-                    checked={templateBenchmarkOptOut}
-                    onChange={(event) => toggleTemplateBenchmarkOptOut(event.target.checked)}
-                    disabled={isPending || !canWrite}
-                  />
-                  <span>
-                    Opt out from templating
-                    {isPending ? (
-                      <span className="loading-inline" style={{ marginLeft: '8px' }}>
-                        <Spinner size="small" />
-                        <span>Updating...</span>
-                      </span>
-                    ) : null}
-                  </span>
-                </label>
               </div>
               <div className="complexity detail-metric-grid">
                 <span>Time {selectedSubmission.timeComplexity ?? 'n/a'}</span>
@@ -804,6 +787,26 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                 <span>{selectedTags.length} selected tags</span>
                 <span>{benchmark ? `Benchmarked ${benchmark.scores.length}` : 'No benchmark yet'}</span>
               </div>
+            </div>
+
+            <div className="detail-control-row">
+              <label className="template-optout-control detail-optout-control">
+                <input
+                  type="checkbox"
+                  checked={templateBenchmarkOptOut}
+                  onChange={(event) => toggleTemplateBenchmarkOptOut(event.target.checked)}
+                  disabled={isPending || !canWrite}
+                />
+                <span>
+                  Opt out from templating
+                  {isPending ? (
+                    <span className="loading-inline" style={{ marginLeft: '8px' }}>
+                      <Spinner size="small" />
+                      <span>Updating...</span>
+                    </span>
+                  ) : null}
+                </span>
+              </label>
             </div>
 
             <section className="template-tag-stage surface-card">
@@ -852,37 +855,6 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               {benchmarkError ? <span className="error">{benchmarkError}</span> : null}
             </div>
 
-            <section className="surface-card submission-thought-card">
-              <div className="section-title-row section-title-row-spread">
-                <div>
-                  <h3>Thought</h3>
-                  <p className="section-copy">Record why this accepted version worked or what you want to remember.</p>
-                </div>
-                <Button
-                  type="button"
-                  className="primary"
-                  onClick={saveThought}
-                  disabled={isThoughtPending || !canWrite}
-                  title={canWrite ? undefined : 'Sign in to save thought'}
-                >
-                  <AsyncButtonLabel isPending={isThoughtPending} label="Save thought" pendingLabel="Saving..." />
-                </Button>
-              </div>
-              <Textarea
-                value={thoughtDraft}
-                onChange={(event) => setThoughtDraft(event.target.value)}
-                placeholder="What pattern mattered here? What was the key invariant? What should future-you remember?"
-                rows={5}
-                disabled={!canWrite}
-              />
-            </section>
-
-            <SubmissionContext
-              activeTab={activeContextTab}
-              onChangeTab={setActiveContextTab}
-              submission={selectedSubmission}
-            />
-
             <div className="taxonomy-layout taxonomy-surface-stack">
               {tagGroups.map((group) => (
                 <section
@@ -917,7 +889,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                             : 'Exclude this group from LLM benchmark'
                         }
                       >
-                        {excludedBenchmarkGroupKeys.has(group.key) ? 'Excluded' : 'Included'}
+                        {excludedBenchmarkGroupKeys.has(group.key)
+                          ? 'Included in benchmark'
+                          : 'Exclude from benchmark'}
                       </button>
                     ) : null}
                   </div>
@@ -986,8 +960,14 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                         </button>
                       );
                     })}
-                    {canWrite && group.tags.some((tag) => isTemplateLeaf(tag)) ? (
-                      <button className="add-template-card" type="button" onClick={() => openTemplateGenerator(group)}>
+                    {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
+                      <button
+                        className="add-template-card"
+                        type="button"
+                        onClick={() => openTemplateGenerator(group)}
+                        disabled={!canWrite}
+                        title={canWrite ? undefined : 'Sign in to generate a template'}
+                      >
                         <span>+</span>
                         <strong>Generate template</strong>
                         <small>{group.label}</small>
@@ -996,6 +976,39 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                   </div>
                 </section>
               ))}
+            </div>
+
+            <div className="submission-utility-grid">
+              <section className="surface-card submission-thought-card submission-thought-card-compact">
+                <div className="section-title-row section-title-row-spread">
+                  <div>
+                    <h3>Submission Note</h3>
+                    <p className="section-copy">Record why this accepted version worked or what you want to remember.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    className="primary"
+                    onClick={saveThought}
+                    disabled={isThoughtPending || !canWrite}
+                    title={canWrite ? undefined : 'Sign in to save thought'}
+                  >
+                    <AsyncButtonLabel isPending={isThoughtPending} label="Save thought" pendingLabel="Saving..." />
+                  </Button>
+                </div>
+                <Textarea
+                  value={thoughtDraft}
+                  onChange={(event) => setThoughtDraft(event.target.value)}
+                  placeholder="What pattern mattered here? What was the key invariant? What should future-you remember?"
+                  rows={4}
+                  disabled={!canWrite}
+                />
+              </section>
+
+              <SubmissionContext
+                activeTab={activeContextTab}
+                onChangeTab={setActiveContextTab}
+                submission={selectedSubmission}
+              />
             </div>
 
             {templateGeneratorModal ? (
@@ -1540,7 +1553,6 @@ function TemplateControlPlane({
                 ) : null}
               </section>
             ) : null}
-            <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
             <TemplateList title="When To Use" items={metadata.whenToUse} />
             <TemplateList title="When Not To Use" items={metadata.whenNotToUse} />
             <TemplateList title="Signals" items={metadata.signals} compact />
@@ -1552,6 +1564,7 @@ function TemplateControlPlane({
               </section>
             ) : null}
             <TemplateList title="Data Structures" items={metadata.relatedDataStructures} compact />
+            <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
             {similarTemplates?.length ? (
               <section className="template-card">
                 <h3>Similar Templates</h3>
