@@ -47,7 +47,7 @@ import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from './database.ts';
 import { createLogger } from './logger.ts';
 
-enum ServerAction {
+export enum ServerAction {
   START_TIMER = 'start_timer',
   STOP_TIMER = 'stop_timer',
   DROP_TIMER = 'drop_timer',

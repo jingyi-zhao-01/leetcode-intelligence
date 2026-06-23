@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json",
     "test": "cd ../.. && vitest run --project leetcode-submission-service",
+    "test:contract": "cd ../.. && vitest run --project leetcode-submission-service services/leetcode-submission-service/tests/apiContract.test.ts",
     "submission-server": "node dist/server.js",
     "submission-server-dev": "tsx watch src/server.ts"
   },

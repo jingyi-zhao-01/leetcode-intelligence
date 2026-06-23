@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { ChevronRight, CircleAlert, CircleOff, X } from 'lucide-react';
+import { ChevronRight, CircleAlert, CircleCheck, CircleOff, X } from 'lucide-react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
@@ -1162,6 +1162,7 @@ function SubmissionHistoryPanel({
                     !submission.templateBenchmarkOptOut && !submission.tags.some((tag) => tag.kind === 'tag'),
                 ),
               );
+              const hasResolvedSubmissions = day.problems.some((problem) => problem.submissions.length > 0);
               return (
                 <section className="submission-week" key={day.key}>
                   <button
@@ -1179,6 +1180,12 @@ function SubmissionHistoryPanel({
                         className="h-3.5 w-3.5 shrink-0 text-amber-600"
                         title="Contains submissions that are not opted out and still unresolved"
                       />
+                    ) : hasResolvedSubmissions ? (
+                      <CircleCheck
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-emerald-600"
+                        title="All submissions for this day are resolved or opted out"
+                      />
                     ) : null}
                     <ChevronRight
                       aria-hidden="true"
@@ -1191,8 +1198,9 @@ function SubmissionHistoryPanel({
                   <div
                     className={cn(
                       'grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-out',
-                      isCollapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100',
+                      isCollapsed ? 'opacity-0' : 'opacity-100',
                     )}
+                    style={{ gridTemplateRows: isCollapsed ? '0fr' : '1fr' }}
                     aria-hidden={isCollapsed}
                   >
                     <div className="min-h-0">
