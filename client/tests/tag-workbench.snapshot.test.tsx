@@ -1,9 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TagWorkbench } from '../app/tag-workbench';
-import type { PatternTagOption, SubmissionRow, TemplateBenchmarkResult } from '../lib/data';
+import { makeTagWorkbenchSubmissions, makeTagWorkbenchTags } from '../lib/tag-workbench.fixture';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -26,16 +27,22 @@ vi.mock('react-syntax-highlighter', () => ({
     children,
     className,
     language,
+    customStyle,
+    PreTag,
   }: {
     children: ReactNode;
     className?: string;
     language?: string;
+    customStyle?: Record<string, unknown>;
+    PreTag?: string;
   }) =>
     createElement(
       'pre',
       {
         className,
         'data-language': language ?? 'plain',
+        'data-custom-style': customStyle ? JSON.stringify(customStyle) : undefined,
+        'data-pre-tag': PreTag ?? undefined,
       },
       children,
     ),
@@ -52,292 +59,88 @@ function formatHtmlSnapshot(markup: string) {
     .trim();
 }
 
-function makeTemplateBenchmark(): TemplateBenchmarkResult {
-  return {
-    submissionId: 'sub-1',
-    model: 'openai/gpt-4.1-mini',
-    excludedGroupKeys: [],
-    scores: [
-      {
-        key: 'graph-bfs-dfs',
-        patternTagId: 'tag-template-graph-bfs',
-        score: 85,
-        confidence: 71,
-        reason: 'BFS over a grid is a graph traversal pattern with shortest-path semantics.',
-        evidence: ['Uses BFS traversal', 'Tracks visited nodes', 'Explores neighbors level-by-level'],
-      },
-      {
-        key: 'grid-bfs-unweighted-shortest-path',
-        patternTagId: 'tag-template-grid-bfs',
-        score: 100,
-        confidence: 91,
-        reason: 'This is the canonical unweighted shortest path template on a grid.',
-        evidence: ['Frontier expands by distance', 'Grid states become graph nodes'],
-      },
-    ],
-  };
+function extractCssBlock(source: string, selector: string) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = source.match(new RegExp(`${escaped}\\s*\\{[\\s\\S]*?\\n\\}`, 'm'));
+
+  if (!match) {
+    throw new Error(`Missing CSS block for selector: ${selector}`);
+  }
+
+  return match[0].trim();
 }
 
-function makeTags(): PatternTagOption[] {
-  return [
-    {
-      id: 'tag-template-linear-hash',
-      key: 'hash-map-lookup',
-      label: 'Hash map lookup',
-      dimension: 'template',
-      kind: 'tag',
-      source: 'seeded',
-      assignmentCount: 20,
-      description: 'Lookup or count values with a hash map.',
-      metadata: {
-        whenToUse: ['Need O(1) average lookups'],
-        signals: ['counting', 'membership'],
-        invariants: ['Map stores the current state'],
-        pseudocode: ['for item in items', ' update map'],
-        classicProblems: ['Two Sum'],
-        relatedDataStructures: ['Hash map'],
-        similarTemplates: [],
-        whenNotToUse: [],
-        defaultComplexity: { time: 'O(n)', space: 'O(n)' },
-      },
-      parentId: 'group-linear',
-      parentKey: 'linear_state_hashing',
-      parentLabel: 'Linear state and hashing',
-      sortOrder: 1,
-    },
-    {
-      id: 'tag-template-graph-bfs',
-      key: 'graph-bfs-dfs',
-      label: 'Graph BFS/DFS',
-      dimension: 'template',
-      kind: 'tag',
-      source: 'seeded',
-      assignmentCount: 85,
-      description: 'Explore graph or grid states while tracking visited nodes.',
-      metadata: {
-        classicProblems: ['Number of Islands', 'Shortest Path in Binary Matrix'],
-        whenToUse: ['Need connected components, reachability, or shortest unweighted expansions.'],
-        whenNotToUse: ['Dependencies form a DAG and require ordering.', 'Need dynamic connectivity under unions.'],
-        signals: ['graph', 'grid', 'visited', 'component'],
-        pseudocode: ['frontier = [start]', 'visited = {start}', 'while frontier:', ' node = pop frontier'],
-        invariants: ['Visited nodes are never processed twice.', 'Frontier contains discovered but unresolved nodes.'],
-        defaultComplexity: { time: 'O(m * n)', space: 'O(m + n)' },
-        relatedDataStructures: ['Queue / Deque', 'Graph'],
-        similarTemplates: ['grid-bfs-unweighted-shortest-path'],
-      },
-      parentId: 'group-structures',
-      parentKey: 'structures_and_traversal',
-      parentLabel: 'Structures and traversal',
-      sortOrder: 2,
-    },
-    {
-      id: 'tag-template-grid-bfs',
-      key: 'grid-bfs-unweighted-shortest-path',
-      label: 'Grid BFS for unweighted shortest path',
-      dimension: 'template',
-      kind: 'tag',
-      source: 'llm_generated',
-      assignmentCount: 5,
-      description: 'Specialized BFS for shortest paths on a grid with uniform edge weights.',
-      metadata: {
-        classicProblems: ['Shortest Path in Binary Matrix'],
-        whenToUse: ['The board is a grid and every move has uniform cost.'],
-        whenNotToUse: ['Weighted edges require Dijkstra.'],
-        signals: ['grid', 'shortest path', 'uniform cost'],
-        pseudocode: ['queue = deque([(start, 0)])', 'for neighbor in directions:'],
-        invariants: ['Each cell enters the queue at most once.'],
-        defaultComplexity: { time: 'O(m * n)', space: 'O(m * n)' },
-        relatedDataStructures: ['Queue / Deque', 'Grid / Matrix'],
-        similarTemplates: ['graph-bfs-dfs'],
-      },
-      parentId: 'group-structures',
-      parentKey: 'structures_and_traversal',
-      parentLabel: 'Structures and traversal',
-      sortOrder: 3,
-    },
-    {
-      id: 'tag-template-backtracking',
-      key: 'backtracking',
-      label: 'Backtracking',
-      dimension: 'template',
-      kind: 'tag',
-      source: 'seeded',
-      assignmentCount: 5,
-      description: 'Recursive search with choose-explore-unchoose.',
-      metadata: {
-        classicProblems: ['Subsets'],
-        whenToUse: ['Need exhaustive search over combinations.'],
-        whenNotToUse: ['State space is too large without pruning.'],
-        signals: ['subset', 'permutation'],
-        pseudocode: ['choose', 'explore', 'unchoose'],
-        invariants: ['State resets after each branch.'],
-        defaultComplexity: { time: 'O(2^n)', space: 'O(n)' },
-        relatedDataStructures: ['Array'],
-        similarTemplates: [],
-      },
-      parentId: 'group-recursion',
-      parentKey: 'recursion_optimization_design',
-      parentLabel: 'Recursion, optimization, and design',
-      sortOrder: 4,
-    },
-    {
-      id: 'tag-ds-grid',
-      key: 'ds-grid',
-      label: 'Grid / Matrix',
-      dimension: 'data_structure',
-      kind: 'tag',
-      source: 'seeded',
-      assignmentCount: 22,
-      description: 'Problems modeled on a 2D board.',
-      metadata: null,
-      parentId: 'group-ds',
-      parentKey: 'data_structure',
-      parentLabel: 'data structure',
-      sortOrder: 5,
-    },
-    {
-      id: 'tag-ds-queue',
-      key: 'ds-queue',
-      label: 'Queue / Deque',
-      dimension: 'data_structure',
-      kind: 'tag',
-      source: 'seeded',
-      assignmentCount: 14,
-      description: 'FIFO exploration or deque-based transitions.',
-      metadata: null,
-      parentId: 'group-ds',
-      parentKey: 'data_structure',
-      parentLabel: 'data structure',
-      sortOrder: 6,
-    },
-  ];
+function renderWorkbench() {
+  return formatHtmlSnapshot(
+    renderToStaticMarkup(
+      createElement(TagWorkbench, {
+        submissions: makeTagWorkbenchSubmissions(),
+        tags: makeTagWorkbenchTags(),
+        canWrite: true,
+      }),
+    ),
+  );
 }
 
-function makeSubmissions(): SubmissionRow[] {
-  return [
-    {
-      id: 'sub-1',
-      titleSlug: 'shortest-path-in-binary-matrix',
-      title: 'Shortest Path in Binary Matrix',
-      difficulty: 'Medium',
-      relatedProblems: ['1091'],
-      status: 'Accepted',
-      createdAt: '2026-06-22T18:27:00.000Z',
-      templateBenchmarkOptOut: false,
-      language: 'python3',
-      timeComplexity: 'O(m * n)',
-      spaceComplexity: 'O(m + n)',
-      thought: 'Level-order BFS guarantees the first time we reach the target is the shortest path.',
-      questionDescription: 'Given an n x n binary matrix grid, return the length of the shortest clear path.',
-      submissionCode: [
-        'from collections import deque',
-        '',
-        'def shortestPathBinaryMatrix(grid):',
-        '    queue = deque([(0, 0, 1)])',
-        '    seen = {(0, 0)}',
-        '    return 1',
-      ].join('\n'),
-      templateBenchmark: makeTemplateBenchmark(),
-      tags: [
-        {
-          id: 'tag-template-graph-bfs',
-          key: 'graph-bfs-dfs',
-          label: 'Graph BFS/DFS',
-          dimension: 'template',
-          kind: 'tag',
-          parentId: 'group-structures',
-          parentKey: 'structures_and_traversal',
-          parentLabel: 'Structures and traversal',
-        },
-        {
-          id: 'tag-template-grid-bfs',
-          key: 'grid-bfs-unweighted-shortest-path',
-          label: 'Grid BFS for unweighted shortest path',
-          dimension: 'template',
-          kind: 'tag',
-          parentId: 'group-structures',
-          parentKey: 'structures_and_traversal',
-          parentLabel: 'Structures and traversal',
-        },
-        {
-          id: 'tag-ds-grid',
-          key: 'ds-grid',
-          label: 'Grid / Matrix',
-          dimension: 'data_structure',
-          kind: 'tag',
-          parentId: 'group-ds',
-          parentKey: 'data_structure',
-          parentLabel: 'data structure',
-        },
-        {
-          id: 'tag-ds-queue',
-          key: 'ds-queue',
-          label: 'Queue / Deque',
-          dimension: 'data_structure',
-          kind: 'tag',
-          parentId: 'group-ds',
-          parentKey: 'data_structure',
-          parentLabel: 'data structure',
-        },
-      ],
-    },
-    {
-      id: 'sub-2',
-      titleSlug: 'shortest-path-in-binary-matrix',
-      title: 'Shortest Path in Binary Matrix',
-      difficulty: 'Medium',
-      relatedProblems: ['1091'],
-      status: 'Accepted',
-      createdAt: '2026-06-22T17:06:00.000Z',
-      templateBenchmarkOptOut: true,
-      language: 'python3',
-      timeComplexity: 'O(m * n)',
-      spaceComplexity: 'O(m + n)',
-      thought: null,
-      questionDescription: null,
-      submissionCode: 'def shortestPathBinaryMatrix(grid):\n    return -1',
-      templateBenchmark: null,
-      tags: [],
-    },
-    {
-      id: 'sub-3',
-      titleSlug: 'open-the-lock',
-      title: 'Open the Lock',
-      difficulty: 'Medium',
-      relatedProblems: ['752'],
-      status: 'Accepted',
-      createdAt: '2026-06-21T14:00:00.000Z',
-      templateBenchmarkOptOut: false,
-      language: 'python3',
-      timeComplexity: 'O(10^4)',
-      spaceComplexity: 'O(10^4)',
-      thought: null,
-      questionDescription: 'Open the lock with minimum turns.',
-      submissionCode: 'def openLock(deadends, target):\n    return 6',
-      templateBenchmark: null,
-      tags: [],
-    },
-  ];
+function extractPane(markup: string, tagName: 'section' | 'aside', className: string) {
+  const startToken = `<${tagName} class="${className}"`;
+  const start = markup.indexOf(startToken);
+
+  if (start < 0) {
+    throw new Error(`Missing ${tagName}.${className}`);
+  }
+
+  const tokenPattern = new RegExp(`<${tagName}(?:\\s|>)|</${tagName}>`, 'g');
+  tokenPattern.lastIndex = start;
+
+  let depth = 0;
+  let match: RegExpExecArray | null = null;
+
+  while ((match = tokenPattern.exec(markup))) {
+    depth += match[0].startsWith(`</${tagName}`) ? -1 : 1;
+    if (depth === 0) {
+      return markup.slice(start, tokenPattern.lastIndex);
+    }
+  }
+
+  throw new Error(`Unbalanced ${tagName}.${className}`);
 }
 
 describe('TagWorkbench snapshots', () => {
-  it('renders the submission taxonomy control plane without dropping key layout controls', () => {
-    const markup = formatHtmlSnapshot(
-      renderToStaticMarkup(
-        createElement(TagWorkbench, {
-          submissions: makeSubmissions(),
-          tags: makeTags(),
-          canWrite: true,
-        }),
-      ),
-    );
+  it('matches the submission history pane', () => {
+    const markup = renderWorkbench();
 
-    expect(markup).toContain('Opt out from templating');
-    expect(markup).toContain('Exclude from benchmark');
-    expect(markup).toContain('Generate template');
-    expect(markup).toContain('Submission Note');
-    expect(markup).toContain('Template Control Plane');
-    expect(markup).toContain('Grid BFS for unweighted shortest path');
-    expect(markup).toMatchSnapshot();
+    expect(extractPane(markup, 'section', 'sidebar')).toMatchSnapshot();
+  });
+
+  it('matches the tag workbench pane', () => {
+    const markup = renderWorkbench();
+
+    expect(extractPane(markup, 'section', 'detail')).toMatchSnapshot();
+  });
+
+  it('matches the template control plane', () => {
+    const markup = renderWorkbench();
+
+    expect(extractPane(markup, 'aside', 'template-plane template-plane-inspector')).toMatchSnapshot();
+  });
+
+  it('keeps the submission code panel on a single scroll contract', () => {
+    const markup = renderWorkbench();
+    const stylesheet = readFileSync(new URL('../app/globals.css', import.meta.url), 'utf8');
+
+    expect(markup).toContain('class="context-panel-shell context-panel-code"');
+    expect(markup).toContain('data-pre-tag="div"');
+    expect(markup).toContain('data-custom-style="{&quot;margin&quot;:0,&quot;minHeight&quot;:&quot;100%&quot;}"');
+
+    expect(
+      [
+        extractCssBlock(stylesheet, '.submission-utility-grid .context-panel-shell'),
+        extractCssBlock(
+          stylesheet,
+          '.submission-utility-grid .context-panel-code .submission-code,\n.submission-utility-grid .context-panel-code .python-code,\n.submission-utility-grid .context-panel-statement .problem-description',
+        ),
+      ].join('\n\n'),
+    ).toMatchSnapshot();
   });
 });

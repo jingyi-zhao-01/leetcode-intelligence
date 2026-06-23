@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --port 3002",
     "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test:visual": "playwright test"
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.6",
@@ -25,6 +26,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.0",

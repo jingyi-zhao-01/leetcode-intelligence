@@ -1,8 +1,24 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`TagWorkbench snapshots > renders the submission taxonomy control plane without dropping key layout controls 1`] = `
-"<main class="workspace workspace-with-inspector">
-<section class="sidebar">
+exports[`TagWorkbench snapshots > keeps the submission code panel on a single scroll contract 1`] = `
+".submission-utility-grid .context-panel-shell {
+  height: clamp(320px, 38vh, 520px);
+  min-height: 320px;
+  max-height: 520px;
+  overflow: auto;
+}
+
+.submission-utility-grid .context-panel-code .submission-code,
+.submission-utility-grid .context-panel-code .python-code,
+.submission-utility-grid .context-panel-statement .problem-description {
+  min-height: 100%;
+  max-height: none;
+  overflow: visible !important;
+}"
+`;
+
+exports[`TagWorkbench snapshots > matches the submission history pane 1`] = `
+"<section class="sidebar">
 <div class="submission-sidebar-header">
 <div class="sidebar-context-header">
 <p class="eyebrow">Submission Inbox</p>
@@ -80,8 +96,11 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 </section>
 </div>
 </div>
-</section>
-<section class="detail">
+</section>"
+`;
+
+exports[`TagWorkbench snapshots > matches the tag workbench pane 1`] = `
+"<section class="detail">
 <div class="detail-header detail-hero">
 <div class="detail-title-block">
 <div class="detail-status-row">
@@ -142,7 +161,20 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <h3>Linear state and hashing</h3>
 <small>1 templates</small>
 </div>
-<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Linear state and hashing from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-group-body">
+<div class="tag-group-actions">
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Linear state and hashing from LLM benchmark" title="Exclude this group from LLM benchmark">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-off" aria-hidden="true">
+<path d="m2 2 20 20">
+</path>
+<path d="M8.35 2.69A10 10 0 0 1 21.3 15.65">
+</path>
+<path d="M19.08 19.08A10 10 0 1 1 4.92 4.92">
+</path>
+</svg>
+<span class="sr-only">Exclude from benchmark</span>
+</button>
 </div>
 <div class="tag-options">
 <button class="tag-option dimension-template" title="Lookup or count values with a hash map.">
@@ -165,6 +197,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <small>Linear state and hashing</small>
 </button>
 </div>
+</div>
 </section>
 <section class="tag-group dimension-template">
 <div class="tag-group-header">
@@ -172,7 +205,20 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <h3>Structures and traversal</h3>
 <small>2 templates</small>
 </div>
-<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Structures and traversal from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-group-body">
+<div class="tag-group-actions">
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Structures and traversal from LLM benchmark" title="Exclude this group from LLM benchmark">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-off" aria-hidden="true">
+<path d="m2 2 20 20">
+</path>
+<path d="M8.35 2.69A10 10 0 0 1 21.3 15.65">
+</path>
+<path d="M19.08 19.08A10 10 0 1 1 4.92 4.92">
+</path>
+</svg>
+<span class="sr-only">Exclude from benchmark</span>
+</button>
 </div>
 <div class="tag-options">
 <button class="tag-option dimension-template selected focused score-high" title="Explore graph or grid states while tracking visited nodes.">
@@ -212,6 +258,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <small>Structures and traversal</small>
 </button>
 </div>
+</div>
 </section>
 <section class="tag-group dimension-template">
 <div class="tag-group-header">
@@ -219,7 +266,20 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <h3>Recursion, optimization, and design</h3>
 <small>1 templates</small>
 </div>
-<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Recursion, optimization, and design from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-group-body">
+<div class="tag-group-actions">
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Recursion, optimization, and design from LLM benchmark" title="Exclude this group from LLM benchmark">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-off" aria-hidden="true">
+<path d="m2 2 20 20">
+</path>
+<path d="M8.35 2.69A10 10 0 0 1 21.3 15.65">
+</path>
+<path d="M19.08 19.08A10 10 0 1 1 4.92 4.92">
+</path>
+</svg>
+<span class="sr-only">Exclude from benchmark</span>
+</button>
 </div>
 <div class="tag-options">
 <button class="tag-option dimension-template" title="Recursive search with choose-explore-unchoose.">
@@ -242,6 +302,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <small>Recursion, optimization, and design</small>
 </button>
 </div>
+</div>
 </section>
 <section class="tag-group dimension-data_structure">
 <div class="tag-group-header">
@@ -250,6 +311,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <small>2 templates</small>
 </div>
 </div>
+<div class="tag-group-body">
 <div class="tag-options">
 <button class="tag-option dimension-data_structure selected" title="Problems modeled on a 2D board.">
 <div class="tag-option-top-row">
@@ -278,6 +340,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 </div>
 </button>
 </div>
+</div>
 </section>
 </div>
 <div class="submission-utility-grid">
@@ -304,7 +367,7 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <button type="button" role="tab" class="context-tab " aria-selected="false">Problem Statement</button>
 </div>
 <div class="context-panel-shell context-panel-code">
-<pre class="submission-code python-code" data-language="python">from collections import deque def shortestPathBinaryMatrix(grid): queue = deque([(0, 0, 1)]) seen = {(0, 0)} return 1</pre>
+<pre class="submission-code python-code" data-language="python" data-custom-style="{&quot;margin&quot;:0,&quot;minHeight&quot;:&quot;100%&quot;}" data-pre-tag="div">from collections import deque def shortestPathBinaryMatrix(grid): queue = deque([(0, 0, 1)]) seen = {(0, 0)} return 1</pre>
 </div>
 </section>
 </div>
@@ -313,8 +376,11 @@ exports[`TagWorkbench snapshots > renders the submission taxonomy control plane 
 <button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:brightness-95 h-9 px-4 py-2">Rerun benchmark</button>
 <button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:brightness-95 h-9 px-4 py-2">Clear tags</button>
 </div>
-</section>
-<aside class="template-plane template-plane-inspector" role="complementary" aria-labelledby="template-plane-title">
+</section>"
+`;
+
+exports[`TagWorkbench snapshots > matches the template control plane 1`] = `
+"<aside class="template-plane template-plane-inspector" role="complementary" aria-labelledby="template-plane-title">
 <div class="template-plane-header">
 <div>
 <p class="eyebrow">Template Control Plane</p>
@@ -401,6 +467,5 @@ while frontier: node = pop frontier</pre>
 </div>
 </section>
 </div>
-</aside>
-</main>"
+</aside>"
 `;

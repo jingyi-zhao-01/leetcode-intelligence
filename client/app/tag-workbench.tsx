@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
+import { CircleOff } from 'lucide-react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
@@ -872,107 +873,114 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                       <h3>{group.label}</h3>
                       <small>{group.tags.length} templates</small>
                     </div>
-                    {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
-                      <button
-                        className="exclude-group-button"
-                        onClick={() => toggleBenchmarkGroup(group.key)}
-                        type="button"
-                        aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
-                        aria-label={
-                          excludedBenchmarkGroupKeys.has(group.key)
-                            ? `Include ${group.label} in LLM benchmark`
-                            : `Exclude ${group.label} from LLM benchmark`
-                        }
-                        title={
-                          excludedBenchmarkGroupKeys.has(group.key)
-                            ? 'Include this group in LLM benchmark'
-                            : 'Exclude this group from LLM benchmark'
-                        }
-                      >
-                        {excludedBenchmarkGroupKeys.has(group.key)
-                          ? 'Included in benchmark'
-                          : 'Exclude from benchmark'}
-                      </button>
-                    ) : null}
                   </div>
-                  <div className="tag-options">
-                    {group.tags.map((tag) => {
-                      const score = scoreByTagId.get(tag.id);
-                      return (
+                  <div className="tag-group-body">
+                    {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
+                      <div className="tag-group-actions">
                         <button
-                          key={tag.id}
-                          className={[
-                            'tag-option',
-                            dimensionClass(tag.dimension),
-                            tag.source !== 'seeded' ? 'custom-template' : '',
-                            draftTagIds.has(tag.id) ? 'selected' : '',
-                            selectedTemplate?.id === tag.id ? 'focused' : '',
-                            score ? `score-${benchmarkTone(score.score)}` : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                          onClick={() => {
-                            setSelectedTemplateId(tag.id);
-                            if (canWrite) {
-                              toggleTag(tag.id);
-                            }
-                          }}
-                          title={tag.description ?? tag.label}
+                          className="exclude-group-button"
+                          onClick={() => toggleBenchmarkGroup(group.key)}
+                          type="button"
+                          aria-pressed={excludedBenchmarkGroupKeys.has(group.key)}
+                          aria-label={
+                            excludedBenchmarkGroupKeys.has(group.key)
+                              ? `Include ${group.label} in LLM benchmark`
+                              : `Exclude ${group.label} from LLM benchmark`
+                          }
+                          title={
+                            excludedBenchmarkGroupKeys.has(group.key)
+                              ? 'Include this group in LLM benchmark'
+                              : 'Exclude this group from LLM benchmark'
+                          }
                         >
-                          <div className="tag-option-top-row">
-                            <div className="tag-option-title-stack">
-                              <span className="tag-option-label">{tag.label}</span>
-                              <small className="tag-option-key">{tag.key}</small>
-                            </div>
-                            <div className="tag-option-controls">
-                              {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
-                                <span
-                                  className="delete-template-button"
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label={`Delete ${tag.label}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    deleteTemplate(tag);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault();
+                          <CircleOff aria-hidden="true" />
+                          <span className="sr-only">
+                            {excludedBenchmarkGroupKeys.has(group.key)
+                              ? 'Included in benchmark'
+                              : 'Exclude from benchmark'}
+                          </span>
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="tag-options">
+                      {group.tags.map((tag) => {
+                        const score = scoreByTagId.get(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            className={[
+                              'tag-option',
+                              dimensionClass(tag.dimension),
+                              tag.source !== 'seeded' ? 'custom-template' : '',
+                              draftTagIds.has(tag.id) ? 'selected' : '',
+                              selectedTemplate?.id === tag.id ? 'focused' : '',
+                              score ? `score-${benchmarkTone(score.score)}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                            onClick={() => {
+                              setSelectedTemplateId(tag.id);
+                              if (canWrite) {
+                                toggleTag(tag.id);
+                              }
+                            }}
+                            title={tag.description ?? tag.label}
+                          >
+                            <div className="tag-option-top-row">
+                              <div className="tag-option-title-stack">
+                                <span className="tag-option-label">{tag.label}</span>
+                                <small className="tag-option-key">{tag.key}</small>
+                              </div>
+                              <div className="tag-option-controls">
+                                {canWrite && tag.source !== 'seeded' && isTemplateLeaf(tag) ? (
+                                  <span
+                                    className="delete-template-button"
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={`Delete ${tag.label}`}
+                                    onClick={(event) => {
                                       event.stopPropagation();
                                       deleteTemplate(tag);
-                                    }
-                                  }}
-                                >
-                                  ×
-                                </span>
-                              ) : null}
-                              {score ? (
-                                <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
-                                  {score.score}
-                                </strong>
-                              ) : null}
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        deleteTemplate(tag);
+                                      }
+                                    }}
+                                  >
+                                    ×
+                                  </span>
+                                ) : null}
+                                {score ? (
+                                  <strong className={`benchmark-score benchmark-score-${benchmarkTone(score.score)}`}>
+                                    {score.score}
+                                  </strong>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                          <div className="tag-option-footer">
-                            <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
-                            {tag.metadata ? <em>documented</em> : null}
-                          </div>
+                            <div className="tag-option-footer">
+                              <strong className={`source-badge source-${tag.source}`}>{sourceLabel(tag.source)}</strong>
+                              {tag.metadata ? <em>documented</em> : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
+                        <button
+                          className="add-template-card"
+                          type="button"
+                          onClick={() => openTemplateGenerator(group)}
+                          disabled={!canWrite}
+                          title={canWrite ? undefined : 'Sign in to generate a template'}
+                        >
+                          <span>+</span>
+                          <strong>Generate template</strong>
+                          <small>{group.label}</small>
                         </button>
-                      );
-                    })}
-                    {group.tags.some((tag) => isTemplateLeaf(tag)) ? (
-                      <button
-                        className="add-template-card"
-                        type="button"
-                        onClick={() => openTemplateGenerator(group)}
-                        disabled={!canWrite}
-                        title={canWrite ? undefined : 'Sign in to generate a template'}
-                      >
-                        <span>+</span>
-                        <strong>Generate template</strong>
-                        <small>{group.label}</small>
-                      </button>
-                    ) : null}
+                      ) : null}
+                    </div>
                   </div>
                 </section>
               ))}
@@ -1464,7 +1472,7 @@ function SubmissionContext({
             language="python"
             style={oneDark}
             wrapLongLines
-            customStyle={{ margin: 0, minHeight: 320, overflow: 'auto' }}
+            customStyle={{ margin: 0, minHeight: '100%' }}
             PreTag="div"
           >
             {submissionCode}
