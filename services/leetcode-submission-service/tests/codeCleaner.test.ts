@@ -6,6 +6,7 @@ import { describe, it } from "vitest";
 import {
   extractThought,
   normalizeForEmbedding,
+  normalizeSubmissionForPersistence,
 } from "../src/utils/codeCleaner.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +42,7 @@ describe("codeCleaner", () => {
 
     const extracted = normalizeForEmbedding(code);
     assert.ok(extracted.startsWith("def twoSum"));
+    assert.ok(extracted.includes("\n    return []"));
     assert.ok(!extracted.includes("class"));
   });
 
@@ -58,5 +60,44 @@ describe("codeCleaner", () => {
 
     const thought = extractThought(code);
     assert.equal(thought, null);
+  });
+
+  it("repairs flattened accepted Python function bodies before persistence", () => {
+    const code = `def shortestPathBinaryMatrix(self, grid):\nif not grid:\n    return -1\nqueue = deque([(0, 0, 1)])`;
+
+    const result = normalizeSubmissionForPersistence({
+      code,
+      status: "Accepted",
+      filetype: "python3",
+    });
+
+    assert.equal(
+      result,
+      `def shortestPathBinaryMatrix(self, grid):\n    if not grid:\n        return -1\n    queue = deque([(0, 0, 1)])`,
+    );
+  });
+
+  it("leaves already indented accepted Python submissions unchanged", () => {
+    const code = `def twoSum(self, nums, target):\n    seen = {}\n    return []`;
+
+    const result = normalizeSubmissionForPersistence({
+      code,
+      status: "Accepted",
+      filetype: "python3",
+    });
+
+    assert.equal(result, code);
+  });
+
+  it("does not repair failed Python submissions", () => {
+    const code = `def solve(self):\nreturn 1`;
+
+    const result = normalizeSubmissionForPersistence({
+      code,
+      status: "Wrong Answer",
+      filetype: "python3",
+    });
+
+    assert.equal(result, code);
   });
 });

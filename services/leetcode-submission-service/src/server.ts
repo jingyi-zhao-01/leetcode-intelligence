@@ -24,6 +24,10 @@ import {
   type SubmissionComplexityAnalysisResult,
 } from './core/submissionComplexity.ts';
 import {
+  createDefaultSubmissionIndentationRepairer,
+  isLikelyPythonIndentationDamaged,
+} from './core/indentationRepair.ts';
+import {
   ActiveSessionScopeManager,
   buildSyntheticRecalledSessionRecord,
   countNormalizedRecalledSessions,
@@ -43,7 +47,7 @@ import {
   type SimilarProblemRecallQuery,
   type SimilarProblemRecallResult,
 } from './session/index.ts';
-import { extractThought, normalizeForEmbedding } from './utils/codeCleaner.ts';
+import { extractThought, isPythonFiletype, normalizeSubmissionForPersistence } from './utils/codeCleaner.ts';
 import { getDatabaseDiagnostics, resolveDatabaseUrl } from './database.ts';
 import { createLogger } from './logger.ts';
 
@@ -80,6 +84,7 @@ type SubmissionActionHandlers = {
   [ServerAction.SAVE_SUBMISSION]: ActionHandler<[string, string, SubmissionItem], SubmissionActionResponse>;
 };
 const DEFAULT_MEM0_RECALL_CACHE_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_INDENT_REPAIR_MAX_PER_HOUR = 4;
 
 const logger = createLogger('server');
 
@@ -203,6 +208,11 @@ function readOptionalString(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+function readNonNegativeInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export function formatPacificTimestamp(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Los_Angeles',
@@ -316,6 +326,13 @@ export class SubmissionServer {
     ? createDefaultSubmissionComplexityAnalyzer(
         this.openRouter,
         process.env.SUBMISSION_COMPLEXITY_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
+      )
+    : null;
+  private readonly submissionIndentationRepairer = this.openRouter
+    ? createDefaultSubmissionIndentationRepairer(
+        this.openRouter,
+        process.env.SUBMISSION_INDENT_REPAIR_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
+        readNonNegativeInt(process.env.SUBMISSION_INDENT_REPAIR_MAX_PER_HOUR, DEFAULT_INDENT_REPAIR_MAX_PER_HOUR),
       )
     : null;
   private readonly companionModel =
@@ -762,6 +779,7 @@ export class SubmissionServer {
 
     const submissionDetails = structuredClone(item);
     submissionDetails.lcnvim_is_test = isTest;
+    const filetype = inferSubmissionFiletype(item);
 
     if (status === 'Accepted' && !isTest) {
       if (this.timerManager.hasActiveTimer(titleSlug)) {
@@ -778,8 +796,8 @@ export class SubmissionServer {
       isCheat,
       timeSpentMinutes,
       createdAt: new Date(),
-      cleanedContent: normalizeForEmbedding(content),
-      filetype: inferSubmissionFiletype(item),
+      cleanedContent: normalizeSubmissionForPersistence({ code: content, status, filetype }),
+      filetype,
       thought: extractThought(content),
       submissionDetails,
     };
@@ -852,10 +870,43 @@ export class SubmissionServer {
     return submission.id;
   }
 
+  private async repairPendingSubmissionContent(pending: PendingSubmission): Promise<string> {
+    if (
+      pending.status !== 'Accepted' ||
+      pending.isTest ||
+      !this.submissionIndentationRepairer ||
+      !isPythonFiletype(pending.filetype) ||
+      !isLikelyPythonIndentationDamaged(pending.cleanedContent)
+    ) {
+      return pending.cleanedContent;
+    }
+
+    try {
+      return (
+        (await this.submissionIndentationRepairer.repair({
+          titleSlug: pending.titleSlug,
+          content: pending.cleanedContent,
+          filetype: pending.filetype,
+        })) ?? pending.cleanedContent
+      );
+    } catch (error) {
+      this.logger.info(
+        {
+          titleSlug: pending.titleSlug,
+          filetype: pending.filetype,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Submission indentation repair failed; persisting heuristic-normalized content',
+      );
+      return pending.cleanedContent;
+    }
+  }
+
   private async persistPendingSubmission(pending: PendingSubmission, cacheKey: string): Promise<void> {
+    const content = await this.repairPendingSubmissionContent(pending);
     const submissionId = await this.persistSubmission({
       titleSlug: pending.titleSlug,
-      content: pending.cleanedContent,
+      content,
       status: pending.status,
       isCheat: pending.isCheat,
       timeSpentMinutes: pending.timeSpentMinutes,

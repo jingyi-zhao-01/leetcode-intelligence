@@ -4,6 +4,7 @@
   "workspaces": [
     "client",
     "services/leetcode-intelligence-service",
+    "services/leetcode-submission-classifier",
     "services/leetcode-submission-service"
   ],
   "scripts": {

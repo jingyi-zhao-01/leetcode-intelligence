@@ -1,0 +1,20 @@
+{
+  "name": "leetcode-submission-classifier-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cluster:poc": "tsx src/submission-ast-cluster-poc.ts",
+    "test": "cd ../.. && vitest run --project leetcode-submission-classifier"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.8"
+  }
+}

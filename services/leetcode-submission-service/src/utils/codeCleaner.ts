@@ -140,26 +140,18 @@ function findFunctionStart(lines: string[]): number {
   return -1;
 }
 
-function calculateMinIndent(lines: string[], startIdx: number): number {
-  let minIndent = Number.POSITIVE_INFINITY;
-  for (const line of lines.slice(startIdx + 1)) {
-    if (!line.trim()) {
-      continue;
-    }
-    const indent = line.length - line.trimStart().length;
-    minIndent = Math.min(minIndent, indent);
-  }
-  return Number.isFinite(minIndent) ? minIndent : 0;
+function calculateFunctionIndent(lines: string[], startIdx: number): number {
+  return lines[startIdx].length - lines[startIdx].trimStart().length;
 }
 
-function dedentFunction(lines: string[], startIdx: number, minIndent: number): string {
+function dedentFunction(lines: string[], startIdx: number, functionIndent: number): string {
   const result = [lines[startIdx].trimStart()];
   for (const line of lines.slice(startIdx + 1)) {
     if (!line.trim()) {
       result.push("");
       continue;
     }
-    result.push(minIndent > 0 ? line.slice(minIndent) : line);
+    result.push(functionIndent > 0 ? line.slice(functionIndent) : line);
   }
   return result.join("\n");
 }
@@ -176,8 +168,38 @@ function extractFunctionOnly(code: string): string {
     return cleaned;
   }
 
-  const minIndent = calculateMinIndent(lines, startIdx);
-  return dedentFunction(lines, startIdx, minIndent);
+  const functionIndent = calculateFunctionIndent(lines, startIdx);
+  return dedentFunction(lines, startIdx, functionIndent);
+}
+
+function isAcceptedStatus(status: string): boolean {
+  return status.trim().toLowerCase() === "accepted";
+}
+
+export function isPythonFiletype(filetype: string | null): boolean {
+  if (!filetype) {
+    return false;
+  }
+  const normalized = filetype.trim().toLowerCase();
+  return normalized === "python" || normalized === "python3" || normalized === "py";
+}
+
+function repairFlattenedFunctionBody(code: string): string {
+  const lines = code.split("\n");
+  const startIdx = findFunctionStart(lines);
+  if (startIdx < 0 || !/^\s*def\s+.*:\s*(?:#.*)?$/.test(lines[startIdx])) {
+    return code;
+  }
+
+  const firstBodyLine = lines.slice(startIdx + 1).find((line) => line.trim());
+  if (!firstBodyLine || firstBodyLine.length > firstBodyLine.trimStart().length) {
+    return code;
+  }
+
+  return [
+    ...lines.slice(0, startIdx + 1),
+    ...lines.slice(startIdx + 1).map((line) => (line.trim() ? `    ${line}` : "")),
+  ].join("\n");
 }
 
 export function normalizeForEmbedding(code: string, extractFunction = true): string {
@@ -186,6 +208,18 @@ export function normalizeForEmbedding(code: string, extractFunction = true): str
     return cleaned;
   }
   return extractFunctionOnly(cleaned);
+}
+
+export function normalizeSubmissionForPersistence(args: {
+  code: string;
+  status: string;
+  filetype: string | null;
+}): string {
+  const normalized = normalizeForEmbedding(args.code);
+  if (!isAcceptedStatus(args.status) || !isPythonFiletype(args.filetype)) {
+    return normalized;
+  }
+  return repairFlattenedFunctionBody(normalized);
 }
 
 export function extractThought(code: string): string | null {

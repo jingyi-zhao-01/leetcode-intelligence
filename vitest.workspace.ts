@@ -33,6 +33,15 @@ export default defineConfig({
           include: ["tests/**/*.test.ts"],
         },
       }),
+      defineProject({
+        test: {
+          name: "leetcode-submission-classifier",
+          root: "./services/leetcode-submission-classifier",
+          cacheDir: "../../node_modules/.vite/leetcode-submission-classifier",
+          environment: "node",
+          include: ["tests/**/*.test.ts"],
+        },
+      }),
     ],
   },
 });
