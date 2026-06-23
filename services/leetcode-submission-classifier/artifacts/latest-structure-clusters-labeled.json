@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T03:52:57.298Z",
+  "generatedAt": "2026-06-23T03:50:25.031Z",
   "options": {
     "limit": 120,
     "scan": 300,
@@ -1140,7 +1140,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "BFS on Grid / Graph",
+        "key": "bfs_grid_graph",
+        "description": "Breadth-first search on a grid or graph using a queue (deque) with visited set and frontier expansion.",
+        "confidence": 0.65,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=deque+tree_shape__ops=append+popleft__state=left+node_children+right__transition=frontier_pop_then_expand__answer=on_frontier_hit",
@@ -2018,7 +2026,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "BFS Level Order Traversal",
+        "key": "bfs_level_order_traversal",
+        "description": "Iterative breadth-first traversal using a deque to process tree nodes level by level, updating answer when a node is popped from the frontier.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=n__ds=class_api__ops=none__state=object_state__transition=method_dispatch__answer=unknown",
@@ -2509,7 +2525,15 @@
             "role:class_api_design": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Class API Design with Stateful Methods",
+        "key": "class_api_design_stateful",
+        "description": "Problems requiring implementation of a class with stateful methods and method dispatch, often using internal data structures like stacks or queues.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=y__ds=tree_shape__ops=max_update__state=left+node_children+right__transition=recursive_descent__answer=unknown",
@@ -3005,7 +3029,15 @@
             "role:recursive_tree_descent": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Tree Depth/Property Recursion",
+        "key": "tree_depth_property_recursion",
+        "description": "Recursively compute tree properties like depth, diameter, or equality using post-order traversal and max updates.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=sort__state=none__transition=sequential_scan__answer=inside_scan",
@@ -3465,7 +3497,15 @@
             "call:sorted_or_sort": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Sorting + Two-Pointer / Greedy Intervals",
+        "key": "sorting_two_pointer_greedy_intervals",
+        "description": "Sorts input array or intervals, then uses a while loop with sequential scan to compute answer inside the loop, typical for interval merging or two-sum variants.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=n__ds=graph_state+tree_shape__ops=none__state=left+node_children+right__transition=sequential_scan__answer=unknown",
@@ -3925,7 +3965,15 @@
             "role:graph_state_expansion": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Binary Tree DFS Path Sum",
+        "key": "binary_tree_dfs_path_sum",
+        "description": "Recursive DFS on binary tree tracking path state from root to leaves to compute sums or counts.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=y__ds=graph_state+grid__ops=none__state=grid_coords__transition=recursive_descent__answer=inside_scan",
@@ -4394,7 +4442,15 @@
             "role:recursive_grid_dfs": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Grid DFS with Recursion",
+        "key": "grid_dfs_recursive",
+        "description": "Recursive depth-first search on a grid, often using nested loops to scan and a visited state or graph expansion.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=y__ds=array__ops=sort__state=none__transition=recursive_descent__answer=inside_scan",
@@ -4706,7 +4762,15 @@
             "control_fact:direct_recursion": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Backtracking with Sorting",
+        "key": "backtracking_with_sorting",
+        "description": "Recursive backtracking on sorted array to generate permutations or subsets, often with duplicate handling.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=grid__ops=none__state=grid_coords+left+right__transition=sequential_scan__answer=inside_scan",
@@ -5028,7 +5092,19 @@
             "role:graph_state_expansion": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Grid Traversal with State Tracking",
+        "key": "grid_traversal_state_tracking",
+        "description": "Iterates over a grid using nested loops or while loops, tracking coordinates and left/right boundaries to solve problems like spiral matrix, set matrix zeroes, number of islands, or flood fill.",
+        "confidence": 0.55,
+        "mixedCluster": true,
+        "shouldSplitBy": [
+          "boundary_tracking",
+          "in_place_modification",
+          "connected_components"
+        ]
+      }
     },
     {
       "clusterKey": "loops=none__rec=n__ds=tree_shape__ops=none__state=left+node_children+right__transition=sequential_scan__answer=unknown",
@@ -5251,7 +5327,15 @@
             "role:node_child_state": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "BST Inorder Traversal",
+        "key": "bst_inorder_traversal",
+        "description": "Inorder traversal of a binary search tree using recursion and state variables for left, node, and right children.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=counter__ops=increment_count__state=left+right__transition=expand_then_shrink_window__answer=after_shrink",
@@ -5516,7 +5600,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Sliding Window with Counter",
+        "key": "sliding_window_counter",
+        "description": "Uses two pointers and a counter to expand then shrink a window, updating answer after shrinking.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=n__ds=dict__ops=lookup_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -5789,7 +5881,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Frequency Counting with Nested Loops",
+        "key": "frequency_counting_nested_loops",
+        "description": "Uses nested loops and a dictionary to count frequencies, often for substring or top-k problems.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=heap__ops=priority_pop_push__state=none__transition=sequential_scan__answer=inside_scan",
@@ -6032,7 +6132,18 @@
             "call:sorted_or_sort": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Sliding Window / Interval Scheduling with Heap",
+        "key": "sliding_window_interval_heap",
+        "description": "Uses a heap to maintain a dynamic set of elements while scanning sequentially, often for sliding window maximum or meeting room allocation.",
+        "confidence": 0.55,
+        "mixedCluster": true,
+        "shouldSplitBy": [
+          "sliding-window-maximum",
+          "meeting-rooms-ii"
+        ]
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=array__ops=min_update__state=left+right__transition=sequential_scan__answer=inside_scan",
@@ -6282,7 +6393,15 @@
             "motif:left_right_while": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Two-Pointer Trapping Rain Water",
+        "key": "two_pointer_trapping_rain_water",
+        "description": "Uses left and right pointers with sequential scan to compute trapped water via min height updates.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=class_api+deque__ops=append+popleft__state=object_state__transition=method_dispatch__answer=inside_scan",
@@ -6477,7 +6596,18 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Queue-based Stack & Zigzag Iterator",
+        "key": "queue_based_stack_zigzag",
+        "description": "Uses deque and class API to implement stack or iterator via method dispatch and object state.",
+        "confidence": 0.35,
+        "mixedCluster": true,
+        "shouldSplitBy": [
+          "implement-stack-using-queues",
+          "zigzag-iterator"
+        ]
+      }
     },
     {
       "clusterKey": "loops=nested_loop+while__rec=n__ds=tree_shape__ops=none__state=left+node_children+right__transition=sequential_scan__answer=inside_scan",
@@ -6653,7 +6783,15 @@
             "motif:left_right_while": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Iterative BST Traversal",
+        "key": "iterative_bst_traversal",
+        "description": "Iterative in-order traversal of a BST using a while loop and stack to track left, node, and right states.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -6763,7 +6901,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Asteroid Collision Simulation",
+        "key": "asteroid_collision",
+        "description": "Simulates asteroid collisions using a stack with nested loops and while loop for resolving collisions.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -6874,7 +7020,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Asteroid Collision Simulation",
+        "key": "asteroid_collision",
+        "description": "Simulate asteroid collisions using a stack with nested loops for direction-based resolution.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=max_update+min_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -6962,7 +7116,15 @@
             "ctrl:for": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Maximum Subarray / Stock Trading (Kadane's)",
+        "key": "kadane_algorithm",
+        "description": "Single pass tracking min/max to find best profit or subarray sum.",
+        "confidence": 0.9,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=max_update+min_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7049,7 +7211,15 @@
             "ctrl:for": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Maximum Subarray / Stock Trading (Kadane's)",
+        "key": "kadane_algorithm",
+        "description": "Single pass tracking min and max to find maximum profit or subarray sum.",
+        "confidence": 0.9,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7152,7 +7322,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Monotonic Stack",
+        "key": "monotonic_stack",
+        "description": "Uses a stack to find next greater element by scanning array with nested loops and while loop for stack maintenance.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7252,7 +7430,15 @@
             "ctrl:if": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "String Decoding with Stack",
+        "key": "string_decoding_stack",
+        "description": "Uses a for loop to sequentially scan an array while updating answer inside the loop, typical for decoding nested patterns like '3[a]2[bc]'.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7352,7 +7538,15 @@
             "ctrl:if": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Evaluate Reverse Polish Notation",
+        "key": "evaluate_reverse_polish_notation",
+        "description": "Evaluates an arithmetic expression in Reverse Polish Notation using a stack and sequential scan.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7451,7 +7645,15 @@
             "ctrl:if": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Evaluate Reverse Polish Notation",
+        "key": "evaluate_reverse_polish_notation",
+        "description": "Evaluates an arithmetic expression in Reverse Polish Notation using a stack and sequential scan.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=y__ds=dict+graph_state+parent_array+set__ops=lookup_update+membership_check__state=parent+rank+visited__transition=find_then_union+recursive_descent__answer=inside_scan",
@@ -7623,7 +7825,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Union-Find for Graph Validity",
+        "key": "union_find_graph_validity",
+        "description": "Uses union-find with path compression and union by rank to detect cycles and check connectivity for graph validity.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=nested_loop+while__rec=n__ds=array__ops=max_update+min_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7722,7 +7932,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Insert Interval",
+        "key": "insert_interval",
+        "description": "Insert a new interval into a sorted list of non-overlapping intervals, merging overlaps by scanning and updating min/max bounds.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7809,7 +8027,15 @@
             "ctrl:if": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Floyd's Cycle Detection (Tortoise and Hare)",
+        "key": "floyds_cycle_detection",
+        "description": "Uses two pointers moving at different speeds to detect a cycle in a linked list.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=set__ops=max_update+membership_check__state=none__transition=sequential_scan__answer=inside_scan",
@@ -7934,7 +8160,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Longest Consecutive Sequence (Hash Set)",
+        "key": "longest_consecutive_sequence_hash_set",
+        "description": "Uses a set for O(1) membership checks and scans to find the start of each consecutive sequence, updating the maximum length.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=y__ds=class_api__ops=none__state=object_state__transition=method_dispatch+recursive_descent__answer=unknown",
@@ -8059,7 +8293,15 @@
             "role:class_api_design": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "LRU Cache (Doubly Linked List + HashMap)",
+        "key": "lru_cache_dll_hashmap",
+        "description": "Implements LRU cache using a doubly linked list and hash map with recursive helper methods for node operations.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=max_update+min_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8149,7 +8391,15 @@
             "ctrl:for": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Maximum Product Subarray (Kadane's variant)",
+        "key": "max_product_subarray",
+        "description": "Track both max and min product ending at each position to handle sign flips.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=max_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8234,7 +8484,15 @@
             "ctrl:for": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Kadane's Algorithm",
+        "key": "kadane_algorithm",
+        "description": "Finds the maximum subarray sum using a single pass with local and global maxima updates.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=max_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8320,7 +8578,15 @@
             "ctrl:for": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Kadane's Algorithm",
+        "key": "kadane_algorithm",
+        "description": "Finds the maximum subarray sum using a single pass with local and global maxima updates.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8409,7 +8675,15 @@
             "ctrl:if": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Move Zeroes (Two-Pointer)",
+        "key": "move_zeroes_two_pointer",
+        "description": "Uses a for loop to scan the array and a pointer to place non-zero elements sequentially.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop+while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8520,7 +8794,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Nested List Weight Sum (DFS)",
+        "key": "nested_list_weight_sum_dfs",
+        "description": "Recursively traverses a nested list structure, computing weighted sum by depth using nested loops and a while loop for iteration.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=y__ds=graph_state__ops=none__state=none__transition=recursive_descent__answer=inside_scan",
@@ -8633,7 +8915,15 @@
             "role:recursive_nested_collection": 5
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Nested List Weight Sum (DFS)",
+        "key": "nested_list_weight_sum_dfs",
+        "description": "Recursive depth-first traversal of nested integer lists with weighted sum accumulation.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=n__ds=counter__ops=increment_count__state=left+right__transition=sequential_scan__answer=unknown",
@@ -8728,7 +9018,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Sliding Window Counter",
+        "key": "sliding_window_counter",
+        "description": "Uses a counter and two pointers to track elements within a time window, incrementing count as new elements arrive.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=y__ds=graph_state+set__ops=membership_check__state=left+right__transition=recursive_descent__answer=inside_scan",
@@ -8883,7 +9181,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Pacific Atlantic Water Flow (DFS from borders)",
+        "key": "pacific_atlantic_water_flow_dfs",
+        "description": "DFS from ocean borders with state tracking using sets and nested loops",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -8972,7 +9278,15 @@
             "ctrl:if": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Palindrome Check with While Loop",
+        "key": "palindrome_check_while",
+        "description": "Uses a while loop to reverse digits of an integer and compare to original for palindrome detection.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -9061,7 +9375,15 @@
             "ctrl:if": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Palindrome Check with While Loop",
+        "key": "palindrome_check_while",
+        "description": "Check if a number is a palindrome by reversing digits with a while loop and comparing to original.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=none__rec=n__ds=counter+graph_state+tree_shape__ops=increment_count__state=left+node_children+prefix+right__transition=accumulate_then_lookup__answer=unknown",
@@ -9194,7 +9516,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Path Sum III (Prefix Sum + DFS)",
+        "key": "path_sum_iii_prefix_sum_dfs",
+        "description": "Counts paths in a binary tree that sum to a target using prefix sums and DFS with a counter and graph state.",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=n__ds=array__ops=none__state=prefix__transition=sequential_scan__answer=inside_scan",
@@ -9295,7 +9625,15 @@
             "role:prefix_state": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Prefix Product with Nested Loop",
+        "key": "prefix_product_nested_loop",
+        "description": "Uses a nested loop to compute prefix products for each element, updating answer inside the scan.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=n__ds=grid__ops=none__state=dp+grid_coords__transition=state_transition_update__answer=during_state_transition",
@@ -9410,7 +9748,15 @@
             "role:dp_state": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "2D DP for String Matching",
+        "key": "2d_dp_string_matching",
+        "description": "Dynamic programming on a grid for string matching with state transitions during nested loops",
+        "confidence": 0.55,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -9497,7 +9843,15 @@
             "ctrl:if": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Remove Duplicates from Sorted Array",
+        "key": "remove_duplicates_sorted_array",
+        "description": "Uses a for loop to scan a sorted array and overwrite duplicates in-place with a two-pointer technique.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -9587,7 +9941,15 @@
             "ctrl:if": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "In-Place Array Removal with Two Pointers",
+        "key": "in_place_array_removal_two_pointers",
+        "description": "Uses a for loop to scan the array and conditionally overwrite elements to remove a target value in-place.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -9669,7 +10031,15 @@
             "ctrl:while": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Reverse Linked List (Iterative)",
+        "key": "reverse_linked_list_iterative",
+        "description": "Iteratively reverses a linked list using a while loop and pointer manipulation.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=grid__ops=mid_compute__state=grid_coords+left+mid+right__transition=midpoint_then_boundary_narrow__answer=after_boundary_update",
@@ -9795,7 +10165,15 @@
             "motif:midpoint_boundary_narrow": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Binary Search on 2D Matrix",
+        "key": "binary_search_2d_matrix",
+        "description": "Binary search on a sorted 2D matrix using row/col coordinate mapping and midpoint computation.",
+        "confidence": 0.9,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=nested_loop+while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -9897,7 +10275,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "String to Integer (atoi)",
+        "key": "string_to_integer_atoi",
+        "description": "Parses a string to an integer by skipping whitespace, handling sign, and accumulating digits with overflow detection.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=dict__ops=lookup_update__state=prefix__transition=accumulate_then_lookup__answer=inside_scan",
@@ -10019,7 +10405,15 @@
             "role:explicit_state_init": 1
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Prefix Sum with Hash Map",
+        "key": "prefix_sum_hash_map",
+        "description": "Accumulate prefix sums and use a hash map to count occurrences, then look up complement to find subarrays summing to k.",
+        "confidence": 0.9,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for+nested_loop__rec=n__ds=array__ops=max_update+min_update__state=none__transition=sequential_scan__answer=inside_scan",
@@ -10118,7 +10512,15 @@
             "motif:nested_loop": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Two-Pointer Trapping Rain Water",
+        "key": "two_pointer_trapping_rain_water",
+        "description": "Uses two pointers scanning inward with left/right max updates to compute trapped water.",
+        "confidence": 0.85,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=while__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -10212,7 +10614,15 @@
             "ctrl:if": 3
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Two Pointers (Palindrome Check)",
+        "key": "two_pointers_palindrome",
+        "description": "Uses a while loop with two pointers scanning from both ends to check if a string is a palindrome.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -10303,7 +10713,15 @@
             "ctrl:if": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Stack-based Parentheses Matching",
+        "key": "stack_parentheses_matching",
+        "description": "Uses a stack to validate bracket sequences by matching closing brackets to the most recent opening bracket.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     },
     {
       "clusterKey": "loops=for__rec=n__ds=array__ops=none__state=none__transition=sequential_scan__answer=inside_scan",
@@ -10394,7 +10812,15 @@
             "ctrl:if": 2
           }
         }
-      ]
+      ],
+      "llmLabel": {
+        "label": "Stack-based Parentheses Matching",
+        "key": "stack_parentheses_matching",
+        "description": "Uses a stack to validate bracket sequences by scanning left to right and matching closing brackets.",
+        "confidence": 0.35,
+        "mixedCluster": false,
+        "shouldSplitBy": []
+      }
     }
   ]
 }

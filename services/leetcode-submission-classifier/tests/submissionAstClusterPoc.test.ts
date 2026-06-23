@@ -19,6 +19,8 @@ function baseFeatures(): ExtractedFeatures {
     calledFunctions: [],
     assignedNames: [],
     attributeNames: [],
+    classCount: 0,
+    functionCount: 0,
     forCount: 0,
     whileCount: 0,
     ifCount: 0,
@@ -145,7 +147,7 @@ describe('submission AST cluster POC classifier', () => {
           clusterKey: buildClusterKey(fingerprint),
         },
       ],
-      { limit: 10, scan: 20, unique: true, threshold: 0.34, json: false },
+      { limit: 10, scan: 20, unique: true, threshold: 0.34, json: false, label: false, labelModel: 'test-model' },
       '2026-06-22T12:00:00.000Z',
     );
 
@@ -154,5 +156,50 @@ describe('submission AST cluster POC classifier', () => {
     assert.ok(artifact.clusters[0].evidence.some((entry) => entry.feature === 'motif:midpoint_boundary_narrow'));
     assert.equal(artifact.clusters[0].submissions[0].titleSlug, 'binary-search');
     assert.equal('content' in artifact.clusters[0].submissions[0], false);
+  });
+
+  it('does not merge class API design, recursive grid DFS, and recursive tree DFS through generic recursion', () => {
+    const makeClustered = (id: string, titleSlug: string, features: ExtractedFeatures) => {
+      const fingerprint = buildStructuredFingerprint(features);
+      return {
+        submission: {
+          id,
+          titleSlug,
+          status: 'Accepted',
+          content: 'def solve(): pass',
+          createdAt: new Date('2026-06-22T00:00:00Z'),
+          submissionDetails: null,
+        },
+        lang: 'python3',
+        features,
+        fingerprint,
+        featureBag: buildFeatureBag(features),
+        clusterKey: buildClusterKey(fingerprint),
+      };
+    };
+
+    const recursiveBase = { ...baseFeatures(), hasRecursion: true, ifCount: 1, forCount: 1 };
+    const artifact = buildClusterArtifact(
+      [
+        makeClustered('class-api', 'implement-queue-using-stacks', {
+          ...recursiveBase,
+          classCount: 1,
+          functionCount: 5,
+        }),
+        makeClustered('grid-dfs', 'surrounded-regions', {
+          ...recursiveBase,
+          hasGridSignal: true,
+          hasGraphSignal: true,
+        }),
+        makeClustered('tree-dfs', 'maximum-depth-of-binary-tree', {
+          ...recursiveBase,
+          hasTreeSignal: true,
+        }),
+      ],
+      { limit: 10, scan: 20, unique: true, threshold: 0.34, json: false, label: false, labelModel: 'test-model' },
+      '2026-06-22T12:00:00.000Z',
+    );
+
+    assert.equal(artifact.summary.clusterCount, 3);
   });
 });

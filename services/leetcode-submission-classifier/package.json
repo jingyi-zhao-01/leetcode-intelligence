@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "cluster:poc": "tsx src/submission-ast-cluster-poc.ts",
+    "repair:indent": "tsx scripts/repair-submission-indentation.ts",
     "test": "cd ../.. && vitest run --project leetcode-submission-classifier"
   },
   "dependencies": {

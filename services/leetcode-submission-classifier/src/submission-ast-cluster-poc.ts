@@ -21,6 +21,8 @@ export type ExtractedFeatures = {
   calledFunctions: string[];
   assignedNames: string[];
   attributeNames: string[];
+  classCount: number;
+  functionCount: number;
   forCount: number;
   whileCount: number;
   ifCount: number;
@@ -78,6 +80,8 @@ export type CliOptions = {
   threshold: number;
   out?: string;
   json: boolean;
+  label: boolean;
+  labelModel: string;
 };
 
 export type ClusterArtifact = {
@@ -96,6 +100,14 @@ export type ClusterArtifact = {
   clusters: Array<{
     clusterKey: string;
     count: number;
+    llmLabel?: {
+      label: string;
+      key: string;
+      description: string;
+      confidence: number;
+      mixedCluster: boolean;
+      shouldSplitBy: string[];
+    };
     fingerprint: StructuredFingerprint;
     evidence: Array<{
       feature: string;
@@ -138,7 +150,9 @@ def apply_lexical_signals(base, code):
     base["hasPrefixSignal"] = base["hasPrefixSignal"] or "prefix" in lowered
     base["hasDpSignal"] = base["hasDpSignal"] or bool(re.search(r"\bdp\b|\bmemo\b", lowered))
     base["hasUnionFindSignal"] = base["hasUnionFindSignal"] or ("parent" in lowered and ("find(" in lowered or "union(" in lowered))
-    base["hasTreeSignal"] = base["hasTreeSignal"] or ".left" in lowered or ".right" in lowered or "treenode" in lowered
+    base["hasTreeSignal"] = base["hasTreeSignal"] or "treenode" in lowered or (
+        (".left" in lowered or ".right" in lowered) and ".val" in lowered
+    )
     base["hasGridSignal"] = base["hasGridSignal"] or any(token in lowered for token in ["grid", "mat", "matrix", "board", "image"])
     base["hasGraphSignal"] = base["hasGraphSignal"] or any(token in lowered for token in ["graph", "adj", "adjacency", "edge"])
     base["hasNeighborSignal"] = base["hasNeighborSignal"] or any(token in lowered for token in ["neighbor", "neighbour", "directions", "dirs", "delta"])
@@ -160,6 +174,8 @@ for row in rows:
         "calledFunctions": [],
         "assignedNames": [],
         "attributeNames": [],
+        "classCount": 0,
+        "functionCount": 0,
         "forCount": 0,
         "whileCount": 0,
         "ifCount": 0,
@@ -205,6 +221,13 @@ for row in rows:
     class Visitor(ast.NodeVisitor):
         def __init__(self):
             self.loop_depth = 0
+            self.class_depth = 0
+
+        def visit_ClassDef(self, node):
+            base["classCount"] += 1
+            self.class_depth += 1
+            self.generic_visit(node)
+            self.class_depth -= 1
 
         def visit_Import(self, node):
             for alias in node.names:
@@ -219,6 +242,7 @@ for row in rows:
             self.generic_visit(node)
 
         def visit_FunctionDef(self, node):
+            base["functionCount"] += 1
             current_functions.append(node.name)
             assigned.add(node.name)
             self.generic_visit(node)
@@ -290,8 +314,10 @@ for row in rows:
 
         def visit_Call(self, node):
             func_name = None
+            is_direct_call = False
             if isinstance(node.func, ast.Name):
                 func_name = node.func.id
+                is_direct_call = True
             elif isinstance(node.func, ast.Attribute):
                 func_name = node.func.attr
                 attrs.add(node.func.attr)
@@ -316,7 +342,7 @@ for row in rows:
                     base["hasPopleft"] = True
                 if lower == "appendleft":
                     base["hasAppendleft"] = True
-                if current_functions and lower == current_functions[-1]:
+                if is_direct_call and current_functions and lower == current_functions[-1]:
                     base["hasRecursion"] = True
                 if lower in {"find", "union"}:
                     base["hasUnionFindSignal"] = True
@@ -327,8 +353,6 @@ for row in rows:
         def visit_Attribute(self, node):
             attrs.add(node.attr)
             lower = node.attr.lower()
-            if lower in {"left", "right", "val"}:
-                base["hasTreeSignal"] = True
             if lower == "popleft":
                 base["hasPopleft"] = True
             if lower == "appendleft":
@@ -348,6 +372,9 @@ for row in rows:
     base["hasDeque"] = base["hasDeque"] or "deque" in imports or "collections" in imports
     base["hasCounter"] = base["hasCounter"] or "Counter" in imports or "collections" in imports
     base["hasHeapq"] = base["hasHeapq"] or "heapq" in imports
+    base["hasTreeSignal"] = base["hasTreeSignal"] or (
+        ("left" in attrs or "right" in attrs) and ("val" in attrs or "treenode" in code.lower())
+    )
     base["hasQueueLoopSignal"] = base["hasPopleft"] and base["whileCount"] > 0
     apply_lexical_signals(base, code)
     results.append(base)
@@ -383,7 +410,15 @@ function resolveDatabaseUrl(databaseUrl = process.env.DATABASE_URL): string | un
 }
 
 function parseArgs(argv: string[]): CliOptions {
-  const options: CliOptions = { limit: 120, scan: 300, unique: false, threshold: 0.55, json: false };
+  const options: CliOptions = {
+    limit: 120,
+    scan: 300,
+    unique: false,
+    threshold: 0.55,
+    json: false,
+    label: false,
+    labelModel: process.env.CLUSTER_LABEL_MODEL ?? process.env.MODEL ?? 'qwen/qwen3-coder-next',
+  };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -411,6 +446,11 @@ function parseArgs(argv: string[]): CliOptions {
       index += 1;
     } else if (arg === '--json') {
       options.json = true;
+    } else if (arg === '--label') {
+      options.label = true;
+    } else if (arg === '--label-model' && next) {
+      options.labelModel = next;
+      index += 1;
     }
   }
 
@@ -480,6 +520,7 @@ export function buildStructuredFingerprint(features: ExtractedFeatures): Structu
   if (features.hasGridSignal) dataStructures.add('grid');
   if (features.hasGraphSignal || features.hasNeighborSignal) dataStructures.add('graph_state');
   if (features.hasUnionFindSignal) dataStructures.add('parent_array');
+  if (features.classCount > 0 && features.functionCount >= 3) dataStructures.add('class_api');
   if (dataStructures.size === 0) dataStructures.add('array');
 
   if (features.hasPopleft) ops.add('popleft');
@@ -506,6 +547,7 @@ export function buildStructuredFingerprint(features: ExtractedFeatures): Structu
     stateVars.add('parent');
     stateVars.add('rank');
   }
+  if (features.classCount > 0 && features.functionCount >= 3) stateVars.add('object_state');
   if (features.hasTreeSignal) stateVars.add('node_children');
   if (features.hasGridSignal) stateVars.add('grid_coords');
 
@@ -520,6 +562,7 @@ export function buildStructuredFingerprint(features: ExtractedFeatures): Structu
   }
   if (features.hasDpSignal) transitionOrder.add('state_transition_update');
   if (features.hasUnionFindSignal) transitionOrder.add('find_then_union');
+  if (features.classCount > 0 && features.functionCount >= 3) transitionOrder.add('method_dispatch');
   if (transitionOrder.size === 0) transitionOrder.add('sequential_scan');
 
   let answerUpdateTiming = 'unknown';
@@ -600,6 +643,13 @@ export function buildFeatureBag(features: ExtractedFeatures): Record<string, num
   if (features.hasPrefixSignal) addFeature(bag, 'role:prefix_state');
   if (features.hasDpSignal) addFeature(bag, 'role:dp_state');
   if (features.hasUnionFindSignal) addFeature(bag, 'role:union_find_state', 3);
+  if (features.classCount > 0 && features.functionCount >= 3) addFeature(bag, 'role:class_api_design', 5);
+  if (features.hasTreeSignal && features.hasRecursion) addFeature(bag, 'role:recursive_tree_descent', 5);
+  if (features.hasGridSignal && features.hasRecursion) addFeature(bag, 'role:recursive_grid_dfs', 5);
+  if (features.hasRecursion && !features.hasTreeSignal && !features.hasGridSignal && features.attributeNames.some((name) => ['getList', 'isInteger', 'getInteger'].includes(name))) {
+    addFeature(bag, 'role:recursive_nested_collection', 5);
+  }
+  if (features.hasTreeSignal && features.whileCount > 0 && !features.hasRecursion) addFeature(bag, 'role:iterative_tree_walk', 5);
 
   if (features.hasQueueLoopSignal) addFeature(bag, 'motif:frontier_pop_then_expand', 3);
   if (features.hasLeftRightPointers && features.whileCount > 0) addFeature(bag, 'motif:left_right_while', 2);
@@ -613,6 +663,28 @@ export function buildFeatureBag(features: ExtractedFeatures): Record<string, num
   if (Object.keys(bag).some((key) => key.startsWith('var_op:init:'))) addFeature(bag, 'role:explicit_state_init');
 
   return bag;
+}
+
+function clusterFamily(bag: Record<string, number>): string {
+  if (bag['role:class_api_design']) return 'class_api_design';
+  if (bag['role:frontier_bfs'] || bag['motif:frontier_pop_then_expand']) return 'frontier_bfs';
+  if (bag['role:recursive_tree_descent']) return 'recursive_tree';
+  if (bag['role:recursive_grid_dfs']) return 'recursive_grid';
+  if (bag['role:recursive_nested_collection']) return 'recursive_nested_collection';
+  if (bag['role:iterative_tree_walk']) return 'iterative_tree';
+  if (bag['role:priority_queue_ops']) return 'priority_queue';
+  if (bag['role:union_find_state']) return 'union_find';
+  if (bag['role:dp_state']) return 'dp';
+  if (bag['role:prefix_state']) return 'prefix';
+  if (bag['motif:midpoint_boundary_narrow']) return 'binary_search';
+  if (bag['motif:expand_then_shrink_window']) return 'sliding_window';
+  return 'generic';
+}
+
+function canClusterTogether(left: ClusteredSubmission, right: ClusteredSubmission): boolean {
+  const leftFamily = clusterFamily(left.featureBag);
+  const rightFamily = clusterFamily(right.featureBag);
+  return leftFamily === rightFamily;
 }
 
 function featureWeight(key: string): number {
@@ -687,7 +759,7 @@ function clusterSubmissions(clustered: ClusteredSubmission[], threshold: number)
   for (let left = 0; left < clustered.length; left += 1) {
     for (let right = left + 1; right < clustered.length; right += 1) {
       const similarity = structuralSimilarity(clustered[left].featureBag, clustered[right].featureBag);
-      if (similarity >= threshold) {
+      if (similarity >= threshold && canClusterTogether(clustered[left], clustered[right])) {
         dsu.union(left, right);
       }
     }
@@ -789,6 +861,110 @@ function extractPythonFeatures(submissions: SubmissionRow[]): ExtractedFeatures[
   return JSON.parse(result.stdout) as ExtractedFeatures[];
 }
 
+type ClusterLabel = {
+  label: string;
+  key: string;
+  description: string;
+  confidence: number;
+  mixedCluster: boolean;
+  shouldSplitBy: string[];
+};
+
+type ClusterArtifactCluster = ClusterArtifact['clusters'][number];
+
+function normalizeClusterLabel(value: unknown, fallbackKey: string): ClusterLabel {
+  const parsed = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const label = typeof parsed.label === 'string' && parsed.label.trim() ? parsed.label.trim() : fallbackKey;
+  const key =
+    typeof parsed.key === 'string' && parsed.key.trim()
+      ? parsed.key.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+      : label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const description =
+    typeof parsed.description === 'string' && parsed.description.trim()
+      ? parsed.description.trim()
+      : 'Heuristic structure cluster label.';
+  const rawConfidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.5;
+  const shouldSplitBy = Array.isArray(parsed.should_split_by)
+    ? parsed.should_split_by.filter((entry): entry is string => typeof entry === 'string').slice(0, 5)
+    : [];
+  return {
+    label: label.slice(0, 80),
+    key: (key || fallbackKey).slice(0, 80),
+    description: description.slice(0, 240),
+    confidence: Math.max(0, Math.min(1, rawConfidence)),
+    mixedCluster: parsed.mixed_cluster === true,
+    shouldSplitBy,
+  };
+}
+
+async function labelClusterWithOpenRouter(cluster: ClusterArtifactCluster, model: string): Promise<ClusterLabel> {
+  const apiKey = process.env.OPEN_ROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPEN_ROUTER_API_KEY is required for --label');
+  }
+
+  const sampleProblems = cluster.submissions.slice(0, 8).map((submission) => submission.titleSlug ?? 'unknown');
+  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/jingyi-zhao-01/leetcode-intelligence',
+      'X-Title': 'leetcode-submission-classifier',
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'You label LeetCode solution-structure clusters.',
+            'Return JSON only: {"label":"short human label","key":"snake_case_key","description":"one sentence","confidence":0.0,"mixed_cluster":false,"should_split_by":[]}.',
+            'Use classic algorithm taxonomy names when possible.',
+            'If samples/evidence mix unrelated solution families, set mixed_cluster true and fill should_split_by.',
+            'Do not invent problem facts beyond the given fingerprint/evidence/samples.',
+          ].join('\n'),
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            clusterKey: cluster.clusterKey,
+            count: cluster.count,
+            fingerprint: cluster.fingerprint,
+            evidence: cluster.evidence.slice(0, 12),
+            sampleProblems,
+          }),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenRouter label request failed: ${response.status} ${await response.text()}`);
+  }
+
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = payload.choices?.[0]?.message?.content ?? '{}';
+  try {
+    return normalizeClusterLabel(JSON.parse(content), cluster.clusterKey);
+  } catch {
+    return normalizeClusterLabel(null, cluster.clusterKey);
+  }
+}
+
+async function labelClusters(clusters: ClusterArtifactCluster[], model: string): Promise<ClusterArtifactCluster[]> {
+  const labeled: ClusterArtifactCluster[] = [];
+  for (const cluster of clusters) {
+    const llmLabel = await labelClusterWithOpenRouter(cluster, model);
+    labeled.push({ ...cluster, llmLabel });
+  }
+  return labeled;
+}
+
 function formatClusterOutput(clustered: ClusteredSubmission[]) {
   const sorted = clusterSubmissions(clustered, 0.34);
   const lines = [`Scanned ${clustered.length} Python submissions`, ''];
@@ -803,6 +979,33 @@ function formatClusterOutput(clustered: ClusteredSubmission[]) {
     }
     for (const sample of items.slice(0, 5)) {
       lines.push(`  - ${sample.submission.titleSlug ?? 'unknown'} :: ${sample.submission.id.slice(0, 8)} :: ${sample.submission.status}`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+function formatArtifactOutput(artifact: ClusterArtifact) {
+  const lines = [`Scanned ${artifact.summary.submissionCount} Python submissions`, ''];
+
+  for (const cluster of artifact.clusters) {
+    const label = cluster.llmLabel ? ` :: ${cluster.llmLabel.label}` : '';
+    lines.push(`${cluster.clusterKey}${label} (${cluster.count})`);
+    if (cluster.llmLabel) {
+      lines.push(`  label: ${cluster.llmLabel.key} (${cluster.llmLabel.confidence.toFixed(2)})`);
+      if (cluster.llmLabel.mixedCluster) {
+        lines.push(`  mixed: ${cluster.llmLabel.shouldSplitBy.join(', ') || 'true'}`);
+      }
+      lines.push(`  ${cluster.llmLabel.description}`);
+    }
+    lines.push(`  fingerprint: ${JSON.stringify(cluster.fingerprint)}`);
+    lines.push('  evidence:');
+    for (const evidence of cluster.evidence.slice(0, 8)) {
+      lines.push(`    ${evidence.present}/${cluster.count} ${evidence.score.toFixed(1)} ${evidence.feature}`);
+    }
+    for (const sample of cluster.submissions.slice(0, 5)) {
+      lines.push(`  - ${sample.titleSlug ?? 'unknown'} :: ${sample.id.slice(0, 8)} :: ${sample.status}`);
     }
     lines.push('');
   }
@@ -846,6 +1049,21 @@ export function buildClusterArtifact(clustered: ClusteredSubmission[], options: 
   };
 }
 
+async function buildMaybeLabeledClusterArtifact(
+  clustered: ClusteredSubmission[],
+  options: CliOptions,
+  generatedAt = new Date().toISOString(),
+): Promise<ClusterArtifact> {
+  const artifact = buildClusterArtifact(clustered, options, generatedAt);
+  if (!options.label) {
+    return artifact;
+  }
+  return {
+    ...artifact,
+    clusters: await labelClusters(artifact.clusters, options.labelModel),
+  };
+}
+
 function writeJsonArtifact(path: string, artifact: ClusterArtifact) {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
@@ -880,10 +1098,15 @@ async function main() {
     }
 
     if (options.out) {
-      const artifact = buildClusterArtifact(clustered, options);
+      const artifact = await buildMaybeLabeledClusterArtifact(clustered, options);
       const outPath = resolve(process.cwd(), options.out);
       writeJsonArtifact(outPath, artifact);
       console.log(`Wrote cluster artifact: ${outPath}`);
+      return;
+    }
+
+    if (options.label) {
+      console.log(formatArtifactOutput(await buildMaybeLabeledClusterArtifact(clustered, options)));
       return;
     }
 
