@@ -1,0 +1,406 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TagWorkbench snapshots > renders the submission taxonomy control plane without dropping key layout controls 1`] = `
+"<main class="workspace workspace-with-inspector">
+<section class="sidebar">
+<div class="submission-sidebar-header">
+<div class="sidebar-context-header">
+<p class="eyebrow">Submission Inbox</p>
+<h2>Accepted runs</h2>
+<p class="sidebar-context-copy">Search recent problems, review attempts, and jump into taxonomy tagging without leaving the workbench.</p>
+</div>
+<div class="submission-kpi-grid">
+<article>
+<strong>3</strong>
+<span>Total</span>
+</article>
+<article>
+<strong>3</strong>
+<span>AC</span>
+</article>
+<article>
+<strong>1</strong>
+<span>Tagged</span>
+</article>
+<article>
+<strong>1</strong>
+<span>Benched</span>
+</article>
+</div>
+</div>
+<div class="filters">
+<input class="flex h-9 w-full rounded-md border border-input bg-card px-3 py-1 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" placeholder="Search problems..." aria-label="Search submissions" value=""/>
+<label class="submission-filter">
+<span class="sr-only">Submission filter</span>
+<select>
+<option value="all" selected="">All</option>
+<option value="tagged">Tagged</option>
+<option value="untagged">Untagged</option>
+<option value="benchmarked">Benchmarked</option>
+</select>
+</label>
+</div>
+<div class="submission-list">
+<div class="submission-week-list">
+<section class="submission-week">
+<button class="submission-week-header " type="button" aria-expanded="true" aria-label="Collapse day Jun 22, 2026">
+<h3>Jun 22, 2026</h3>
+<span>1</span>
+</button>
+<div class="submission-problem-list">
+<section class="submission-problem-group active">
+<button type="button" class="submission-problem-header">
+<span class="submission-title">Shortest Path in Binary Matrix</span>
+<span class="submission-problem-count">4 tag</span>
+</button>
+<div class="submission-attempt-list">
+<button type="button" class="submission-attempt taxonomy-complete active">
+<span class="submission-meta">Medium · python3</span>
+<div class="submission-attempt-footer">
+<span class="tag-preview">4 tags</span>
+<span class="submission-optout ">Jun 22, 06:27 PM</span>
+</div>
+</button>
+<button type="button" class="submission-attempt taxonomy-none">
+<span class="submission-meta">Medium · python3</span>
+<div class="submission-attempt-footer">
+<span class="tag-preview">0 tags</span>
+<span class="submission-optout active">opted out</span>
+</div>
+</button>
+</div>
+</section>
+</div>
+</section>
+<section class="submission-week">
+<button class="submission-week-header collapsed" type="button" aria-expanded="false" aria-label="Expand day Jun 21, 2026">
+<h3>Jun 21, 2026</h3>
+<span>1</span>
+</button>
+</section>
+</div>
+</div>
+</section>
+<section class="detail">
+<div class="detail-header detail-hero">
+<div class="detail-title-block">
+<div class="detail-status-row">
+<span class="submission-difficulty difficulty-medium">Medium</span>
+<span class="submission-status-pill">Accepted</span>
+<span class="submission-header-meta">python3</span>
+<span class="submission-header-meta">Jun 22, 06:27 PM</span>
+<span class="submission-header-meta">2 attempts</span>
+<span class="taxonomy-state-pill taxonomy-complete">In taxonomy</span>
+</div>
+<h2>Shortest Path in Binary Matrix</h2>
+<p class="detail-slug">/shortest-path-in-binary-matrix</p>
+</div>
+<div class="complexity detail-metric-grid">
+<span>Time O(m * n)</span>
+<span>Space O(m + n)</span>
+<span>4 selected tags</span>
+<span>Benchmarked 2</span>
+</div>
+</div>
+<div class="detail-control-row">
+<label class="template-optout-control detail-optout-control">
+<input type="checkbox"/>
+<span>Opt out from templating</span>
+</label>
+</div>
+<section class="template-tag-stage surface-card">
+<div class="section-title-row section-title-row-spread">
+<h3>Algorithm Template Tags</h3>
+<span class="section-meta-pill">4 selected</span>
+</div>
+<div class="selected-tags">
+<button class="selected-tag dimension-template">
+<span>graph-bfs-dfs</span>
+<small>Remove</small>
+</button>
+<button class="selected-tag dimension-template">
+<span>grid-bfs-unweighted-shortest-path</span>
+<small>Remove</small>
+</button>
+<button class="selected-tag dimension-data_structure">
+<span>ds-grid</span>
+<small>Remove</small>
+</button>
+<button class="selected-tag dimension-data_structure">
+<span>ds-queue</span>
+<small>Remove</small>
+</button>
+</div>
+</section>
+<div class="benchmark-status surface-card surface-card-inline">
+<span>Benchmark model: openai/gpt-4.1-mini</span>
+</div>
+<div class="taxonomy-layout taxonomy-surface-stack">
+<section class="tag-group dimension-template">
+<div class="tag-group-header">
+<div>
+<h3>Linear state and hashing</h3>
+<small>1 templates</small>
+</div>
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Linear state and hashing from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-options">
+<button class="tag-option dimension-template" title="Lookup or count values with a hash map.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Hash map lookup</span>
+<small class="tag-option-key">hash-map-lookup</small>
+</div>
+<div class="tag-option-controls">
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-seeded">seeded</strong>
+<em>documented</em>
+</div>
+</button>
+<button class="add-template-card" type="button">
+<span>+</span>
+<strong>Generate template</strong>
+<small>Linear state and hashing</small>
+</button>
+</div>
+</section>
+<section class="tag-group dimension-template">
+<div class="tag-group-header">
+<div>
+<h3>Structures and traversal</h3>
+<small>2 templates</small>
+</div>
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Structures and traversal from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-options">
+<button class="tag-option dimension-template selected focused score-high" title="Explore graph or grid states while tracking visited nodes.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Graph BFS/DFS</span>
+<small class="tag-option-key">graph-bfs-dfs</small>
+</div>
+<div class="tag-option-controls">
+<strong class="benchmark-score benchmark-score-high">85</strong>
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-seeded">seeded</strong>
+<em>documented</em>
+</div>
+</button>
+<button class="tag-option dimension-template custom-template selected score-high" title="Specialized BFS for shortest paths on a grid with uniform edge weights.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Grid BFS for unweighted shortest path</span>
+<small class="tag-option-key">grid-bfs-unweighted-shortest-path</small>
+</div>
+<div class="tag-option-controls">
+<span class="delete-template-button" role="button" tabindex="0" aria-label="Delete Grid BFS for unweighted shortest path">×</span>
+<strong class="benchmark-score benchmark-score-high">100</strong>
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-llm_generated">llm generated</strong>
+<em>documented</em>
+</div>
+</button>
+<button class="add-template-card" type="button">
+<span>+</span>
+<strong>Generate template</strong>
+<small>Structures and traversal</small>
+</button>
+</div>
+</section>
+<section class="tag-group dimension-template">
+<div class="tag-group-header">
+<div>
+<h3>Recursion, optimization, and design</h3>
+<small>1 templates</small>
+</div>
+<button class="exclude-group-button" type="button" aria-pressed="false" aria-label="Exclude Recursion, optimization, and design from LLM benchmark" title="Exclude this group from LLM benchmark">Exclude from benchmark</button>
+</div>
+<div class="tag-options">
+<button class="tag-option dimension-template" title="Recursive search with choose-explore-unchoose.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Backtracking</span>
+<small class="tag-option-key">backtracking</small>
+</div>
+<div class="tag-option-controls">
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-seeded">seeded</strong>
+<em>documented</em>
+</div>
+</button>
+<button class="add-template-card" type="button">
+<span>+</span>
+<strong>Generate template</strong>
+<small>Recursion, optimization, and design</small>
+</button>
+</div>
+</section>
+<section class="tag-group dimension-data_structure">
+<div class="tag-group-header">
+<div>
+<h3>data structure</h3>
+<small>2 templates</small>
+</div>
+</div>
+<div class="tag-options">
+<button class="tag-option dimension-data_structure selected" title="Problems modeled on a 2D board.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Grid / Matrix</span>
+<small class="tag-option-key">ds-grid</small>
+</div>
+<div class="tag-option-controls">
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-seeded">seeded</strong>
+</div>
+</button>
+<button class="tag-option dimension-data_structure selected" title="FIFO exploration or deque-based transitions.">
+<div class="tag-option-top-row">
+<div class="tag-option-title-stack">
+<span class="tag-option-label">Queue / Deque</span>
+<small class="tag-option-key">ds-queue</small>
+</div>
+<div class="tag-option-controls">
+</div>
+</div>
+<div class="tag-option-footer">
+<strong class="source-badge source-seeded">seeded</strong>
+</div>
+</button>
+</div>
+</section>
+</div>
+<div class="submission-utility-grid">
+<section class="surface-card submission-thought-card submission-thought-card-compact">
+<div class="section-title-row section-title-row-spread">
+<div>
+<h3>Submission Note</h3>
+<p class="section-copy">Record why this accepted version worked or what you want to remember.</p>
+</div>
+<button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:brightness-95 h-9 px-4 py-2 bg-accent text-accent-foreground primary" type="button">Save thought</button>
+</div>
+<textarea class="flex min-h-24 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" placeholder="What pattern mattered here? What was the key invariant? What should future-you remember?" rows="4">Level-order BFS guarantees the first time we reach the target is the shortest path.</textarea>
+</section>
+<section class="submission-context-card">
+<div class="context-card-header">
+<div>
+<p class="eyebrow">Submission Context</p>
+<h3>Code and problem source</h3>
+</div>
+<span>python3</span>
+</div>
+<div class="context-tab-strip" role="tablist" aria-label="Submission context">
+<button type="button" role="tab" class="context-tab active" aria-selected="true">Submission Code</button>
+<button type="button" role="tab" class="context-tab " aria-selected="false">Problem Statement</button>
+</div>
+<div class="context-panel-shell context-panel-code">
+<pre class="submission-code python-code" data-language="python">from collections import deque def shortestPathBinaryMatrix(grid): queue = deque([(0, 0, 1)]) seen = {(0, 0)} return 1</pre>
+</div>
+</section>
+</div>
+<div class="actions surface-card surface-card-inline sticky-action-bar">
+<button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:brightness-95 h-9 px-4 py-2 bg-accent text-accent-foreground primary">Save submission</button>
+<button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:brightness-95 h-9 px-4 py-2">Rerun benchmark</button>
+<button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 bg-primary text-primary-foreground hover:brightness-95 h-9 px-4 py-2">Clear tags</button>
+</div>
+</section>
+<aside class="template-plane template-plane-inspector" role="complementary" aria-labelledby="template-plane-title">
+<div class="template-plane-header">
+<div>
+<p class="eyebrow">Template Control Plane</p>
+<h2 id="template-plane-title">Graph BFS/DFS</h2>
+<div class="template-identity">
+<p>graph-bfs-dfs</p>
+<strong class="source-badge source-seeded">seeded</strong>
+</div>
+</div>
+<div class="template-plane-header-actions">
+<div class="plane-complexity">
+<span>Time O(m * n)</span>
+<span>Space O(m + n)</span>
+<span class="plane-score high">85</span>
+</div>
+<button class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-muted hover:text-foreground h-9 w-9 template-plane-close" type="button" aria-label="Close template drawer">×</button>
+</div>
+</div>
+<p class="template-description">Explore graph or grid states while tracking visited nodes.</p>
+<div class="template-plane-grid">
+<section class="template-card wide benchmark-card">
+<h3>LLM Benchmark</h3>
+<p>Score 85/100 · Confidence 71/100</p>
+<p>BFS over a grid is a graph traversal pattern with shortest-path semantics.</p>
+<ul>
+<li>Uses BFS traversal</li>
+<li>Tracks visited nodes</li>
+<li>Explores neighbors level-by-level</li>
+</ul>
+</section>
+<section class="template-card">
+<h3>When To Use</h3>
+<ul>
+<li>Need connected components, reachability, or shortest unweighted expansions.</li>
+</ul>
+</section>
+<section class="template-card">
+<h3>When Not To Use</h3>
+<ul>
+<li>Dependencies form a DAG and require ordering.</li>
+<li>Need dynamic connectivity under unions.</li>
+</ul>
+</section>
+<section class="template-card compact">
+<h3>Signals</h3>
+<ul>
+<li>graph</li>
+<li>grid</li>
+<li>visited</li>
+<li>component</li>
+</ul>
+</section>
+<section class="template-card">
+<h3>Invariants</h3>
+<ul>
+<li>Visited nodes are never processed twice.</li>
+<li>Frontier contains discovered but unresolved nodes.</li>
+</ul>
+</section>
+<section class="template-card wide">
+<h3>Pseudocode</h3>
+<pre>frontier = [start]
+visited = {start}
+while frontier: node = pop frontier</pre>
+</section>
+<section class="template-card compact">
+<h3>Data Structures</h3>
+<ul>
+<li>Queue / Deque</li>
+<li>Graph</li>
+</ul>
+</section>
+<section class="template-card compact">
+<h3>Classic Problems</h3>
+<ul>
+<li>Number of Islands</li>
+<li>Shortest Path in Binary Matrix</li>
+</ul>
+</section>
+<section class="template-card">
+<h3>Similar Templates</h3>
+<div class="related-tags">
+<span>grid-bfs-unweighted-shortest-path</span>
+</div>
+</section>
+</div>
+</aside>
+</main>"
+`;
