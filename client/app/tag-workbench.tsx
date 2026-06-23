@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { CircleOff, X } from 'lucide-react';
+import { ChevronRight, CircleOff, X } from 'lucide-react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
@@ -1167,72 +1167,87 @@ function SubmissionHistoryPanel({
                   >
                     <h3>{day.label}</h3>
                     <span>{day.problems.length}</span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className={cn(
+                        'ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ease-out',
+                        isCollapsed ? 'rotate-0' : 'rotate-90',
+                      )}
+                    />
                   </button>
-                  {!isCollapsed && (
-                    <div className="submission-problem-list">
-                      {day.problems.map((problem) => {
-                        const active = problem.submissions.some((submission) => submission.id === selectedSubmission?.id);
-                        return (
-                          <section
-                            className={['submission-problem-group', active ? 'active' : ''].filter(Boolean).join(' ')}
-                            key={problem.key}
-                          >
-                            <button
-                              type="button"
-                              className="submission-problem-header"
-                              onClick={() => onSelectSubmission(problem.submissions[0])}
+                  <div
+                    className={cn(
+                      'grid overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-out',
+                      isCollapsed ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100',
+                    )}
+                    aria-hidden={isCollapsed}
+                  >
+                    <div className="min-h-0">
+                      <div className="submission-problem-list">
+                        {day.problems.map((problem) => {
+                          const active = problem.submissions.some((submission) => submission.id === selectedSubmission?.id);
+                          return (
+                            <section
+                              className={['submission-problem-group', active ? 'active' : ''].filter(Boolean).join(' ')}
+                              key={problem.key}
                             >
-                              <span className="submission-title">{problem.title}</span>
-                              <span className="submission-problem-count">
-                                {problem.submissions[0]?.tags.filter((tag) => tag.kind === 'tag').length
-                                  ? `${problem.submissions[0].tags.filter((tag) => tag.kind === 'tag').length} tag`
-                                  : 'untagged'}
-                              </span>
-                            </button>
-                            <div className="submission-attempt-list">
-                              {problem.submissions.map((submission) => {
-                                const taxonomyState = submissionTaxonomyState(submission);
-                                const taxonomyClass =
-                                  taxonomyState === 'complete'
-                                    ? 'taxonomy-complete'
-                                    : taxonomyState === 'partial'
-                                      ? 'taxonomy-partial'
-                                      : 'taxonomy-none';
+                              <button
+                                type="button"
+                                className="submission-problem-header"
+                                onClick={() => onSelectSubmission(problem.submissions[0])}
+                              >
+                                <span className="submission-title">{problem.title}</span>
+                                <span className="submission-problem-count">
+                                  {problem.submissions[0]?.tags.filter((tag) => tag.kind === 'tag').length
+                                    ? `${problem.submissions[0].tags.filter((tag) => tag.kind === 'tag').length} tag`
+                                    : 'untagged'}
+                                </span>
+                              </button>
+                              <div className="submission-attempt-list">
+                                {problem.submissions.map((submission) => {
+                                  const taxonomyState = submissionTaxonomyState(submission);
+                                  const taxonomyClass =
+                                    taxonomyState === 'complete'
+                                      ? 'taxonomy-complete'
+                                      : taxonomyState === 'partial'
+                                        ? 'taxonomy-partial'
+                                        : 'taxonomy-none';
 
-                                return (
-                                  <button
-                                    key={submission.id}
-                                    type="button"
-                                    className={[
-                                      'submission-attempt',
-                                      taxonomyClass,
-                                      submission.id === selectedSubmission?.id ? 'active' : '',
-                                    ]
-                                      .filter(Boolean)
-                                      .join(' ')}
-                                    onClick={() => onSelectSubmission(submission)}
-                                  >
-                                    <span className="submission-meta">
-                                      {submission.difficulty ?? 'Unknown'} · {submission.language ?? 'Unknown'}
-                                    </span>
-                                    <div className="submission-attempt-footer">
-                                      <span className="tag-preview">
-                                        {submission.tags.filter((tag) => tag.kind === 'tag').length || 0} tag
-                                        {submission.tags.filter((tag) => tag.kind === 'tag').length === 1 ? '' : 's'}
+                                  return (
+                                    <button
+                                      key={submission.id}
+                                      type="button"
+                                      className={[
+                                        'submission-attempt',
+                                        taxonomyClass,
+                                        submission.id === selectedSubmission?.id ? 'active' : '',
+                                      ]
+                                        .filter(Boolean)
+                                        .join(' ')}
+                                      onClick={() => onSelectSubmission(submission)}
+                                    >
+                                      <span className="submission-meta">
+                                        {submission.difficulty ?? 'Unknown'} · {submission.language ?? 'Unknown'}
                                       </span>
-                                      <span className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}>
-                                        {submission.templateBenchmarkOptOut ? 'opted out' : formatDate(submission.createdAt)}
-                                      </span>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </section>
-                        );
-                      })}
+                                      <div className="submission-attempt-footer">
+                                        <span className="tag-preview">
+                                          {submission.tags.filter((tag) => tag.kind === 'tag').length || 0} tag
+                                          {submission.tags.filter((tag) => tag.kind === 'tag').length === 1 ? '' : 's'}
+                                        </span>
+                                        <span className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}>
+                                          {submission.templateBenchmarkOptOut ? 'opted out' : formatDate(submission.createdAt)}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </section>
               );
             })
@@ -1506,7 +1521,7 @@ function TemplateControlPlane({
 
   return (
     <aside
-      className="template-plane template-plane-inspector w-80 bg-[#f6f2ea]"
+      className="template-plane template-plane-inspector animate-in slide-in-from-right-3 fade-in-0 duration-200 w-80 bg-[#f6f2ea]"
       role="complementary"
       aria-labelledby="template-plane-title"
     >

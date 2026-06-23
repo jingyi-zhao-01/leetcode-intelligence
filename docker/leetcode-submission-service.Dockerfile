@@ -7,10 +7,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+COPY tsconfig.shared.json tsconfig.shared.json
+COPY services/tsconfig.base.json services/tsconfig.base.json
 COPY services/leetcode-submission-service/package.json services/leetcode-submission-service/package.json
 RUN npm ci --ignore-scripts
 
 COPY services/shared/prisma/schema.prisma services/shared/prisma/schema.prisma
+COPY tsconfig.shared.json tsconfig.shared.json
+COPY services/tsconfig.base.json services/tsconfig.base.json
 COPY services/leetcode-submission-service/tsconfig.json services/leetcode-submission-service/tsconfig.json
 COPY services/leetcode-submission-service/src services/leetcode-submission-service/src
 

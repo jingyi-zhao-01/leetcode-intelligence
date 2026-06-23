@@ -695,17 +695,6 @@ textarea:disabled {
   font-weight: 800;
 }
 
-.submission-week-header::after {
-  content: '▾';
-  margin-left: auto;
-  color: var(--muted);
-  transition: transform 120ms ease;
-}
-
-.submission-week-header.collapsed::after {
-  transform: rotate(-90deg);
-}
-
 .submission-week-header:hover {
   background: rgba(255, 253, 248, 0.85);
   border-color: var(--line);
