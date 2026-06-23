@@ -8,7 +8,7 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npx next dev --port 3101',
+    command: 'npx next dev --port 3101 --hostname 127.0.0.1',
     url: 'http://127.0.0.1:3101/playwright/tag-workbench-fixture',
     reuseExistingServer: !process.env.CI,
     cwd: '.',

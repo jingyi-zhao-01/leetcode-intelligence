@@ -4534,7 +4534,6 @@ body {
 
 .template-plane-inspector {
   position: static;
-  width: 340px;
   height: 100%;
   max-height: none;
   overflow: hidden;
@@ -4542,17 +4541,12 @@ body {
   border: 0;
   border-left: 1px solid rgba(27, 40, 32, 0.11);
   border-radius: 0;
-  background: var(--panel);
   box-shadow: none;
   padding: 0;
   gap: 0;
 }
 
 .template-plane-inspector .template-plane-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  padding: 12px 16px;
   border-bottom: 1px solid rgba(27, 40, 32, 0.09);
 }
 
@@ -4562,29 +4556,14 @@ body {
   min-width: 0;
 }
 
-.template-plane-header h2 {
-  font-size: 13px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-
 .template-plane-header p,
 .template-description,
 .template-card p {
   font-size: 12px;
 }
 
-.template-plane-header-actions {
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.template-plane-close {
-  width: 24px;
-  height: 24px;
-  border: 0;
-  background: transparent;
-  font-size: 20px;
+.template-plane-header h2 {
+  overflow-wrap: anywhere;
 }
 
 .plane-complexity {
@@ -5058,22 +5037,10 @@ body {
   min-height: 96px;
 }
 
-.submission-utility-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
-  gap: 12px;
-  padding: 0 14px 8px;
-  align-items: start;
-}
-
 .submission-context-card {
-  margin: 0 14px 0;
+  margin: 0;
   border: 0;
   background: transparent;
-}
-
-.submission-utility-grid .submission-context-card {
-  margin: 0;
 }
 
 .submission-utility-grid .context-panel-shell {
@@ -5147,16 +5114,6 @@ body {
   margin: auto 14px 10px;
   border-radius: 5px;
   background: rgba(246, 242, 234, 0.96);
-}
-
-.template-plane-inspector {
-  width: 340px;
-  background: #f6f2ea;
-}
-
-.template-plane-inspector .template-plane-header {
-  min-height: 86px;
-  padding: 10px 12px;
 }
 
 .template-plane-header h2 {

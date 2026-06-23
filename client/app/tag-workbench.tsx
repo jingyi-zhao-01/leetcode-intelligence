@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { CircleOff } from 'lucide-react';
+import { CircleOff, X } from 'lucide-react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
@@ -26,6 +26,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Textarea } from './components/ui/textarea';
+import { cn } from './lib/utils';
 
 type Props = {
   submissions: SubmissionRow[];
@@ -986,8 +987,8 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               ))}
             </div>
 
-            <div className="submission-utility-grid">
-              <section className="surface-card submission-thought-card submission-thought-card-compact">
+            <div className="submission-utility-grid grid grid-cols-1 items-start gap-3 px-3.5 pb-2">
+              <section className="surface-card submission-thought-card submission-thought-card-compact max-w-none">
                 <div className="section-title-row section-title-row-spread">
                   <div>
                     <h3>Submission Note</h3>
@@ -1431,7 +1432,7 @@ function SubmissionContext({
   const isPythonLanguage = language.includes('python') || language.includes('py');
 
   return (
-    <section className="submission-context-card">
+    <section className="submission-context-card m-0 border-0 bg-transparent">
       <div className="context-card-header">
         <div>
           <p className="eyebrow">Submission Context</p>
@@ -1439,7 +1440,7 @@ function SubmissionContext({
         </div>
         <span>{submission.language ?? 'unknown language'}</span>
       </div>
-      <div className="context-tab-strip" role="tablist" aria-label="Submission context">
+      <div className="context-tab-strip flex min-h-11 items-stretch gap-1 overflow-x-auto border-b border-black/10 bg-[#f6f2ea]" role="tablist" aria-label="Submission context">
         <button
           type="button"
           role="tab"
@@ -1459,7 +1460,7 @@ function SubmissionContext({
           Problem Statement
         </button>
       </div>
-      <div className={`context-panel-shell context-panel-${activeTab}`}>
+      <div className={cn('context-panel-shell overflow-auto', `context-panel-${activeTab}`)}>
         {activeTab === 'statement' ? (
           submission.questionDescription ? (
             <pre className="problem-description">{submission.questionDescription}</pre>
@@ -1505,38 +1506,38 @@ function TemplateControlPlane({
 
   return (
     <aside
-      className="template-plane template-plane-inspector"
+      className="template-plane template-plane-inspector w-80 bg-[#f6f2ea]"
       role="complementary"
       aria-labelledby="template-plane-title"
     >
-        <div className="template-plane-header">
-          <div>
+        <div className="template-plane-header relative flex min-h-[86px] flex-col gap-3 px-3 py-2.5 pr-12">
+          <div className="min-w-0">
             <p className="eyebrow">Template Control Plane</p>
-            <h2 id="template-plane-title">{template.label}</h2>
-            <div className="template-identity">
-              <p>{template.key}</p>
+            <h2 id="template-plane-title" className="text-sm font-semibold leading-tight">{template.label}</h2>
+            <div className="template-identity flex min-w-0 flex-wrap items-center gap-2">
+              <p className="min-w-0 break-words">{template.key}</p>
               <strong className={`source-badge source-${template.source}`}>{sourceLabel(template.source)}</strong>
             </div>
           </div>
-          <div className="template-plane-header-actions">
-            {metadata?.defaultComplexity ? (
-              <div className="plane-complexity">
-                <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
-                <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
-                {benchmarkScore ? (
-                  <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
-                ) : null}
-              </div>
-            ) : null}
+          {metadata?.defaultComplexity ? (
+            <div className="plane-complexity flex min-w-0 flex-wrap items-start gap-2">
+              <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
+              <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
+              {benchmarkScore ? (
+                <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="template-plane-header-actions absolute right-3 top-2.5">
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="template-plane-close"
+              className="template-plane-close h-8 w-8 shrink-0 rounded-full"
               onClick={onClose}
               aria-label="Close template drawer"
             >
-              ×
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>

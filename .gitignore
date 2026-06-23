@@ -11,3 +11,4 @@ dist/
 app.log
 node_modules/
 .next/
+client/test-results/
