@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
-import { ChevronRight, CircleOff, X } from 'lucide-react';
+import { ChevronRight, CircleAlert, CircleOff, X } from 'lucide-react';
 import {
   benchmarkSubmissionTemplates,
   createGeneratedTemplate,
@@ -1156,6 +1156,12 @@ function SubmissionHistoryPanel({
           {filteredDays.length ? (
             filteredDays.map((day) => {
               const isCollapsed = collapsedDayKeys.has(day.key);
+              const hasUnresolvedSubmission = day.problems.some((problem) =>
+                problem.submissions.some(
+                  (submission) =>
+                    !submission.templateBenchmarkOptOut && !submission.tags.some((tag) => tag.kind === 'tag'),
+                ),
+              );
               return (
                 <section className="submission-week" key={day.key}>
                   <button
@@ -1167,6 +1173,13 @@ function SubmissionHistoryPanel({
                   >
                     <h3>{day.label}</h3>
                     <span>{day.problems.length}</span>
+                    {hasUnresolvedSubmission ? (
+                      <CircleAlert
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 text-amber-600"
+                        title="Contains submissions that are not opted out and still unresolved"
+                      />
+                    ) : null}
                     <ChevronRight
                       aria-hidden="true"
                       className={cn(
