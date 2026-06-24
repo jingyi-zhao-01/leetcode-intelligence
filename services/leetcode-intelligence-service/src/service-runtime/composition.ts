@@ -1,9 +1,15 @@
-import { PrismaClient } from "@prisma/client";
-import { OpenRouter } from "@openrouter/sdk";
-import type { IntelligenceConfig, ScoringAlgorithm } from "../core/types.ts";
-import { FallbackScoringAlgorithm, OpenRouterScoringAlgorithm, PromptGenerator, PromptResponseService, ReplyScorer } from "../core/scoring/index.ts";
-import { FocusRecommendationService } from "../core/recommendation/index.ts";
-import { LinearWeightCalculator, type WeightCalculator } from "../core/shared/weight.ts";
+import { PrismaClient } from '@prisma/client';
+import { OpenRouter } from '@openrouter/sdk';
+import type { IntelligenceConfig, ScoringAlgorithm } from '../core/types.ts';
+import {
+  FallbackScoringAlgorithm,
+  OpenRouterScoringAlgorithm,
+  PromptGenerator,
+  PromptResponseService,
+  ReplyScorer,
+} from '../core/scoring/index.ts';
+import { FocusRecommendationService } from '../core/recommendation/index.ts';
+import { LinearWeightCalculator, type WeightCalculator } from '../core/shared/weight.ts';
 
 export type PersistenceServices = {
   prisma: PrismaClient;
@@ -37,8 +43,8 @@ export const createExternalServices = (config: IntelligenceConfig): ExternalServ
   const openRouter = config.OPEN_ROUTER_API_KEY
     ? new OpenRouter({
         apiKey: config.OPEN_ROUTER_API_KEY,
-        httpReferer: "https://github.com/kawre/leetcode.nvim",
-        appTitle: "leetcode-intelligence-service",
+        httpReferer: 'https://github.com/kawre/leetcode.nvim',
+        appTitle: 'leetcode-intelligence-service',
       })
     : null;
 

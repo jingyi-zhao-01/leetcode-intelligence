@@ -1,12 +1,8 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from '@prisma/client';
 
-import type {
-  IntelligenceConfig,
-  PromptEventWithRelations,
-  ScoreRequest,
-} from "../types.ts";
-import type { ReplyScorer } from "./scoring.ts";
-import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
+import type { IntelligenceConfig, PromptEventWithRelations, ScoreRequest } from '../types.ts';
+import type { ReplyScorer } from './scoring.ts';
+import { LinearWeightCalculator, type WeightCalculator } from '../shared/weight.ts';
 
 export class PromptResponseService {
   private readonly weightCalculator: WeightCalculator;
@@ -33,7 +29,7 @@ export class PromptResponseService {
     }
 
     if (promptEvent.IntelligenceResponse) {
-      return { ok: false, message: "Prompt event already scored.", promptEventId };
+      return { ok: false, message: 'Prompt event already scored.', promptEventId };
     }
 
     const structured = await this.scorer.score({
@@ -67,7 +63,7 @@ export class PromptResponseService {
           scoredAt: new Date(),
           responseScore: structured.score,
           weightAfter: nextWeight,
-          status: "scored",
+          status: 'scored',
         },
       });
 

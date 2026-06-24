@@ -1,10 +1,10 @@
-import { trace } from "@opentelemetry/api";
-import pino, { type Logger } from "pino";
+import { trace } from '@opentelemetry/api';
+import pino, { type Logger } from 'pino';
 
 const serviceLogger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
+  level: process.env.LOG_LEVEL ?? 'info',
   base: {
-    service: "leetcode-intelligence-service",
+    service: 'leetcode-intelligence-service',
   },
   mixin() {
     const spanContext = trace.getActiveSpan()?.spanContext();
@@ -37,4 +37,4 @@ export const createLogger = (scope: string): Logger => {
   return serviceLogger.child({ scope });
 };
 
-export const logger = createLogger("app");
+export const logger = createLogger('app');

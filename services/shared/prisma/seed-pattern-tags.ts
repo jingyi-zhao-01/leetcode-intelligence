@@ -62,8 +62,16 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
             'The state is a contiguous window that must be shrunk online.',
           ],
           signals: ['seen', 'complement', 'count previous', 'lookup', 'deduplicate'],
-          pseudocode: ['state = map_or_set()', 'for item in input:', '  use state to answer with item', '  update state'],
-          invariants: ['State only represents processed elements.', 'Lookup state is sufficient to decide local matches.'],
+          pseudocode: [
+            'state = map_or_set()',
+            'for item in input:',
+            '  use state to answer with item',
+            '  update state',
+          ],
+          invariants: [
+            'State only represents processed elements.',
+            'Lookup state is sufficient to decide local matches.',
+          ],
           defaultComplexity: { time: 'O(n)', space: 'O(n)' },
           relatedDataStructures: ['hash-map', 'hash-set'],
           similarTemplates: ['prefix-sum', 'sliding-window'],
@@ -81,7 +89,12 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
           ],
           whenNotToUse: ['Need preserve exact order as the primary constraint.', 'Need range or neighbor queries.'],
           signals: ['group by', 'signature', 'frequency', 'bucket', 'canonical key'],
-          pseudocode: ['groups = map()', 'for item in items:', '  key = normalize(item)', '  groups[key].append_or_count(item)'],
+          pseudocode: [
+            'groups = map()',
+            'for item in items:',
+            '  key = normalize(item)',
+            '  groups[key].append_or_count(item)',
+          ],
           invariants: ['Equivalent inputs map to the same key.', 'The grouped value contains all items for that key.'],
           defaultComplexity: { time: 'O(n * normalize_cost)', space: 'O(n)' },
           relatedDataStructures: ['hash-map', 'counter'],
@@ -98,10 +111,23 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
             'A contiguous range property can be expressed as prefix[j] - prefix[i].',
             'Need count, existence, or value of many range sums or modular states.',
           ],
-          whenNotToUse: ['All numbers are positive and a shrinkable window solves it simpler.', 'Need non-contiguous choices.'],
+          whenNotToUse: [
+            'All numbers are positive and a shrinkable window solves it simpler.',
+            'Need non-contiguous choices.',
+          ],
           signals: ['subarray sum', 'range sum', 'prefix', 'modulo prefix', 'difference of accumulated state'],
-          pseudocode: ['prefix = base', 'seen = {base: 1}', 'for x in nums:', '  prefix = update(prefix, x)', '  query prior prefix state', '  record prefix'],
-          invariants: ['Every range ending now corresponds to one prior prefix.', 'Prior prefixes are recorded before current updates are reused.'],
+          pseudocode: [
+            'prefix = base',
+            'seen = {base: 1}',
+            'for x in nums:',
+            '  prefix = update(prefix, x)',
+            '  query prior prefix state',
+            '  record prefix',
+          ],
+          invariants: [
+            'Every range ending now corresponds to one prior prefix.',
+            'Prior prefixes are recorded before current updates are reused.',
+          ],
           defaultComplexity: { time: 'O(n)', space: 'O(n) or O(1)' },
           relatedDataStructures: ['array', 'hash-map'],
           similarTemplates: ['hash-map-lookup', 'sliding-window'],
@@ -119,7 +145,12 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
           ],
           whenNotToUse: ['A single local recurrence is enough.', 'Need online answers without seeing the full input.'],
           signals: ['left right pass', 'prefix and suffix', 'except self', 'from both sides'],
-          pseudocode: ['left = scan_left(input)', 'right = scan_right(input)', 'for i:', '  ans[i] = combine(left[i], right[i])'],
+          pseudocode: [
+            'left = scan_left(input)',
+            'right = scan_right(input)',
+            'for i:',
+            '  ans[i] = combine(left[i], right[i])',
+          ],
           invariants: ['Left state excludes future elements.', 'Right state excludes earlier elements until combined.'],
           defaultComplexity: { time: 'O(n)', space: 'O(n) or O(1) extra' },
           relatedDataStructures: ['array'],
@@ -131,14 +162,27 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Linear scan state',
         description: 'Carry a small state machine through the input and update the best answer as you scan.',
         metadata: m({
-          classicProblems: ['53. Maximum Subarray', '121. Best Time to Buy and Sell Stock', '122. Best Time to Buy and Sell Stock II'],
+          classicProblems: [
+            '53. Maximum Subarray',
+            '121. Best Time to Buy and Sell Stock',
+            '122. Best Time to Buy and Sell Stock II',
+          ],
           whenToUse: [
             'The answer can be updated from a fixed-size local state.',
             'Each step only needs the previous state and current item.',
           ],
-          whenNotToUse: ['Need branch over multiple choices with overlapping subproblems.', 'Need maintain a variable-size valid window.'],
+          whenNotToUse: [
+            'Need branch over multiple choices with overlapping subproblems.',
+            'Need maintain a variable-size valid window.',
+          ],
           signals: ['one pass', 'best so far', 'current state', 'extend or reset', 'state machine'],
-          pseudocode: ['state = initial', 'best = initial', 'for item in input:', '  state = transition(state, item)', '  best = update(best, state)'],
+          pseudocode: [
+            'state = initial',
+            'best = initial',
+            'for item in input:',
+            '  state = transition(state, item)',
+            '  best = update(best, state)',
+          ],
           invariants: ['State summarizes all needed history.', 'Best is the optimum over processed prefixes.'],
           defaultComplexity: { time: 'O(n)', space: 'O(1)' },
           relatedDataStructures: ['array'],
@@ -162,7 +206,10 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
             'A sorted or structured input gives a safe pointer movement rule.',
             'The answer depends on a pair or boundary choice.',
           ],
-          whenNotToUse: ['Input order is arbitrary and cannot be sorted safely.', 'Need a dynamic multiset of prior states.'],
+          whenNotToUse: [
+            'Input order is arbitrary and cannot be sorted safely.',
+            'Need a dynamic multiset of prior states.',
+          ],
           signals: ['left right', 'sorted', 'move inward', 'pair', 'boundary'],
           pseudocode: ['l, r = 0, n - 1', 'while l < r:', '  evaluate(l, r)', '  move one pointer by proof'],
           invariants: ['Pointer movement never discards a valid better candidate.', 'Pointers move monotonically.'],
@@ -176,14 +223,28 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Sliding window',
         description: 'Maintain a contiguous window and expand or shrink it until the invariant is satisfied.',
         metadata: m({
-          classicProblems: ['3. Longest Substring Without Repeating Characters', '76. Minimum Window Substring', '209. Minimum Size Subarray Sum'],
+          classicProblems: [
+            '3. Longest Substring Without Repeating Characters',
+            '76. Minimum Window Substring',
+            '209. Minimum Size Subarray Sum',
+          ],
           whenToUse: [
             'Need optimize over contiguous ranges.',
             'A window validity condition can be maintained incrementally.',
           ],
-          whenNotToUse: ['The property is not monotonic under shrinking/expanding.', 'Ranges are better expressed as prefix differences.'],
+          whenNotToUse: [
+            'The property is not monotonic under shrinking/expanding.',
+            'Ranges are better expressed as prefix differences.',
+          ],
           signals: ['substring', 'subarray', 'window', 'at most', 'at least', 'expand shrink'],
-          pseudocode: ['left = 0', 'for right in range(n):', '  add input[right]', '  while window invalid or can improve:', '    remove input[left]; left += 1', '  update answer'],
+          pseudocode: [
+            'left = 0',
+            'for right in range(n):',
+            '  add input[right]',
+            '  while window invalid or can improve:',
+            '    remove input[left]; left += 1',
+            '  update answer',
+          ],
           invariants: ['Window state exactly represents input[left:right+1].', 'left only moves forward.'],
           defaultComplexity: { time: 'O(n)', space: 'O(alphabet or window state)' },
           relatedDataStructures: ['counter', 'hash-map', 'queue'],
@@ -195,15 +256,28 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Fast/slow pointers',
         description: 'Use pointers moving at different speeds or offsets to detect cycles, midpoints, or gaps.',
         metadata: m({
-          classicProblems: ['141. Linked List Cycle', '876. Middle of the Linked List', '19. Remove Nth Node From End of List'],
+          classicProblems: [
+            '141. Linked List Cycle',
+            '876. Middle of the Linked List',
+            '19. Remove Nth Node From End of List',
+          ],
           whenToUse: [
             'Need cycle detection without extra memory.',
             'Need midpoint or fixed gap in a linked structure.',
           ],
           whenNotToUse: ['Need random access or sorted-array boundary movement.', 'Need modify many links in place.'],
           signals: ['cycle', 'middle', 'nth from end', 'runner', 'gap'],
-          pseudocode: ['slow = head; fast = head', 'while fast and fast.next:', '  slow = slow.next', '  fast = fast.next.next', '  check relation'],
-          invariants: ['Fast pointer encodes progress relative to slow.', 'The relative distance has the intended meaning.'],
+          pseudocode: [
+            'slow = head; fast = head',
+            'while fast and fast.next:',
+            '  slow = slow.next',
+            '  fast = fast.next.next',
+            '  check relation',
+          ],
+          invariants: [
+            'Fast pointer encodes progress relative to slow.',
+            'The relative distance has the intended meaning.',
+          ],
           defaultComplexity: { time: 'O(n)', space: 'O(1)' },
           relatedDataStructures: ['linked-list'],
           similarTemplates: ['linked-list-rewire', 'two-pointers'],
@@ -221,8 +295,17 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
           ],
           whenNotToUse: ['No monotonic predicate can be stated.', 'Need enumerate all valid candidates.'],
           signals: ['sorted', 'lower bound', 'upper bound', 'minimum feasible', 'search answer'],
-          pseudocode: ['lo, hi = search_space', 'while lo < hi:', '  mid = choose_mid(lo, hi)', '  if predicate(mid): hi = mid', '  else: lo = mid + 1'],
-          invariants: ['The answer remains inside [lo, hi].', 'Predicate partitions the domain into false then true or vice versa.'],
+          pseudocode: [
+            'lo, hi = search_space',
+            'while lo < hi:',
+            '  mid = choose_mid(lo, hi)',
+            '  if predicate(mid): hi = mid',
+            '  else: lo = mid + 1',
+          ],
+          invariants: [
+            'The answer remains inside [lo, hi].',
+            'Predicate partitions the domain into false then true or vice versa.',
+          ],
           defaultComplexity: { time: 'O(log n) or O(check * log range)', space: 'O(1)' },
           relatedDataStructures: ['array'],
           similarTemplates: ['two-pointers', 'greedy'],
@@ -233,15 +316,31 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Partition selection',
         description: 'Rearrange around a pivot or write boundary to select, deduplicate, or compact in place.',
         metadata: m({
-          classicProblems: ['26. Remove Duplicates from Sorted Array', '75. Sort Colors', '215. Kth Largest Element in an Array'],
+          classicProblems: [
+            '26. Remove Duplicates from Sorted Array',
+            '75. Sort Colors',
+            '215. Kth Largest Element in an Array',
+          ],
           whenToUse: [
             'Need in-place compaction, partitioning, or kth selection.',
             'Elements can be classified relative to a pivot or write boundary.',
           ],
-          whenNotToUse: ['Need stable grouping with arbitrary keys.', 'Need maintain sorted frontier across multiple streams.'],
+          whenNotToUse: [
+            'Need stable grouping with arbitrary keys.',
+            'Need maintain sorted frontier across multiple streams.',
+          ],
           signals: ['in place', 'write pointer', 'partition', 'quickselect', 'deduplicate'],
-          pseudocode: ['boundary = start', 'for item in input:', '  if belongs_left(item):', '    place item at boundary', '    boundary += 1'],
-          invariants: ['Processed region is partitioned correctly.', 'Boundary marks the first unknown or right-side position.'],
+          pseudocode: [
+            'boundary = start',
+            'for item in input:',
+            '  if belongs_left(item):',
+            '    place item at boundary',
+            '    boundary += 1',
+          ],
+          invariants: [
+            'Processed region is partitioned correctly.',
+            'Boundary marks the first unknown or right-side position.',
+          ],
           defaultComplexity: { time: 'O(n) average or one pass', space: 'O(1)' },
           relatedDataStructures: ['array'],
           similarTemplates: ['two-pointers', 'heap-priority-queue'],
@@ -263,8 +362,16 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
           whenToUse: ['Need match nested pairs.', 'Need process most recent unresolved item first.'],
           whenNotToUse: ['Need maintain sorted candidates.', 'Need FIFO shortest-path traversal.'],
           signals: ['parentheses', 'nested', 'undo', 'evaluate', 'recent unresolved'],
-          pseudocode: ['stack = []', 'for token in input:', '  if opens_or_defers(token): push', '  else: pop and resolve'],
-          invariants: ['Stack contains unresolved items in nesting order.', 'Top of stack is the next item to resolve.'],
+          pseudocode: [
+            'stack = []',
+            'for token in input:',
+            '  if opens_or_defers(token): push',
+            '  else: pop and resolve',
+          ],
+          invariants: [
+            'Stack contains unresolved items in nesting order.',
+            'Top of stack is the next item to resolve.',
+          ],
           defaultComplexity: { time: 'O(n)', space: 'O(n)' },
           relatedDataStructures: ['stack'],
           similarTemplates: ['monotonic-stack', 'backtracking'],
@@ -275,11 +382,20 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Monotonic stack',
         description: 'Maintain a stack in sorted order so each new item resolves dominated previous items.',
         metadata: m({
-          classicProblems: ['739. Daily Temperatures', '496. Next Greater Element I', '84. Largest Rectangle in Histogram'],
+          classicProblems: [
+            '739. Daily Temperatures',
+            '496. Next Greater Element I',
+            '84. Largest Rectangle in Histogram',
+          ],
           whenToUse: ['Need next/previous greater or smaller.', 'Need resolve spans or boundaries by dominance.'],
           whenNotToUse: ['Need arbitrary priority updates.', 'Need plain nested matching without ordering.'],
           signals: ['next greater', 'previous smaller', 'histogram', 'span', 'monotonic'],
-          pseudocode: ['stack = []', 'for i, x in enumerate(input):', '  while stack and violates_order(stack[-1], x): resolve stack.pop()', '  push i'],
+          pseudocode: [
+            'stack = []',
+            'for i, x in enumerate(input):',
+            '  while stack and violates_order(stack[-1], x): resolve stack.pop()',
+            '  push i',
+          ],
           invariants: ['Stack is monotonic by the chosen key.', 'Each index is pushed and popped at most once.'],
           defaultComplexity: { time: 'O(n)', space: 'O(n)' },
           relatedDataStructures: ['stack'],
@@ -291,12 +407,25 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Heap / priority queue',
         description: 'Keep the best or next frontier element available under a dynamic ordering.',
         metadata: m({
-          classicProblems: ['23. Merge k Sorted Lists', '347. Top K Frequent Elements', '295. Find Median from Data Stream'],
+          classicProblems: [
+            '23. Merge k Sorted Lists',
+            '347. Top K Frequent Elements',
+            '295. Find Median from Data Stream',
+          ],
           whenToUse: ['Need repeatedly extract min/max.', 'Only top k or frontier candidates matter.'],
           whenNotToUse: ['Need O(1) direct key lookup.', 'A monotonic stack resolves each item once.'],
           signals: ['top k', 'merge k', 'priority', 'frontier', 'median stream'],
-          pseudocode: ['heap = initial candidates', 'while heap:', '  item = pop_best(heap)', '  process item', '  push next candidates'],
-          invariants: ['Heap top is the next candidate by priority.', 'All needed frontier items are represented in the heap.'],
+          pseudocode: [
+            'heap = initial candidates',
+            'while heap:',
+            '  item = pop_best(heap)',
+            '  process item',
+            '  push next candidates',
+          ],
+          invariants: [
+            'Heap top is the next candidate by priority.',
+            'All needed frontier items are represented in the heap.',
+          ],
           defaultComplexity: { time: 'O(n log k)', space: 'O(k)' },
           relatedDataStructures: ['heap', 'priority-queue'],
           similarTemplates: ['partition-selection', 'monotonic-stack'],
@@ -308,10 +437,20 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Use dummy nodes and pointer rewiring to transform linked structure safely.',
         metadata: m({
           classicProblems: ['206. Reverse Linked List', '21. Merge Two Sorted Lists', '143. Reorder List'],
-          whenToUse: ['Need change next pointers.', 'Dummy node or previous/current/next tracking simplifies edge cases.'],
+          whenToUse: [
+            'Need change next pointers.',
+            'Dummy node or previous/current/next tracking simplifies edge cases.',
+          ],
           whenNotToUse: ['Need only detect cycle or midpoint.', 'Array indexing is available and simpler.'],
           signals: ['reverse list', 'dummy node', 'merge list', 'prev current next', 'rewire'],
-          pseudocode: ['dummy = Node()', 'prev, cur = dummy_or_head, head', 'while cur:', '  save next', '  rewrite links', '  advance pointers'],
+          pseudocode: [
+            'dummy = Node()',
+            'prev, cur = dummy_or_head, head',
+            'while cur:',
+            '  save next',
+            '  rewrite links',
+            '  advance pointers',
+          ],
           invariants: ['Already rewired prefix is valid.', 'Unprocessed suffix remains reachable.'],
           defaultComplexity: { time: 'O(n)', space: 'O(1)' },
           relatedDataStructures: ['linked-list'],
@@ -323,11 +462,24 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Tree DFS',
         description: 'Traverse a tree recursively or iteratively and pass information down or return information up.',
         metadata: m({
-          classicProblems: ['104. Maximum Depth of Binary Tree', '543. Diameter of Binary Tree', '236. Lowest Common Ancestor'],
-          whenToUse: ['Need visit all nodes with parent-child structure.', 'Answer depends on subtree summary or path state.'],
+          classicProblems: [
+            '104. Maximum Depth of Binary Tree',
+            '543. Diameter of Binary Tree',
+            '236. Lowest Common Ancestor',
+          ],
+          whenToUse: [
+            'Need visit all nodes with parent-child structure.',
+            'Answer depends on subtree summary or path state.',
+          ],
           whenNotToUse: ['Need shortest unweighted levels.', 'Need arbitrary graph cycle handling.'],
           signals: ['tree', 'recursive', 'subtree', 'root to leaf', 'postorder', 'preorder'],
-          pseudocode: ['dfs(node, state):', '  if not node: return base', '  left = dfs(node.left, next_state)', '  right = dfs(node.right, next_state)', '  return combine(node, left, right)'],
+          pseudocode: [
+            'dfs(node, state):',
+            '  if not node: return base',
+            '  left = dfs(node.left, next_state)',
+            '  right = dfs(node.right, next_state)',
+            '  return combine(node, left, right)',
+          ],
           invariants: ['Each node is processed once.', 'Return value or carried state has a consistent meaning.'],
           defaultComplexity: { time: 'O(n)', space: 'O(h)' },
           relatedDataStructures: ['tree', 'recursion', 'stack'],
@@ -340,11 +492,24 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Explore graph or grid states while tracking visited nodes to avoid repeated work.',
         metadata: m({
           classicProblems: ['200. Number of Islands', '133. Clone Graph', '994. Rotting Oranges'],
-          whenToUse: ['Need connected components, reachability, flood fill, or shortest unweighted expansion.', 'States form a graph or grid.'],
+          whenToUse: [
+            'Need connected components, reachability, flood fill, or shortest unweighted expansion.',
+            'States form a graph or grid.',
+          ],
           whenNotToUse: ['Dependencies form a DAG and require ordering.', 'Need dynamic connectivity under unions.'],
           signals: ['graph', 'grid', 'visited', 'component', 'shortest unweighted', 'flood fill'],
-          pseudocode: ['frontier = [start]', 'visited = set(start)', 'while frontier:', '  node = pop frontier', '  for nei in neighbors(node):', '    if nei not visited: add'],
-          invariants: ['Visited nodes are never processed twice.', 'Frontier contains discovered but unresolved states.'],
+          pseudocode: [
+            'frontier = [start]',
+            'visited = set(start)',
+            'while frontier:',
+            '  node = pop frontier',
+            '  for nei in neighbors(node):',
+            '    if nei not visited: add',
+          ],
+          invariants: [
+            'Visited nodes are never processed twice.',
+            'Frontier contains discovered but unresolved states.',
+          ],
           defaultComplexity: { time: 'O(V + E)', space: 'O(V)' },
           relatedDataStructures: ['queue', 'stack', 'set'],
           similarTemplates: ['tree-dfs', 'topological-order'],
@@ -356,10 +521,18 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Maintain disjoint sets with near-constant connectivity queries and merges.',
         metadata: m({
           classicProblems: ['547. Number of Provinces', '684. Redundant Connection', '721. Accounts Merge'],
-          whenToUse: ['Need connectivity under repeated union operations.', 'Order of edges is not primarily shortest path.'],
+          whenToUse: [
+            'Need connectivity under repeated union operations.',
+            'Order of edges is not primarily shortest path.',
+          ],
           whenNotToUse: ['Need actual traversal path.', 'Need topological dependency order.'],
           signals: ['connected components', 'union', 'find root', 'disjoint set', 'merge groups'],
-          pseudocode: ['parent[i] = i', 'find(x): compress path to root', 'union(a, b): parent[root_a] = root_b', 'query roots for connectivity'],
+          pseudocode: [
+            'parent[i] = i',
+            'find(x): compress path to root',
+            'union(a, b): parent[root_a] = root_b',
+            'query roots for connectivity',
+          ],
           invariants: ['Each set has one representative root.', 'Path compression preserves membership.'],
           defaultComplexity: { time: 'O(alpha(n)) amortized per op', space: 'O(n)' },
           relatedDataStructures: ['disjoint-set'],
@@ -379,11 +552,28 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Explore a decision tree by choosing, recursing, and undoing choices.',
         metadata: m({
           classicProblems: ['78. Subsets', '46. Permutations', '39. Combination Sum'],
-          whenToUse: ['Need enumerate combinations, permutations, or constrained choices.', 'Search state can be advanced and reverted cleanly.'],
-          whenNotToUse: ['Need only optimal value with overlapping subproblems.', 'Choices form a monotonic greedy proof.'],
+          whenToUse: [
+            'Need enumerate combinations, permutations, or constrained choices.',
+            'Search state can be advanced and reverted cleanly.',
+          ],
+          whenNotToUse: [
+            'Need only optimal value with overlapping subproblems.',
+            'Choices form a monotonic greedy proof.',
+          ],
           signals: ['all combinations', 'permutations', 'choose undo', 'decision tree', 'DFS search'],
-          pseudocode: ['path = []', 'dfs(start_or_state):', '  if complete: record path', '  for choice in choices:', '    choose', '    dfs(next_state)', '    undo'],
-          invariants: ['Path represents exactly the choices on the recursion stack.', 'Undo restores state before trying the next choice.'],
+          pseudocode: [
+            'path = []',
+            'dfs(start_or_state):',
+            '  if complete: record path',
+            '  for choice in choices:',
+            '    choose',
+            '    dfs(next_state)',
+            '    undo',
+          ],
+          invariants: [
+            'Path represents exactly the choices on the recursion stack.',
+            'Undo restores state before trying the next choice.',
+          ],
           defaultComplexity: { time: 'O(branching^depth)', space: 'O(depth)' },
           relatedDataStructures: ['recursion', 'array', 'set'],
           similarTemplates: ['dynamic-programming', 'stack'],
@@ -398,7 +588,13 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
           whenToUse: ['Need detect cycles in prerequisites.', 'Need an order that respects directed dependencies.'],
           whenNotToUse: ['Graph is undirected connectivity.', 'Need shortest path levels instead of dependency order.'],
           signals: ['prerequisite', 'DAG', 'in-degree', 'dependency', 'order'],
-          pseudocode: ['build graph and indegree', 'queue nodes with indegree 0', 'while queue:', '  node = pop', '  for next: decrement indegree; enqueue if 0'],
+          pseudocode: [
+            'build graph and indegree',
+            'queue nodes with indegree 0',
+            'while queue:',
+            '  node = pop',
+            '  for next: decrement indegree; enqueue if 0',
+          ],
           invariants: ['Queue nodes have no unresolved prerequisites.', 'Processed count detects cycles.'],
           defaultComplexity: { time: 'O(V + E)', space: 'O(V + E)' },
           relatedDataStructures: ['queue', 'graph'],
@@ -411,11 +607,23 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Define states and transitions to reuse overlapping subproblem answers.',
         metadata: m({
           classicProblems: ['70. Climbing Stairs', '198. House Robber', '322. Coin Change'],
-          whenToUse: ['Optimal answer decomposes into smaller overlapping states.', 'Need count, min/max, or feasibility over choices.'],
+          whenToUse: [
+            'Optimal answer decomposes into smaller overlapping states.',
+            'Need count, min/max, or feasibility over choices.',
+          ],
           whenNotToUse: ['No overlapping states and enumeration is required.', 'A greedy exchange proof exists.'],
           signals: ['state transition', 'memo', 'dp', 'min max count', 'overlapping subproblems'],
-          pseudocode: ['define dp[state]', 'initialize base cases', 'for state in valid order:', '  dp[state] = combine(previous states)', 'return target state'],
-          invariants: ['Each dp value has one precise meaning.', 'Transition only uses already solved or memoized states.'],
+          pseudocode: [
+            'define dp[state]',
+            'initialize base cases',
+            'for state in valid order:',
+            '  dp[state] = combine(previous states)',
+            'return target state',
+          ],
+          invariants: [
+            'Each dp value has one precise meaning.',
+            'Transition only uses already solved or memoized states.',
+          ],
           defaultComplexity: { time: 'O(number_of_states * transition_cost)', space: 'O(number_of_states)' },
           relatedDataStructures: ['array', 'map', 'memoization'],
           similarTemplates: ['linear-scan-state', 'backtracking', 'interval-dp'],
@@ -426,12 +634,27 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         label: 'Interval DP',
         description: 'Solve ranges by choosing a split, boundary, or last operation inside an interval.',
         metadata: m({
-          classicProblems: ['312. Burst Balloons', '516. Longest Palindromic Subsequence', '1039. Minimum Score Triangulation'],
-          whenToUse: ['Subproblem is naturally an interval [l, r].', 'Combining answers requires choosing a split or last action.'],
+          classicProblems: [
+            '312. Burst Balloons',
+            '516. Longest Palindromic Subsequence',
+            '1039. Minimum Score Triangulation',
+          ],
+          whenToUse: [
+            'Subproblem is naturally an interval [l, r].',
+            'Combining answers requires choosing a split or last action.',
+          ],
           whenNotToUse: ['State is a simple prefix or capacity.', 'Greedy boundary movement is sufficient.'],
           signals: ['interval', 'split', 'range DP', 'last operation', 'palindrome subsequence'],
-          pseudocode: ['for length in 1..n:', '  for l in range:', '    r = l + length - 1', '    dp[l][r] = best over split/action k'],
-          invariants: ['Shorter intervals are solved before longer intervals.', 'dp[l][r] only depends on strict subintervals.'],
+          pseudocode: [
+            'for length in 1..n:',
+            '  for l in range:',
+            '    r = l + length - 1',
+            '    dp[l][r] = best over split/action k',
+          ],
+          invariants: [
+            'Shorter intervals are solved before longer intervals.',
+            'dp[l][r] only depends on strict subintervals.',
+          ],
           defaultComplexity: { time: 'O(n^3) typical', space: 'O(n^2)' },
           relatedDataStructures: ['2d-array'],
           similarTemplates: ['dynamic-programming', 'backtracking'],
@@ -444,10 +667,22 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         metadata: m({
           classicProblems: ['55. Jump Game', '435. Non-overlapping Intervals', '763. Partition Labels'],
           whenToUse: ['A local choice can be proven safe.', 'Sorting or scanning exposes a dominance rule.'],
-          whenNotToUse: ['Need explore competing choices without a safety proof.', 'Subproblems overlap and require DP.'],
+          whenNotToUse: [
+            'Need explore competing choices without a safety proof.',
+            'Subproblems overlap and require DP.',
+          ],
           signals: ['furthest', 'earliest finish', 'locally optimal', 'exchange argument', 'sort then choose'],
-          pseudocode: ['order candidates if needed', 'state = initial', 'for candidate in candidates:', '  if candidate is safe or improves frontier:', '    take/update candidate'],
-          invariants: ['Chosen prefix can be extended to an optimal solution.', 'Rejected candidates are dominated by kept state.'],
+          pseudocode: [
+            'order candidates if needed',
+            'state = initial',
+            'for candidate in candidates:',
+            '  if candidate is safe or improves frontier:',
+            '    take/update candidate',
+          ],
+          invariants: [
+            'Chosen prefix can be extended to an optimal solution.',
+            'Rejected candidates are dominated by kept state.',
+          ],
           defaultComplexity: { time: 'O(n log n) with sorting or O(n)', space: 'O(1) to O(n)' },
           relatedDataStructures: ['array'],
           similarTemplates: ['binary-search', 'dynamic-programming'],
@@ -460,9 +695,16 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         metadata: m({
           classicProblems: ['208. Implement Trie', '211. Design Add and Search Words', '212. Word Search II'],
           whenToUse: ['Need many prefix queries.', 'Need prune string search by shared prefixes.'],
-          whenNotToUse: ['Only need exact membership with no prefix relation.', 'Number of strings is tiny and a set is simpler.'],
+          whenNotToUse: [
+            'Only need exact membership with no prefix relation.',
+            'Number of strings is tiny and a set is simpler.',
+          ],
           signals: ['prefix', 'trie', 'dictionary', 'word search', 'startsWith'],
-          pseudocode: ['root = TrieNode()', 'insert(word): walk/create child per char', 'search(prefix): walk child per char; fail if missing'],
+          pseudocode: [
+            'root = TrieNode()',
+            'insert(word): walk/create child per char',
+            'search(prefix): walk child per char; fail if missing',
+          ],
           invariants: ['Each root-to-node path is one prefix.', 'Terminal marker distinguishes full word from prefix.'],
           defaultComplexity: { time: 'O(length) per query', space: 'O(total characters)' },
           relatedDataStructures: ['trie', 'hash-map'],
@@ -475,11 +717,24 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
         description: 'Combine multiple data structures to satisfy operation contracts and complexity constraints.',
         metadata: m({
           classicProblems: ['146. LRU Cache', '155. Min Stack', '380. Insert Delete GetRandom O(1)'],
-          whenToUse: ['Problem asks to implement a class or API.', 'Each operation has explicit complexity requirements.'],
-          whenNotToUse: ['Problem is a one-shot algorithm without persistent operations.', 'One simple data structure already satisfies all operations.'],
+          whenToUse: [
+            'Problem asks to implement a class or API.',
+            'Each operation has explicit complexity requirements.',
+          ],
+          whenNotToUse: [
+            'Problem is a one-shot algorithm without persistent operations.',
+            'One simple data structure already satisfies all operations.',
+          ],
           signals: ['design', 'class', 'get put', 'O(1)', 'operation contract', 'data structure composition'],
-          pseudocode: ['identify operations and required complexity', 'choose state structures for each operation', 'keep structures synchronized on every mutation'],
-          invariants: ['All internal structures describe the same logical state.', 'Every public operation preserves representation consistency.'],
+          pseudocode: [
+            'identify operations and required complexity',
+            'choose state structures for each operation',
+            'keep structures synchronized on every mutation',
+          ],
+          invariants: [
+            'All internal structures describe the same logical state.',
+            'Every public operation preserves representation consistency.',
+          ],
           defaultComplexity: { time: 'Depends on API, often O(1) per op', space: 'O(number of stored items)' },
           relatedDataStructures: ['hash-map', 'linked-list', 'stack', 'array'],
           similarTemplates: ['hash-map-lookup', 'linked-list-rewire'],
@@ -492,15 +747,27 @@ const TEMPLATE_GROUPS: TemplateGroupSeed[] = [
 const DATA_STRUCTURE_TAGS: DataStructureSeed[] = [
   { key: 'ds-array', label: 'Array', description: 'Index-addressable contiguous sequence.' },
   { key: 'ds-string', label: 'String', description: 'Character sequence with substring or scanning operations.' },
-  { key: 'ds-grid', label: 'Grid / Matrix', description: 'Two-dimensional indexed surface with neighbor movement or table-style access.' },
+  {
+    key: 'ds-grid',
+    label: 'Grid / Matrix',
+    description: 'Two-dimensional indexed surface with neighbor movement or table-style access.',
+  },
   { key: 'ds-hash-map', label: 'Hash map', description: 'Key-value lookup table for counts, indices, or state.' },
   { key: 'ds-hash-set', label: 'Hash set', description: 'Membership set for deduplication or visited checks.' },
   { key: 'ds-counter', label: 'Counter', description: 'Frequency map for characters, values, or signatures.' },
   { key: 'ds-stack', label: 'Stack', description: 'Last-in-first-out container.' },
-  { key: 'ds-queue', label: 'Queue / Deque', description: 'FIFO or double-ended frontier container for traversal, window, or monotonic state.' },
+  {
+    key: 'ds-queue',
+    label: 'Queue / Deque',
+    description: 'FIFO or double-ended frontier container for traversal, window, or monotonic state.',
+  },
   { key: 'ds-heap', label: 'Heap', description: 'Priority-ordered container for repeated best extraction.' },
   { key: 'ds-linked-list', label: 'Linked list', description: 'Node chain manipulated through next pointers.' },
-  { key: 'ds-doubly-linked-list', label: 'Doubly linked list', description: 'Node chain with previous and next pointers.' },
+  {
+    key: 'ds-doubly-linked-list',
+    label: 'Doubly linked list',
+    description: 'Node chain with previous and next pointers.',
+  },
   { key: 'ds-tree', label: 'Tree', description: 'Hierarchical acyclic node structure.' },
   { key: 'ds-binary-tree', label: 'Binary tree', description: 'Tree where each node has left and right children.' },
   { key: 'ds-graph', label: 'Graph', description: 'Nodes connected by directed or undirected edges.' },
@@ -589,7 +856,9 @@ function flattenSeeds(): FlatSeed[] {
 function validateSelectableTemplateMetadata(seeds: FlatSeed[]) {
   const errors: string[] = [];
 
-  for (const seed of seeds.filter((entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag')) {
+  for (const seed of seeds.filter(
+    (entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag',
+  )) {
     const metadata = seed.metadata;
     const checks: Array<[string, boolean]> = [
       ['classicProblems', metadata.classicProblems.length > 0],
@@ -726,7 +995,9 @@ async function main() {
 
   const seeds = await seedPatternTags();
   const parentCount = seeds.filter((entry) => entry.dimension === 'template' && entry.kind === 'template_group').length;
-  const selectableCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag').length;
+  const selectableCount = seeds.filter(
+    (entry) => entry.isActive && entry.dimension === 'template' && entry.kind === 'tag',
+  ).length;
   const dataStructureCount = seeds.filter((entry) => entry.isActive && entry.dimension === 'data_structure').length;
 
   console.log(

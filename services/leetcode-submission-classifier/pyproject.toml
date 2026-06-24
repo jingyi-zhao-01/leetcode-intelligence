@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=71"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "leetcode-submission-classifier"
+version = "0.1.0"
+description = "Python AST discovery and submission structure clustering tools"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+submission-ast-cluster-poc = "submission_ast_cluster_poc:cli"
+
+[tool.setuptools]
+py-modules = [
+    "submission_ast_cluster_poc",
+    "submission_ast_cluster_inputs",
+    "ast_discovery",
+]
+package-dir = {"" = "src"}

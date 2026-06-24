@@ -155,7 +155,9 @@ function makeLongHeaderRightPaneFixture() {
 }
 
 function extractPane(markup: string, tagName: 'section' | 'aside', className: string) {
-  const startPattern = new RegExp(`<${tagName}\\s+class="[^"]*\\b${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b[^"]*"`);
+  const startPattern = new RegExp(
+    `<${tagName}\\s+class="[^"]*\\b${className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b[^"]*"`,
+  );
   const startMatch = markup.match(startPattern);
   const start = startMatch?.index ?? -1;
 
@@ -228,7 +230,10 @@ describe('TagWorkbench snapshots', () => {
 
     expect(
       [
-        extractCssBlock(stylesheet, '.template-plane-header > div,\n.template-plane-header-actions,\n.plane-complexity'),
+        extractCssBlock(
+          stylesheet,
+          '.template-plane-header > div,\n.template-plane-header-actions,\n.plane-complexity',
+        ),
         extractCssBlock(stylesheet, '.template-plane-header h2'),
       ].join('\n\n'),
     ).toMatchSnapshot();

@@ -107,11 +107,7 @@ type SubmissionSummary = {
 };
 
 const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
-const TEMPLATE_GENERATOR_MODELS = [
-  'qwen/qwen3-coder-next',
-  'deepseek/deepseek-chat-v3-0324',
-  'openai/gpt-4.1-mini',
-];
+const TEMPLATE_GENERATOR_MODELS = ['qwen/qwen3-coder-next', 'deepseek/deepseek-chat-v3-0324', 'openai/gpt-4.1-mini'];
 
 const TEMPLATE_FORM_ROWS: Array<{
   field: keyof TemplateForm;
@@ -132,7 +128,13 @@ const TEMPLATE_FORM_ROWS: Array<{
   { field: 'timeComplexity', label: 'Time Complexity', placeholder: 'O(n)' },
   { field: 'spaceComplexity', label: 'Space Complexity', placeholder: 'O(1)' },
   { field: 'relatedDataStructures', label: 'Data Structures', multiline: true, placeholder: 'One item per line' },
-  { field: 'similarTemplates', label: 'Similar Templates', multiline: true, placeholder: 'template-key per line', required: false },
+  {
+    field: 'similarTemplates',
+    label: 'Similar Templates',
+    multiline: true,
+    placeholder: 'template-key per line',
+    required: false,
+  },
 ];
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -323,7 +325,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
     submissions[0]?.tags.find((tag) => isTemplateLeaf(tag))?.id ?? null,
   );
-  const [templateBenchmarkOptOut, setTemplateBenchmarkOptOut] = useState(submissions[0]?.templateBenchmarkOptOut ?? false);
+  const [templateBenchmarkOptOut, setTemplateBenchmarkOptOut] = useState(
+    submissions[0]?.templateBenchmarkOptOut ?? false,
+  );
   const [draftTagIds, setDraftTagIds] = useState<Set<string>>(
     () => new Set((submissions[0]?.tags ?? []).filter((tag) => tag.kind === 'tag').map((tag) => tag.id)),
   );
@@ -344,13 +348,14 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   const [isDeleteTemplatePending, startDeleteTemplateTransition] = useTransition();
   const [templateGeneratorModal, setTemplateGeneratorModal] = useState<TemplateGeneratorModal | null>(null);
   const [deleteTemplateBlocker, setDeleteTemplateBlocker] = useState<DeleteTemplateBlocker | null>(null);
-  const [collapsedDayKeys, setCollapsedDayKeys] = useState<Set<string>>(() =>
-    new Set(submissions.map((submission) => startOfDayUTC(new Date(submission.createdAt)).toISOString()).slice(2)),
+  const [collapsedDayKeys, setCollapsedDayKeys] = useState<Set<string>>(
+    () =>
+      new Set(submissions.map((submission) => startOfDayUTC(new Date(submission.createdAt)).toISOString()).slice(2)),
   );
 
   const selectedSubmission = submissions.find((submission) => submission.id === selectedId) ?? submissions[0] ?? null;
   const selectedTags = tags.filter((tag) => draftTagIds.has(tag.id));
-  const selectedTemplate = selectedTemplateId ? tags.find((tag) => tag.id === selectedTemplateId) ?? null : null;
+  const selectedTemplate = selectedTemplateId ? (tags.find((tag) => tag.id === selectedTemplateId) ?? null) : null;
   const benchmark = selectedSubmission ? benchmarksBySubmission[selectedSubmission.id] : null;
   const scoreByTagId = useMemo(() => {
     return new Map(benchmark?.scores.map((score) => [score.patternTagId, score]) ?? []);
@@ -432,9 +437,7 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
   }, [filterValue, query, submissions]);
 
   const tagGroups = useMemo(() => groupTags(tags), [tags]);
-  const benchmarkableGroupCount = tagGroups.filter((group) =>
-    group.tags.some((tag) => isTemplateLeaf(tag)),
-  ).length;
+  const benchmarkableGroupCount = tagGroups.filter((group) => group.tags.some((tag) => isTemplateLeaf(tag))).length;
   const includedBenchmarkGroupCount = benchmarkableGroupCount - excludedBenchmarkGroupKeys.size;
   const attemptsForSelectedProblem = useMemo(() => {
     if (!selectedSubmission) return 0;
@@ -690,7 +693,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
     if (!canWrite) return;
     if (isDeleteTemplatePending) return;
     if (tag.source === 'seeded' || !isTemplateLeaf(tag)) return;
-    const shouldDelete = window.confirm(`Delete template "${tag.label}"? This is only allowed when no submissions use it.`);
+    const shouldDelete = window.confirm(
+      `Delete template "${tag.label}"? This is only allowed when no submissions use it.`,
+    );
     if (!shouldDelete) return;
 
     startDeleteTemplateTransition(async () => {
@@ -741,7 +746,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
         return;
       }
 
-      setMessage(next ? 'Opted out from templating for this submission.' : 'Included this submission in templating again.');
+      setMessage(
+        next ? 'Opted out from templating for this submission.' : 'Included this submission in templating again.',
+      );
       router.refresh();
     });
   }
@@ -769,7 +776,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             <div className="detail-header detail-hero">
               <div className="detail-title-block">
                 <div className="detail-status-row">
-                  <span className={`submission-difficulty difficulty-${(selectedSubmission.difficulty ?? 'unknown').toLowerCase()}`}>
+                  <span
+                    className={`submission-difficulty difficulty-${(selectedSubmission.difficulty ?? 'unknown').toLowerCase()}`}
+                  >
                     {selectedSubmission.difficulty ?? 'Unknown'}
                   </span>
                   <span className="submission-status-pill">{selectedSubmission.status}</span>
@@ -777,7 +786,11 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                   <span className="submission-header-meta">{formatDate(selectedSubmission.createdAt)}</span>
                   <span className="submission-header-meta">{attemptsForSelectedProblem} attempts</span>
                   <span className={`taxonomy-state-pill taxonomy-${taxonomyState}`}>
-                    {taxonomyState === 'complete' ? 'In taxonomy' : taxonomyState === 'partial' ? 'Partial taxonomy' : 'Not in taxonomy'}
+                    {taxonomyState === 'complete'
+                      ? 'In taxonomy'
+                      : taxonomyState === 'partial'
+                        ? 'Partial taxonomy'
+                        : 'Not in taxonomy'}
                   </span>
                 </div>
                 <h2>{selectedSubmission.title ?? selectedSubmission.titleSlug ?? 'Submission'}</h2>
@@ -992,7 +1005,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
                 <div className="section-title-row section-title-row-spread">
                   <div>
                     <h3>Submission Note</h3>
-                    <p className="section-copy">Record why this accepted version worked or what you want to remember.</p>
+                    <p className="section-copy">
+                      Record why this accepted version worked or what you want to remember.
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -1036,7 +1051,10 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
             ) : null}
 
             {deleteTemplateBlocker ? (
-              <DeleteTemplateBlockedModal blocker={deleteTemplateBlocker} onClose={() => setDeleteTemplateBlocker(null)} />
+              <DeleteTemplateBlockedModal
+                blocker={deleteTemplateBlocker}
+                onClose={() => setDeleteTemplateBlocker(null)}
+              />
             ) : null}
 
             <div className="actions surface-card surface-card-inline sticky-action-bar">
@@ -1050,7 +1068,9 @@ export function TagWorkbench({ submissions, tags, canWrite }: Props) {
               </Button>
               <Button
                 onClick={runTemplateBenchmark}
-                disabled={isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut || !canWrite}
+                disabled={
+                  isBenchmarkPending || includedBenchmarkGroupCount <= 0 || templateBenchmarkOptOut || !canWrite
+                }
                 title={canWrite ? undefined : 'Sign in to run benchmark'}
               >
                 <AsyncButtonLabel
@@ -1206,7 +1226,9 @@ function SubmissionHistoryPanel({
                     <div className="min-h-0">
                       <div className="submission-problem-list">
                         {day.problems.map((problem) => {
-                          const active = problem.submissions.some((submission) => submission.id === selectedSubmission?.id);
+                          const active = problem.submissions.some(
+                            (submission) => submission.id === selectedSubmission?.id,
+                          );
                           return (
                             <section
                               className={['submission-problem-group', active ? 'active' : ''].filter(Boolean).join(' ')}
@@ -1255,8 +1277,12 @@ function SubmissionHistoryPanel({
                                           {submission.tags.filter((tag) => tag.kind === 'tag').length || 0} tag
                                           {submission.tags.filter((tag) => tag.kind === 'tag').length === 1 ? '' : 's'}
                                         </span>
-                                        <span className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}>
-                                          {submission.templateBenchmarkOptOut ? 'opted out' : formatDate(submission.createdAt)}
+                                        <span
+                                          className={`submission-optout ${submission.templateBenchmarkOptOut ? 'active' : ''}`}
+                                        >
+                                          {submission.templateBenchmarkOptOut
+                                            ? 'opted out'
+                                            : formatDate(submission.createdAt)}
                                         </span>
                                       </div>
                                     </button>
@@ -1306,14 +1332,26 @@ function TemplateGeneratorModal({
 }) {
   return (
     <div className="modal-backdrop" role="presentation">
-      <section className="template-generator-modal" role="dialog" aria-modal="true" aria-labelledby="template-generator-title">
+      <section
+        className="template-generator-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="template-generator-title"
+      >
         <div className="modal-header">
           <div>
             <p className="eyebrow">Generate Template</p>
             <h2 id="template-generator-title">New canonical template</h2>
             <p>Group: {modal.groupLabel}</p>
           </div>
-          <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={onClose} aria-label="Close template generator">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close template generator"
+          >
             ×
           </Button>
         </div>
@@ -1372,7 +1410,11 @@ function TemplateGeneratorModal({
                   />
                 )}
               </Label>
-              <Button type="button" onClick={() => onAssistField(row.field, row.label)} disabled={isPending || !canWrite}>
+              <Button
+                type="button"
+                onClick={() => onAssistField(row.field, row.label)}
+                disabled={isPending || !canWrite}
+              >
                 <AsyncButtonLabel isPending={isPending} label="LLM assist" pendingLabel="Assisting..." />
               </Button>
             </div>
@@ -1402,26 +1444,32 @@ function TemplateGeneratorModal({
   );
 }
 
-function DeleteTemplateBlockedModal({
-  blocker,
-  onClose,
-}: {
-  blocker: DeleteTemplateBlocker;
-  onClose: () => void;
-}) {
+function DeleteTemplateBlockedModal({ blocker, onClose }: { blocker: DeleteTemplateBlocker; onClose: () => void }) {
   return (
     <div className="modal-backdrop" role="presentation">
-        <section className="delete-template-modal" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
-          <div className="modal-header">
-            <div>
-              <p className="eyebrow">Delete blocked</p>
-              <h2 id="delete-template-title">{blocker.tag.label}</h2>
+      <section
+        className="delete-template-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-template-title"
+      >
+        <div className="modal-header">
+          <div>
+            <p className="eyebrow">Delete blocked</p>
+            <h2 id="delete-template-title">{blocker.tag.label}</h2>
             <p>
               This template is still associated with {blocker.assignmentCount} submission
-                {blocker.assignmentCount === 1 ? '' : 's'}. Manually remove or replace those tags before deleting it.
+              {blocker.assignmentCount === 1 ? '' : 's'}. Manually remove or replace those tags before deleting it.
             </p>
           </div>
-          <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={onClose} aria-label="Close delete blocker">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close delete blocker"
+          >
             ×
           </Button>
         </div>
@@ -1438,7 +1486,9 @@ function DeleteTemplateBlockedModal({
         </div>
 
         {blocker.assignmentCount > blocker.submissions.length ? (
-          <p className="blocked-note">Showing latest {blocker.submissions.length}; resolve all associations before deleting.</p>
+          <p className="blocked-note">
+            Showing latest {blocker.submissions.length}; resolve all associations before deleting.
+          </p>
         ) : null}
 
         <div className="modal-footer">
@@ -1476,7 +1526,11 @@ function SubmissionContext({
         </div>
         <span>{submission.language ?? 'unknown language'}</span>
       </div>
-      <div className="context-tab-strip flex min-h-11 items-stretch gap-1 overflow-x-auto border-b border-black/10 bg-[#f6f2ea]" role="tablist" aria-label="Submission context">
+      <div
+        className="context-tab-strip flex min-h-11 items-stretch gap-1 overflow-x-auto border-b border-black/10 bg-[#f6f2ea]"
+        role="tablist"
+        aria-label="Submission context"
+      >
         <button
           type="button"
           role="tab"
@@ -1546,87 +1600,89 @@ function TemplateControlPlane({
       role="complementary"
       aria-labelledby="template-plane-title"
     >
-        <div className="template-plane-header relative flex min-h-[86px] flex-col gap-3 px-3 py-2.5 pr-12">
-          <div className="min-w-0">
-            <p className="eyebrow">Template Control Plane</p>
-            <h2 id="template-plane-title" className="text-sm font-semibold leading-tight">{template.label}</h2>
-            <div className="template-identity flex min-w-0 flex-wrap items-center gap-2">
-              <p className="min-w-0 break-words">{template.key}</p>
-              <strong className={`source-badge source-${template.source}`}>{sourceLabel(template.source)}</strong>
-            </div>
-          </div>
-          {metadata?.defaultComplexity ? (
-            <div className="plane-complexity flex min-w-0 flex-wrap items-start gap-2">
-              <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
-              <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
-              {benchmarkScore ? (
-                <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="template-plane-header-actions absolute right-3 top-2.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="template-plane-close h-8 w-8 shrink-0 rounded-full"
-              onClick={onClose}
-              aria-label="Close template drawer"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <div className="template-plane-header relative flex min-h-[86px] flex-col gap-3 px-3 py-2.5 pr-12">
+        <div className="min-w-0">
+          <p className="eyebrow">Template Control Plane</p>
+          <h2 id="template-plane-title" className="text-sm font-semibold leading-tight">
+            {template.label}
+          </h2>
+          <div className="template-identity flex min-w-0 flex-wrap items-center gap-2">
+            <p className="min-w-0 break-words">{template.key}</p>
+            <strong className={`source-badge source-${template.source}`}>{sourceLabel(template.source)}</strong>
           </div>
         </div>
-
-        {template.description ? <p className="template-description">{template.description}</p> : null}
-
-        {metadata ? (
-          <div className="template-plane-grid">
+        {metadata?.defaultComplexity ? (
+          <div className="plane-complexity flex min-w-0 flex-wrap items-start gap-2">
+            <span>Time {metadata.defaultComplexity.time ?? 'n/a'}</span>
+            <span>Space {metadata.defaultComplexity.space ?? 'n/a'}</span>
             {benchmarkScore ? (
-              <section className="template-card wide benchmark-card">
-                <h3>LLM Benchmark</h3>
-                <p>
-                  Score {benchmarkScore.score}/100 · Confidence {benchmarkScore.confidence}/100
-                </p>
-                {benchmarkScore.reason ? <p>{benchmarkScore.reason}</p> : null}
-                {benchmarkScore.evidence.length ? (
-                  <ul>
-                    {benchmarkScore.evidence.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
+              <span className={`plane-score ${benchmarkTone(benchmarkScore.score)}`}>{benchmarkScore.score}</span>
             ) : null}
-            <TemplateList title="When To Use" items={metadata.whenToUse} />
-            <TemplateList title="When Not To Use" items={metadata.whenNotToUse} />
-            <TemplateList title="Signals" items={metadata.signals} compact />
-            <TemplateList title="Invariants" items={metadata.invariants} />
-            {metadata.pseudocode?.length ? (
-              <section className="template-card wide">
-                <h3>Pseudocode</h3>
-                <pre>{metadata.pseudocode.join('\n')}</pre>
-              </section>
-            ) : null}
-            <TemplateList title="Data Structures" items={metadata.relatedDataStructures} compact />
-            <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
-            {similarTemplates?.length ? (
-              <section className="template-card">
-                <h3>Similar Templates</h3>
-                <div className="related-tags">
-                  {similarTemplates.map((tag) => (
-                    <span key={tag.id}>{tag.key}</span>
+          </div>
+        ) : null}
+        <div className="template-plane-header-actions absolute right-3 top-2.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="template-plane-close h-8 w-8 shrink-0 rounded-full"
+            onClick={onClose}
+            aria-label="Close template drawer"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {template.description ? <p className="template-description">{template.description}</p> : null}
+
+      {metadata ? (
+        <div className="template-plane-grid">
+          {benchmarkScore ? (
+            <section className="template-card wide benchmark-card">
+              <h3>LLM Benchmark</h3>
+              <p>
+                Score {benchmarkScore.score}/100 · Confidence {benchmarkScore.confidence}/100
+              </p>
+              {benchmarkScore.reason ? <p>{benchmarkScore.reason}</p> : null}
+              {benchmarkScore.evidence.length ? (
+                <ul>
+                  {benchmarkScore.evidence.map((item) => (
+                    <li key={item}>{item}</li>
                   ))}
-                </div>
-              </section>
-            ) : null}
-          </div>
-        ) : (
-          <div className="template-card wide">
-            <h3>No metadata yet</h3>
-            <p>This template exists in the controlled tag set, but its control-plane details have not been seeded yet.</p>
-          </div>
-        )}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+          <TemplateList title="When To Use" items={metadata.whenToUse} />
+          <TemplateList title="When Not To Use" items={metadata.whenNotToUse} />
+          <TemplateList title="Signals" items={metadata.signals} compact />
+          <TemplateList title="Invariants" items={metadata.invariants} />
+          {metadata.pseudocode?.length ? (
+            <section className="template-card wide">
+              <h3>Pseudocode</h3>
+              <pre>{metadata.pseudocode.join('\n')}</pre>
+            </section>
+          ) : null}
+          <TemplateList title="Data Structures" items={metadata.relatedDataStructures} compact />
+          <TemplateList title="Classic Problems" items={metadata.classicProblems} compact />
+          {similarTemplates?.length ? (
+            <section className="template-card">
+              <h3>Similar Templates</h3>
+              <div className="related-tags">
+                {similarTemplates.map((tag) => (
+                  <span key={tag.id}>{tag.key}</span>
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
+      ) : (
+        <div className="template-card wide">
+          <h3>No metadata yet</h3>
+          <p>This template exists in the controlled tag set, but its control-plane details have not been seeded yet.</p>
+        </div>
+      )}
     </aside>
   );
 }

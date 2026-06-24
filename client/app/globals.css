@@ -210,7 +210,6 @@ button.ui-btn {
   font-size: 12px;
 }
 
-
 * {
   box-sizing: border-box;
 }
@@ -355,7 +354,10 @@ body {
   border: 1px solid transparent;
   color: rgba(234, 240, 232, 0.62);
   text-decoration: none;
-  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
 }
 
 .app-rail-link svg {
@@ -992,9 +994,7 @@ textarea:disabled {
 .template-builder-cluster {
   border: 1px solid var(--line);
   border-radius: 18px;
-  background:
-    radial-gradient(circle at top left, rgba(31, 122, 107, 0.08), transparent 28%),
-    rgba(255, 253, 248, 0.9);
+  background: radial-gradient(circle at top left, rgba(31, 122, 107, 0.08), transparent 28%), rgba(255, 253, 248, 0.9);
   padding: 20px;
   display: grid;
   gap: 14px;
@@ -1002,7 +1002,10 @@ textarea:disabled {
 }
 
 .template-builder-cluster.template-builder-cluster-droppable {
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .template-builder-cluster.template-builder-cluster-droppable.drop-target-active {
@@ -1263,9 +1266,7 @@ textarea:disabled {
   grid-template-columns: auto auto 1fr;
   align-items: center;
   gap: 14px;
-  background:
-    radial-gradient(circle at center, rgba(31, 122, 107, 0.08), transparent 55%),
-    rgba(247, 252, 250, 0.96);
+  background: radial-gradient(circle at center, rgba(31, 122, 107, 0.08), transparent 55%), rgba(247, 252, 250, 0.96);
 }
 
 .template-directory-create:hover {
@@ -1668,7 +1669,9 @@ textarea:disabled {
   stroke: var(--cluster-stroke);
   stroke-width: 2;
   stroke-dasharray: 9 7;
-  transition: stroke 0.2s ease, fill 0.2s ease;
+  transition:
+    stroke 0.2s ease,
+    fill 0.2s ease;
 }
 
 .graph-cluster.template {
@@ -1830,7 +1833,9 @@ textarea:disabled {
   text-anchor: middle;
   font-size: 11px;
   font-weight: 700;
-  transition: opacity 0.18s ease, fill 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    fill 0.18s ease;
 }
 
 .graph-node-label.cluster-highlight {
@@ -2147,9 +2152,7 @@ textarea:disabled {
 }
 
 .tag-group.dimension-data_structure {
-  background:
-    linear-gradient(135deg, rgba(52, 87, 166, 0.1), transparent 42%),
-    rgba(248, 250, 255, 0.8);
+  background: linear-gradient(135deg, rgba(52, 87, 166, 0.1), transparent 42%), rgba(248, 250, 255, 0.8);
   border-color: rgba(52, 87, 166, 0.22);
 }
 
@@ -2239,9 +2242,7 @@ textarea:disabled {
 
 .tag-option.dimension-data_structure {
   border-color: rgba(52, 87, 166, 0.18);
-  background:
-    linear-gradient(135deg, rgba(52, 87, 166, 0.08), transparent 46%),
-    #fbfcff;
+  background: linear-gradient(135deg, rgba(52, 87, 166, 0.08), transparent 46%), #fbfcff;
 }
 
 .tag-option:hover {
@@ -2260,9 +2261,7 @@ textarea:disabled {
 
 .tag-option.dimension-data_structure.selected {
   border-color: var(--structure);
-  background:
-    linear-gradient(135deg, rgba(52, 87, 166, 0.2), transparent 52%),
-    var(--structure-soft);
+  background: linear-gradient(135deg, rgba(52, 87, 166, 0.2), transparent 52%), var(--structure-soft);
   box-shadow: inset 0 0 0 2px rgba(52, 87, 166, 0.2);
 }
 
@@ -2278,8 +2277,7 @@ textarea:disabled {
   border-color: var(--amber);
   background:
     linear-gradient(135deg, rgba(185, 111, 32, 0.24), rgba(255, 248, 237, 0.96)),
-    linear-gradient(315deg, rgba(46, 99, 139, 0.08), transparent 44%),
-    #fff8ed;
+    linear-gradient(315deg, rgba(46, 99, 139, 0.08), transparent 44%), #fff8ed;
   box-shadow: inset 0 0 0 2px rgba(185, 111, 32, 0.18);
 }
 
@@ -3498,14 +3496,11 @@ button.primary {
   grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
   background:
     radial-gradient(circle at top right, rgba(45, 143, 125, 0.05), transparent 28%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 18%),
-    var(--bg);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 18%), var(--bg);
 }
 
 .sidebar {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 253, 248, 0.92)),
-    rgba(255, 253, 248, 0.9);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 253, 248, 0.92)), rgba(255, 253, 248, 0.9);
   backdrop-filter: blur(10px);
 }
 
@@ -3607,7 +3602,9 @@ button.primary {
 
 .submission-problem-group.active {
   border-color: rgba(45, 143, 125, 0.34);
-  box-shadow: inset 4px 0 0 var(--accent), 0 16px 32px rgba(31, 122, 107, 0.08);
+  box-shadow:
+    inset 4px 0 0 var(--accent),
+    0 16px 32px rgba(31, 122, 107, 0.08);
 }
 
 .submission-problem-header {
@@ -3657,9 +3654,7 @@ button.primary {
   gap: 18px;
   padding: 18px 20px;
   border: 1px solid var(--line);
-  background:
-    radial-gradient(circle at top right, rgba(83, 223, 192, 0.1), transparent 28%),
-    rgba(255, 255, 255, 0.58);
+  background: radial-gradient(circle at top right, rgba(83, 223, 192, 0.1), transparent 28%), rgba(255, 255, 255, 0.58);
   box-shadow: 0 16px 34px rgba(42, 35, 24, 0.06);
 }
 
@@ -3761,8 +3756,7 @@ button.primary {
   margin-top: 0;
   border: 1px solid var(--line);
   background:
-    radial-gradient(circle at top right, rgba(63, 111, 213, 0.08), transparent 22%),
-    rgba(255, 255, 255, 0.52);
+    radial-gradient(circle at top right, rgba(63, 111, 213, 0.08), transparent 22%), rgba(255, 255, 255, 0.52);
   box-shadow: 0 16px 32px rgba(42, 35, 24, 0.05);
   padding: 18px 20px;
 }
@@ -5256,7 +5250,9 @@ body {
 }
 
 .template-builder-cluster.template-builder-cluster-droppable {
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 
 .template-builder-cluster.template-builder-cluster-droppable.drop-target-active {
@@ -5600,8 +5596,7 @@ body {
   padding: 0;
   background:
     radial-gradient(circle at 74% 18%, rgba(47, 123, 107, 0.06), transparent 32%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.72), rgba(243, 239, 231, 0.96)),
-    var(--bg);
+    linear-gradient(180deg, rgba(255, 253, 248, 0.72), rgba(243, 239, 231, 0.96)), var(--bg);
 }
 
 .graph-page-header {
@@ -5827,7 +5822,11 @@ body {
 
 .graph-group-list-item.selected {
   box-shadow: inset 4px 0 0 var(--graph-group-color);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--graph-group-color) 10%, white), rgba(255, 252, 246, 0.96));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--graph-group-color) 10%, white),
+    rgba(255, 252, 246, 0.96)
+  );
 }
 
 .graph-group-list-dot {

@@ -1,1 +1,1 @@
-export * from "../service-runtime/index.ts";
+export * from '../service-runtime/index.ts';

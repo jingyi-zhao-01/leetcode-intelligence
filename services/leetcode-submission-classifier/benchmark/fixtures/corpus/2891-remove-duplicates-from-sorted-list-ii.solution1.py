@@ -1,0 +1,40 @@
+# Source: https://github.com/kamyu104/LeetCode-Solutions
+# problem_id: remove-duplicates-from-sorted-list-ii
+# source_path: LeetCode-Solutions-master/Python/remove-duplicates-from-sorted-list-ii.py
+# solution_class: Solution
+# submission_id: 3b3d5e850bad8b3c8ec293a9ef02e7c0d65f619e
+# seed: 2136751855
+
+# Time:  O(n)
+# Space: O(1)
+
+class ListNode(object):
+    def __init__(self, x):
+        self.val = x
+        self.next = None
+
+    def __repr__(self):
+        if self is None:
+            return "Nil"
+        else:
+            return "{} -> {}".format(self.val, repr(self.next))
+
+class Solution(object):
+    def deleteDuplicates(self, head):
+        """
+        :type head: ListNode
+        :rtype: ListNode
+        """
+        dummy = ListNode(0)
+        pre, cur = dummy, head
+        while cur:
+            if cur.next and cur.next.val == cur.val:
+                val = cur.val
+                while cur and cur.val == val:
+                    cur = cur.next
+                pre.next = cur
+            else:
+                pre.next = cur
+                pre = cur
+                cur = cur.next
+        return dummy.next

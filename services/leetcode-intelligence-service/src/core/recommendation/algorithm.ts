@@ -1,12 +1,6 @@
-import type { FocusRecommendation } from "../types.ts";
-import { LinearWeightCalculator, clamp, type WeightCalculator } from "../shared/weight.ts";
-import {
-  buildReason,
-  daysSince,
-  difficultyBoost,
-  estimatedSolveMinutes,
-  round,
-} from "./util.ts";
+import type { FocusRecommendation } from '../types.ts';
+import { LinearWeightCalculator, clamp, type WeightCalculator } from '../shared/weight.ts';
+import { buildReason, daysSince, difficultyBoost, estimatedSolveMinutes, round } from './util.ts';
 
 export type RecommendationWeightRecord = {
   questionSlug: string;
@@ -74,7 +68,7 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
         const failureRate = submissionStats.total > 0 ? submissionStats.failed / submissionStats.total : 0;
         const stalenessDays = daysSince(item.lastResponseAt ?? item.lastPromptAt);
         const avgScore = scoringStats.scoreCount > 0 ? scoringStats.scoreSum / scoringStats.scoreCount : null;
-        const estimatedTimeMinutes = estimatedSolveMinutes(item.Question?.difficulty ?? "");
+        const estimatedTimeMinutes = estimatedSolveMinutes(item.Question?.difficulty ?? '');
         const recentSubmissionDays = submissionStats.lastSubmittedAt
           ? daysSince(submissionStats.lastSubmittedAt)
           : null;
@@ -82,30 +76,31 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
         const scoreFromWeight = this.weightCalculator.normalizedSignal(item.weight, input.maxWeight) * 1.8;
         const scoreFromFailure = failureRate * 1.8;
         const scoreFromStaleness = clamp(stalenessDays / input.lookbackDays, 0, 2) * 1.1;
-        const scoreFromDifficulty = difficultyBoost(item.Question?.difficulty ?? "");
+        const scoreFromDifficulty = difficultyBoost(item.Question?.difficulty ?? '');
         const scoreFromLowAverage = avgScore === null ? 0.25 : clamp((3.2 - avgScore) / 3.2, 0, 1) * 0.8;
         const scoreFromRecentAttempts = clamp((submissionStats.total - 1) / 4, 0, 1) * 0.45;
         const scoreFromFailureStreak = clamp(submissionStats.recentFailureStreak / 3, 0, 1) * 0.9;
-        const scoreFromRecentSubmission = recentSubmissionDays === null
-          ? 0
-          : clamp(1 - recentSubmissionDays / Math.max(input.lookbackDays / 2, 1), 0, 1) * 0.6;
+        const scoreFromRecentSubmission =
+          recentSubmissionDays === null
+            ? 0
+            : clamp(1 - recentSubmissionDays / Math.max(input.lookbackDays / 2, 1), 0, 1) * 0.6;
 
         const priority = round(
-          scoreFromWeight
-            + scoreFromFailure
-            + scoreFromStaleness
-            + scoreFromDifficulty
-            + scoreFromLowAverage
-            + scoreFromRecentAttempts
-            + scoreFromFailureStreak
-            + scoreFromRecentSubmission,
+          scoreFromWeight +
+            scoreFromFailure +
+            scoreFromStaleness +
+            scoreFromDifficulty +
+            scoreFromLowAverage +
+            scoreFromRecentAttempts +
+            scoreFromFailureStreak +
+            scoreFromRecentSubmission,
           4,
         );
 
         const recommendation: FocusRecommendation = {
           questionSlug: item.questionSlug,
           title: item.Question?.title ?? item.questionSlug,
-          difficulty: item.Question?.difficulty ?? "Unknown",
+          difficulty: item.Question?.difficulty ?? 'Unknown',
           priority,
           signals: {
             weight: round(item.weight, 3),
@@ -118,7 +113,7 @@ export class HeuristicFocusRecommendationAlgorithm implements FocusRecommendatio
             recentFailureStreak: submissionStats.recentFailureStreak,
             recentSubmissionDays: recentSubmissionDays === null ? null : round(recentSubmissionDays, 1),
           },
-          reason: "",
+          reason: '',
         };
         recommendation.reason = buildReason(recommendation);
 

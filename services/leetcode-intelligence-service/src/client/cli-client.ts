@@ -1,10 +1,10 @@
-import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
+import readline from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 
-import type { PromptDelivery, PromptDispatchSuccess } from "./contracts.ts";
+import type { PromptDelivery, PromptDispatchSuccess } from './contracts.ts';
 
 export class CliClient {
-  readonly channelId = "cli";
+  readonly channelId = 'cli';
 
   async renderPrompt(prompt: PromptDispatchSuccess): Promise<PromptDelivery> {
     const promptBody = prompt.questionSlug
@@ -19,7 +19,7 @@ export class CliClient {
     return {};
   }
 
-  async requestReply(question = "\nYour reply: "): Promise<string> {
+  async requestReply(question = '\nYour reply: '): Promise<string> {
     const rl = readline.createInterface({ input, output });
     try {
       return await rl.question(question);

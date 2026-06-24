@@ -1,13 +1,13 @@
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "vitest";
+import assert from 'node:assert/strict';
+import { afterEach, describe, it } from 'vitest';
 
-import { ChannelType, Client, GatewayIntentBits } from "discord.js";
+import { ChannelType, Client, GatewayIntentBits } from 'discord.js';
 
-import { CliClient } from "../src/client/cli-client.ts";
-import { DiscordClient } from "../src/client/discord-client.ts";
-import { dispatchPrompt, runInteractivePromptSession, scorePromptReply } from "../src/client/prompt-flow.ts";
-import { PromptResponseClient } from "../src/client/prompt-response.ts";
-import { dispatchRecommendation, splitRenderedMessage } from "../src/client/recommendation-flow.ts";
+import { CliClient } from '../src/client/cli-client.ts';
+import { DiscordClient } from '../src/client/discord-client.ts';
+import { dispatchPrompt, runInteractivePromptSession, scorePromptReply } from '../src/client/prompt-flow.ts';
+import { PromptResponseClient } from '../src/client/prompt-response.ts';
+import { dispatchRecommendation, splitRenderedMessage } from '../src/client/recommendation-flow.ts';
 
 type FakePromptService = {
   triggerPromptCalls: Array<{ triggerSource: string; transport: { channelId: string } }>;
@@ -48,7 +48,7 @@ const resetStubs = (): void => {
 };
 
 const installDiscordStub = (): void => {
-  Client.prototype.login = (async function loginStub(this: Client) {
+  Client.prototype.login = async function loginStub(this: Client) {
     (this as Client & { channels: { fetch: (channelId: string) => Promise<unknown> } }).channels = {
       fetch: async (channelId: string) => ({
         type: stubChannelType,
@@ -64,18 +64,18 @@ const installDiscordStub = (): void => {
           const messageId = `message-${sentMessages.length + 1}`;
           sentMessages.push({
             channelId,
-            content: content ?? "",
+            content: content ?? '',
             embeds: Array.isArray(embeds)
-              ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
+              ? embeds.map((embed) => (typeof embed?.toJSON === 'function' ? embed.toJSON() : embed))
               : undefined,
           });
           return { id: messageId };
         },
       }),
     };
-    this.emit("clientReady", this);
-    return "stub-token";
-  }) as typeof Client.prototype.login;
+    this.emit('clientReady', this);
+    return 'stub-token';
+  } as typeof Client.prototype.login;
 
   Client.prototype.isReady = (() => true) as typeof Client.prototype.isReady;
   Client.prototype.destroy = (async () => undefined) as typeof Client.prototype.destroy;
@@ -91,9 +91,9 @@ const createFakePromptService = (): FakePromptService => {
       service.triggerPromptCalls.push({ triggerSource, transport });
       return {
         ok: true,
-        promptEventId: "prompt-event-1",
-        promptText: "Solve two-sum",
-        questionSlug: "two-sum",
+        promptEventId: 'prompt-event-1',
+        promptText: 'Solve two-sum',
+        questionSlug: 'two-sum',
       };
     },
     attachPromptMessage: async (promptEventId, messageId) => {
@@ -116,204 +116,204 @@ afterEach(() => {
   resetStubs();
 });
 
-describe("prompt-flow", () => {
-  it("dispatchPrompt sends prompt text and links the returned message id", async () => {
+describe('prompt-flow', () => {
+  it('dispatchPrompt sends prompt text and links the returned message id', async () => {
     const service = createFakePromptService();
     const sentPromptBodies: string[] = [];
 
     const result = await dispatchPrompt(
       service as never,
-        {
-          channelId: "prompt-channel",
-          renderPrompt: async (prompt) => {
-            sentPromptBodies.push(prompt.promptText);
-            return { messageId: "discord-message-1" };
-          },
+      {
+        channelId: 'prompt-channel',
+        renderPrompt: async (prompt) => {
+          sentPromptBodies.push(prompt.promptText);
+          return { messageId: 'discord-message-1' };
         },
-      "scheduled",
+      },
+      'scheduled',
     );
 
     assert.equal(result.ok, true);
-    assert.equal(result.ok && result.messageId, "discord-message-1");
-    assert.deepEqual(sentPromptBodies, ["Solve two-sum"]);
+    assert.equal(result.ok && result.messageId, 'discord-message-1');
+    assert.deepEqual(sentPromptBodies, ['Solve two-sum']);
     assert.deepEqual(service.triggerPromptCalls, [
       {
-        triggerSource: "scheduled",
-        transport: { channelId: "prompt-channel" },
+        triggerSource: 'scheduled',
+        transport: { channelId: 'prompt-channel' },
       },
     ]);
     assert.deepEqual(service.attachPromptMessageCalls, [
       {
-        promptEventId: "prompt-event-1",
-        messageId: "discord-message-1",
+        promptEventId: 'prompt-event-1',
+        messageId: 'discord-message-1',
       },
     ]);
   });
 
-  it("dispatchPrompt returns prompt generation failures without sending anything", async () => {
+  it('dispatchPrompt returns prompt generation failures without sending anything', async () => {
     const service = createFakePromptService();
     const sentPromptBodies: string[] = [];
     service.triggerPrompt = async (triggerSource, transport) => {
       service.triggerPromptCalls.push({ triggerSource, transport });
       return {
         ok: false,
-        message: "No candidate submissions found.",
+        message: 'No candidate submissions found.',
       };
     };
 
     const result = await dispatchPrompt(
       service as never,
-        {
-          channelId: "prompt-channel",
-          renderPrompt: async (prompt) => {
-            sentPromptBodies.push(prompt.promptText);
-            return { messageId: "should-not-send" };
-          },
+      {
+        channelId: 'prompt-channel',
+        renderPrompt: async (prompt) => {
+          sentPromptBodies.push(prompt.promptText);
+          return { messageId: 'should-not-send' };
         },
-      "scheduled",
+      },
+      'scheduled',
     );
 
     assert.deepEqual(result, {
       ok: false,
-      message: "No candidate submissions found.",
+      message: 'No candidate submissions found.',
     });
     assert.deepEqual(sentPromptBodies, []);
     assert.deepEqual(service.attachPromptMessageCalls, []);
   });
 
-  it("scorePromptReply routes promptEventId requests to scorePromptReply", async () => {
+  it('scorePromptReply routes promptEventId requests to scorePromptReply', async () => {
     const service = createFakePromptService();
 
     const result = await scorePromptReply(service as never, {
-      promptEventId: "prompt-event-1",
-      rawReply: "Use a hash map.",
+      promptEventId: 'prompt-event-1',
+      rawReply: 'Use a hash map.',
     });
 
-    assert.deepEqual(result, { ok: true, promptEventId: "prompt-event-1", score: 0.82 });
+    assert.deepEqual(result, { ok: true, promptEventId: 'prompt-event-1', score: 0.82 });
     assert.deepEqual(service.scorePromptReplyCalls, [
       {
-        promptEventId: "prompt-event-1",
-        rawReply: "Use a hash map.",
+        promptEventId: 'prompt-event-1',
+        rawReply: 'Use a hash map.',
       },
     ]);
     assert.deepEqual(service.scorePromptReplyByMessageIdCalls, []);
   });
 
-  it("scorePromptReply routes referenceMessageId requests to scorePromptReplyByMessageId", async () => {
+  it('scorePromptReply routes referenceMessageId requests to scorePromptReplyByMessageId', async () => {
     const service = createFakePromptService();
 
     const result = await scorePromptReply(service as never, {
-      referenceMessageId: "discord-message-1",
-      rawReply: "Use two pointers.",
+      referenceMessageId: 'discord-message-1',
+      rawReply: 'Use two pointers.',
     });
 
-    assert.deepEqual(result, { ok: true, messageId: "discord-message-1", score: 0.91 });
+    assert.deepEqual(result, { ok: true, messageId: 'discord-message-1', score: 0.91 });
     assert.deepEqual(service.scorePromptReplyCalls, []);
     assert.deepEqual(service.scorePromptReplyByMessageIdCalls, [
       {
-        messageId: "discord-message-1",
-        rawReply: "Use two pointers.",
+        messageId: 'discord-message-1',
+        rawReply: 'Use two pointers.',
       },
     ]);
   });
 
-  it("runInteractivePromptSession reuses the shared prompt lifecycle for cli clients", async () => {
+  it('runInteractivePromptSession reuses the shared prompt lifecycle for cli clients', async () => {
     const service = createFakePromptService();
     const originalWrite = process.stdout.write.bind(process.stdout);
     const writes: string[] = [];
 
     process.stdout.write = ((chunk: string | Uint8Array) => {
-      writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+      writes.push(typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8'));
       return true;
     }) as typeof process.stdout.write;
 
     try {
       const client = new CliClient();
-      client.requestReply = async () => "Use a hash map.";
+      client.requestReply = async () => 'Use a hash map.';
 
-      const result = await runInteractivePromptSession(service as never, client, "cli");
+      const result = await runInteractivePromptSession(service as never, client, 'cli');
 
       assert.equal(result.ok, true);
       assert.deepEqual(service.scorePromptReplyCalls, [
         {
-          promptEventId: "prompt-event-1",
-          rawReply: "Use a hash map.",
+          promptEventId: 'prompt-event-1',
+          rawReply: 'Use a hash map.',
         },
       ]);
-      assert.match(writes.join(""), /Question: two-sum/);
-      assert.match(writes.join(""), /Solve two-sum/);
+      assert.match(writes.join(''), /Question: two-sum/);
+      assert.match(writes.join(''), /Solve two-sum/);
     } finally {
       process.stdout.write = originalWrite;
     }
   });
 });
 
-describe("DiscordClient", () => {
-  it("renderPrompt sends content to the configured text channel", async () => {
+describe('DiscordClient', () => {
+  it('renderPrompt sends content to the configured text channel', async () => {
     installDiscordStub();
     const client = new DiscordClient({
-      scope: "client/test",
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      scope: 'client/test',
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
       intents: [GatewayIntentBits.Guilds],
     });
 
     await client.start({ waitUntilReady: true });
     const delivery = await client.renderPrompt({
       ok: true,
-      promptEventId: "prompt-event-1",
-      promptText: "Solve two-sum",
+      promptEventId: 'prompt-event-1',
+      promptText: 'Solve two-sum',
     });
     await client.stop();
 
-    assert.deepEqual(delivery, { messageId: "message-1" });
+    assert.deepEqual(delivery, { messageId: 'message-1' });
     assert.deepEqual(sentMessages, [
       {
-        channelId: "prompt-channel",
-        content: "",
+        channelId: 'prompt-channel',
+        content: '',
         embeds: [
           {
             color: 5793266,
-            title: "Solve two-sum",
-            description: "Solve two-sum",
+            title: 'Solve two-sum',
+            description: 'Solve two-sum',
           },
         ],
       },
     ]);
   });
 
-  it("renderText sends plain content to the configured text channel", async () => {
+  it('renderText sends plain content to the configured text channel', async () => {
     installDiscordStub();
     const client = new DiscordClient({
-      scope: "client/test",
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      scope: 'client/test',
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
       intents: [GatewayIntentBits.Guilds],
     });
 
     await client.start({ waitUntilReady: true });
-    const delivery = await client.renderText("plain message");
+    const delivery = await client.renderText('plain message');
     await client.stop();
 
-    assert.deepEqual(delivery, { messageId: "message-1" });
+    assert.deepEqual(delivery, { messageId: 'message-1' });
     assert.deepEqual(sentMessages, [
       {
-        channelId: "prompt-channel",
-        content: "plain message",
+        channelId: 'prompt-channel',
+        content: 'plain message',
         embeds: undefined,
       },
     ]);
   });
 
-  it("ensureTargetChannel rejects non-guild-text channels", async () => {
+  it('ensureTargetChannel rejects non-guild-text channels', async () => {
     installDiscordStub();
     stubChannelType = ChannelType.DM;
     stubIsTextBased = true;
 
     const client = new DiscordClient({
-      scope: "client/test",
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      scope: 'client/test',
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
       intents: [GatewayIntentBits.Guilds],
     });
 
@@ -325,35 +325,35 @@ describe("DiscordClient", () => {
     await client.stop();
   });
 
-  it("addReaction reacts to a prompt message in the configured text channel", async () => {
+  it('addReaction reacts to a prompt message in the configured text channel', async () => {
     installDiscordStub();
     const client = new DiscordClient({
-      scope: "client/test",
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      scope: 'client/test',
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
       intents: [GatewayIntentBits.Guilds],
     });
 
     await client.start({ waitUntilReady: true });
-    await client.addReaction("prompt-message-1", "👍");
+    await client.addReaction('prompt-message-1', '👍');
     await client.stop();
 
     assert.deepEqual(reactedMessages, [
       {
-        channelId: "prompt-channel",
-        messageId: "prompt-message-1",
-        emoji: "👍",
+        channelId: 'prompt-channel',
+        messageId: 'prompt-message-1',
+        emoji: '👍',
       },
     ]);
   });
 });
 
-describe("PromptResponseClient", () => {
-  it("scores direct replies in the prompt channel", async () => {
+describe('PromptResponseClient', () => {
+  it('scores direct replies in the prompt channel', async () => {
     const service = createFakePromptService();
     const client = new PromptResponseClient(service as never, {
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
     });
 
     const sentReplies: string[] = [];
@@ -361,52 +361,52 @@ describe("PromptResponseClient", () => {
       ensureTargetChannel: async () => undefined,
       addReaction: async (messageId: string, emoji: string) => {
         reactedMessages.push({
-          channelId: "prompt-channel",
+          channelId: 'prompt-channel',
           messageId,
           emoji,
         });
       },
       replyToMessage: async (_message: unknown, content: string) => {
         sentReplies.push(content);
-        return { messageId: "feedback-1" };
+        return { messageId: 'feedback-1' };
       },
       stop: async () => undefined,
       start: async () => undefined,
     };
 
     await (client as any).handleMessage({
-      id: "user-message-1",
-      content: "Use BFS level by level.",
-      author: { id: "user-1", bot: false },
-      reference: { messageId: "prompt-message-1" },
+      id: 'user-message-1',
+      content: 'Use BFS level by level.',
+      author: { id: 'user-1', bot: false },
+      reference: { messageId: 'prompt-message-1' },
       channel: {
-        id: "prompt-channel",
+        id: 'prompt-channel',
         isThread: () => false,
       },
     });
 
     assert.deepEqual(service.scorePromptReplyByMessageIdCalls, [
       {
-        messageId: "prompt-message-1",
-        rawReply: "Use BFS level by level.",
+        messageId: 'prompt-message-1',
+        rawReply: 'Use BFS level by level.',
       },
     ]);
     assert.equal(sentReplies.length, 1);
-    assert.match(sentReplies[0] ?? "", /Score: 0.91/);
+    assert.match(sentReplies[0] ?? '', /Score: 0.91/);
     assert.deepEqual(reactedMessages, [
       {
-        channelId: "prompt-channel",
-        messageId: "prompt-message-1",
-        emoji: "👍",
+        channelId: 'prompt-channel',
+        messageId: 'prompt-message-1',
+        emoji: '👍',
       },
     ]);
   });
 
-  it("ignores thread messages that are not direct replies", async () => {
+  it('ignores thread messages that are not direct replies', async () => {
     const service = createFakePromptService();
     const client = new PromptResponseClient(service as never, {
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
     });
 
     (client as any).discord = {
@@ -417,13 +417,13 @@ describe("PromptResponseClient", () => {
 
     const sentReplies: string[] = [];
     await (client as any).handleMessage({
-      id: "user-message-1",
-      content: "Use BFS level by level.",
-      author: { id: "user-1", bot: false },
+      id: 'user-message-1',
+      content: 'Use BFS level by level.',
+      author: { id: 'user-1', bot: false },
       reference: null,
       channel: {
-        id: "prompt-message-1",
-        parentId: "prompt-channel",
+        id: 'prompt-message-1',
+        parentId: 'prompt-channel',
         isThread: () => true,
         send: async ({ content }: { content: string }) => {
           sentReplies.push(content);
@@ -436,8 +436,8 @@ describe("PromptResponseClient", () => {
   });
 });
 
-describe("recommendation-flow", () => {
-  it("dispatchRecommendation uses the shared text render client", async () => {
+describe('recommendation-flow', () => {
+  it('dispatchRecommendation uses the shared text render client', async () => {
     const service = createFakePromptService() as FakePromptService & {
       recommendFocus: (topK: number) => Promise<Record<string, unknown>>;
       recommendFocusCalls: number[];
@@ -446,14 +446,14 @@ describe("recommendation-flow", () => {
     service.recommendFocus = async (topK: number) => {
       service.recommendFocusCalls.push(topK);
       return {
-        generatedAt: "2026-05-31T00:00:00.000Z",
+        generatedAt: '2026-05-31T00:00:00.000Z',
         lookbackDays: 14,
-        narrative: "Practice array problems first.",
+        narrative: 'Practice array problems first.',
         recommendations: [
           {
-            questionSlug: "two-sum",
-            title: "Two Sum",
-            difficulty: "Easy",
+            questionSlug: 'two-sum',
+            title: 'Two Sum',
+            difficulty: 'Easy',
             priority: 0.91,
             signals: {
               weight: 0.75,
@@ -466,7 +466,7 @@ describe("recommendation-flow", () => {
               recentFailureStreak: 1,
               recentSubmissionDays: 1.5,
             },
-            reason: "High leverage refresher.",
+            reason: 'High leverage refresher.',
           },
         ],
       };
@@ -476,7 +476,7 @@ describe("recommendation-flow", () => {
     const result = await dispatchRecommendation(
       service as never,
       {
-        channelId: "cli",
+        channelId: 'cli',
         renderText: async (content) => {
           rendered.push(content);
           return {};
@@ -487,21 +487,21 @@ describe("recommendation-flow", () => {
 
     assert.deepEqual(service.recommendFocusCalls, [3]);
     assert.equal(result.deliveries.length, 1);
-    assert.match(rendered[0] ?? "", /## Focus Recommendation/);
-    assert.match(rendered[0] ?? "", /Two Sum/);
-    assert.match(rendered[0] ?? "", /Estimated time: `15m`/);
-    assert.match(rendered[0] ?? "", /High leverage refresher/);
+    assert.match(rendered[0] ?? '', /## Focus Recommendation/);
+    assert.match(rendered[0] ?? '', /Two Sum/);
+    assert.match(rendered[0] ?? '', /Estimated time: `15m`/);
+    assert.match(rendered[0] ?? '', /High leverage refresher/);
   });
 
-  it("splitRenderedMessage preserves recommendation boundaries when chunking", () => {
-    const body = ["## Focus Recommendation", "", "### 1. **Two Sum**", "x".repeat(1940), "### 2. **Three Sum**"].join(
-      "\n",
+  it('splitRenderedMessage preserves recommendation boundaries when chunking', () => {
+    const body = ['## Focus Recommendation', '', '### 1. **Two Sum**', 'x'.repeat(1940), '### 2. **Three Sum**'].join(
+      '\n',
     );
 
     const chunks = splitRenderedMessage(body, 2000);
 
     assert.equal(chunks.length, 2);
-    assert.match(chunks[0] ?? "", /### 1\. \*\*Two Sum\*\*/);
-    assert.match(chunks[1] ?? "", /### 2\. \*\*Three Sum\*\*/);
+    assert.match(chunks[0] ?? '', /### 1\. \*\*Two Sum\*\*/);
+    assert.match(chunks[1] ?? '', /### 2\. \*\*Three Sum\*\*/);
   });
 });

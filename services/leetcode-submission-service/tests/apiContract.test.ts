@@ -38,7 +38,13 @@ describe('submission service action contracts', () => {
       title_slug: 'two-sum',
     });
 
-    assert.deepEqual(Object.keys(response).sort(), ['action', 'already_active', 'evicted_title_slugs', 'success', 'title_slug']);
+    assert.deepEqual(Object.keys(response).sort(), [
+      'action',
+      'already_active',
+      'evicted_title_slugs',
+      'success',
+      'title_slug',
+    ]);
     assert.equal(response.success, true);
     assert.equal(response.action, ServerAction.START_TIMER);
     assert.equal(response.title_slug, 'two-sum');
@@ -181,7 +187,15 @@ describe('submission service action contracts', () => {
       editor_content: 'class Solution:\n    pass',
     });
 
-    assert.deepEqual(Object.keys(response).sort(), ['action', 'annotations', 'count', 'event_id', 'success', 'summary', 'title_slug']);
+    assert.deepEqual(Object.keys(response).sort(), [
+      'action',
+      'annotations',
+      'count',
+      'event_id',
+      'success',
+      'summary',
+      'title_slug',
+    ]);
     assert.equal(response.success, true);
     assert.equal(response.action, ServerAction.ANALYZE_FAILURE);
     assert.equal(Array.isArray(response.annotations), true);

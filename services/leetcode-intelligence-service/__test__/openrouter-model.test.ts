@@ -1,13 +1,13 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { config as loadDotenv } from "dotenv";
-import { OpenRouter } from "@openrouter/sdk";
+import { config as loadDotenv } from 'dotenv';
+import { OpenRouter } from '@openrouter/sdk';
 
 const tryLoadDotenv = (): void => {
   const candidates = [
-    path.resolve(process.cwd(), ".env"),
-    path.resolve(process.cwd(), "../../.env"),
-    path.resolve(process.cwd(), "../../../.env"),
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '../../.env'),
+    path.resolve(process.cwd(), '../../../.env'),
   ];
 
   for (const envPath of candidates) {
@@ -26,24 +26,24 @@ const requireEnv = (name: string): string => {
 const main = async (): Promise<void> => {
   tryLoadDotenv();
 
-  const apiKey = requireEnv("OPEN_ROUTER_API_KEY");
-  const model = requireEnv("MODEL");
+  const apiKey = requireEnv('OPEN_ROUTER_API_KEY');
+  const model = requireEnv('MODEL');
 
   console.error(`[openrouter-test] starting model probe model=${model} keyPresent=${Boolean(apiKey)}`);
 
   const client = new OpenRouter({
     apiKey,
-    httpReferer: "https://github.com/kawre/leetcode.nvim",
-    appTitle: "leetcode-intelligence-service-openrouter-test",
+    httpReferer: 'https://github.com/kawre/leetcode.nvim',
+    appTitle: 'leetcode-intelligence-service-openrouter-test',
   });
 
   const models = await client.models.list();
   const modelIds = new Set((models.data ?? []).map((item) => item.id));
 
   if (!modelIds.has(model)) {
-    const alternatives = [...modelIds].filter((id) => id.startsWith("deepseek/")).slice(0, 10);
+    const alternatives = [...modelIds].filter((id) => id.startsWith('deepseek/')).slice(0, 10);
     throw new Error(
-      `[openrouter-test] model not found in models.list: ${model}. Example available deepseek models: ${alternatives.join(", ")}`,
+      `[openrouter-test] model not found in models.list: ${model}. Example available deepseek models: ${alternatives.join(', ')}`,
     );
   }
 
@@ -54,18 +54,18 @@ const main = async (): Promise<void> => {
       model,
       temperature: 0,
       maxTokens: 20,
-      messages: [{ role: "user", content: "Reply with exactly: ok" }],
+      messages: [{ role: 'user', content: 'Reply with exactly: ok' }],
     },
   });
 
-  const content = completion.choices?.[0]?.message?.content?.trim() ?? "";
+  const content = completion.choices?.[0]?.message?.content?.trim() ?? '';
   console.error(`[openrouter-test] chat completion succeeded content=${JSON.stringify(content)}`);
-  console.log("PASS");
+  console.log('PASS');
 };
 
 try {
   await main();
 } catch (error) {
-  console.error("[openrouter-test] FAILED", error);
+  console.error('[openrouter-test] FAILED', error);
   process.exit(1);
 }

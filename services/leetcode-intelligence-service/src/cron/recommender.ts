@@ -1,14 +1,14 @@
-import { pathToFileURL } from "node:url";
+import { pathToFileURL } from 'node:url';
 
-import { RecommendationDispatchClient } from "../client/index.ts";
-import { runRecommendationDispatchOnce } from "../client/recommendation-dispatch.ts";
-import { createLogger } from "../logger.ts";
-import { createIntelligenceService, loadIntelligenceConfig } from "../service-runtime/index.ts";
+import { RecommendationDispatchClient } from '../client/index.ts';
+import { runRecommendationDispatchOnce } from '../client/recommendation-dispatch.ts';
+import { createLogger } from '../logger.ts';
+import { createIntelligenceService, loadIntelligenceConfig } from '../service-runtime/index.ts';
 
 const createRecommendationConfig = () => {
   const config = loadIntelligenceConfig();
   if (!config.DISCORD_BOT_TOKEN || !config.RECOMMEND_DISCORD_CHANNEL_ID) {
-    throw new Error("DISCORD_BOT_TOKEN and RECOMMEND_DISCORD_CHANNEL_ID are required for recommendation mode.");
+    throw new Error('DISCORD_BOT_TOKEN and RECOMMEND_DISCORD_CHANNEL_ID are required for recommendation mode.');
   }
 
   return {
@@ -16,15 +16,15 @@ const createRecommendationConfig = () => {
     channelId: config.RECOMMEND_DISCORD_CHANNEL_ID,
     cronSchedule: config.INTELLIGENCE_RECOMMEND_CRON,
     topK: config.INTELLIGENCE_RECOMMEND_TOP_K,
-    timezone: process.env.TZ ?? "UTC",
+    timezone: process.env.TZ ?? 'UTC',
   };
 };
 
-export const runRecommender = async (mode: "scheduled" | "once"): Promise<void> => {
+export const runRecommender = async (mode: 'scheduled' | 'once'): Promise<void> => {
   const clientConfig = createRecommendationConfig();
   const service = await createIntelligenceService();
 
-  if (mode === "once") {
+  if (mode === 'once') {
     await runRecommendationDispatchOnce(service, {
       botToken: clientConfig.botToken,
       channelId: clientConfig.channelId,
@@ -38,25 +38,25 @@ export const runRecommender = async (mode: "scheduled" | "once"): Promise<void> 
 };
 
 export const runRecommenderCli = async (
-  scope: "recommender" | "recommender-once",
-  mode: "scheduled" | "once",
+  scope: 'recommender' | 'recommender-once',
+  mode: 'scheduled' | 'once',
 ): Promise<void> => {
   const logger = createLogger(scope);
 
   try {
     await runRecommender(mode);
   } catch (error) {
-    logger.fatal({ err: error }, "unhandled error");
+    logger.fatal({ err: error }, 'unhandled error');
     process.exit(1);
   }
 };
 
-const parseMode = (value: string | undefined): "scheduled" | "once" => {
-  if (value === undefined || value === "scheduled") {
-    return "scheduled";
+const parseMode = (value: string | undefined): 'scheduled' | 'once' => {
+  if (value === undefined || value === 'scheduled') {
+    return 'scheduled';
   }
-  if (value === "once") {
-    return "once";
+  if (value === 'once') {
+    return 'once';
   }
 
   throw new Error(`Unsupported recommender mode: ${value}`);
@@ -66,6 +66,6 @@ const isMainModule = process.argv[1] !== undefined && import.meta.url === pathTo
 
 if (isMainModule) {
   const mode = parseMode(process.argv[2]);
-  const scope = mode === "once" ? "recommender-once" : "recommender";
+  const scope = mode === 'once' ? 'recommender-once' : 'recommender';
   await runRecommenderCli(scope, mode);
 }

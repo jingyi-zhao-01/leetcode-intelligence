@@ -1,17 +1,17 @@
-import { randomInt } from "node:crypto";
+import { randomInt } from 'node:crypto';
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from '@prisma/client';
 
-import { buildPromptText } from "../../client/render.ts";
+import { buildPromptText } from '../../client/render.ts';
 import type {
   CandidateQuestion,
   CandidateSubmission,
   IntelligenceConfig,
   PromptTransport,
   WeightedCandidate,
-} from "../types.ts";
-import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
-import { PromptCandidatePipeline } from "./pipeline.ts";
+} from '../types.ts';
+import { LinearWeightCalculator, type WeightCalculator } from '../shared/weight.ts';
+import { PromptCandidatePipeline } from './pipeline.ts';
 
 export type PromptCandidate = WeightedCandidate;
 
@@ -46,10 +46,10 @@ export class PromptGenerator {
   // Select one eligible question/submission pair, persist the prompt event, and
   // stamp the question weight record so reply scoring can later update it.
   async generate(triggerSource: string, transport?: PromptTransport): Promise<PromptGenerationOutcome> {
-    const resolvedTransport = transport ?? { channelId: "cli" };
+    const resolvedTransport = transport ?? { channelId: 'cli' };
     const candidate = await this.pickCandidate();
     if (!candidate) {
-      return { ok: false, message: "No candidate submission found." };
+      return { ok: false, message: 'No candidate submission found.' };
     }
 
     const promptText = buildPromptText(candidate.question, candidate.submission);
@@ -101,7 +101,7 @@ export class PromptGenerator {
   private async pickCandidate(): Promise<PromptCandidate | null> {
     const submissions = (await this.prisma.submission.findMany({
       where: { titleSlug: { not: null } },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       take: this.config.INTELLIGENCE_MAX_CANDIDATES,
     })) as CandidateSubmission[];
 
@@ -110,12 +110,18 @@ export class PromptGenerator {
     }
 
     const titleSlugs = [
-      ...new Set(submissions.map((submission) => submission.titleSlug).filter((titleSlug): titleSlug is string => Boolean(titleSlug))),
+      ...new Set(
+        submissions
+          .map((submission) => submission.titleSlug)
+          .filter((titleSlug): titleSlug is string => Boolean(titleSlug)),
+      ),
     ];
     const questions = (await this.prisma.question.findMany({
       where: { titleSlug: { in: titleSlugs } },
     })) as CandidateQuestion[];
-    const questionBySlug = new Map<string, CandidateQuestion>(questions.map((question) => [question.titleSlug, question]));
+    const questionBySlug = new Map<string, CandidateQuestion>(
+      questions.map((question) => [question.titleSlug, question]),
+    );
 
     const weights = (await this.prisma.intelligenceWeight.findMany({
       where: { questionSlug: { in: titleSlugs } },
@@ -125,36 +131,36 @@ export class PromptGenerator {
 
     const candidates = new PromptCandidatePipeline(
       submissions
-      .map<PromptPipelineCandidate | null>((submission) => {
-        const titleSlug = submission.titleSlug;
-        if (!titleSlug) {
-          return null;
-        }
-        const question = questionBySlug.get(titleSlug);
-        if (!question) {
-          return null;
-        }
-        return {
-          submission: {
-            id: submission.id,
-            titleSlug,
-            content: submission.content,
-            status: submission.status,
-            createdAt: submission.createdAt,
-          },
-          question: {
-            title: question.title,
-            titleSlug: question.titleSlug,
-            difficulty: question.difficulty,
-            content: question.content,
-            topicTags: question.topicTags,
-            freqBar: question.freqBar,
-          },
-          weight: weightBySlug.get(titleSlug) ?? this.weightCalculator.defaultWeight,
-          lastPromptAt: lastPromptAtBySlug.get(titleSlug) ?? null,
-        };
-      })
-      .filter((candidate): candidate is PromptPipelineCandidate => candidate !== null),
+        .map<PromptPipelineCandidate | null>((submission) => {
+          const titleSlug = submission.titleSlug;
+          if (!titleSlug) {
+            return null;
+          }
+          const question = questionBySlug.get(titleSlug);
+          if (!question) {
+            return null;
+          }
+          return {
+            submission: {
+              id: submission.id,
+              titleSlug,
+              content: submission.content,
+              status: submission.status,
+              createdAt: submission.createdAt,
+            },
+            question: {
+              title: question.title,
+              titleSlug: question.titleSlug,
+              difficulty: question.difficulty,
+              content: question.content,
+              topicTags: question.topicTags,
+              freqBar: question.freqBar,
+            },
+            weight: weightBySlug.get(titleSlug) ?? this.weightCalculator.defaultWeight,
+            lastPromptAt: lastPromptAtBySlug.get(titleSlug) ?? null,
+          };
+        })
+        .filter((candidate): candidate is PromptPipelineCandidate => candidate !== null),
     )
       .dedupeByQuestion()
       .dropPromptedQuestions(this.config.INTELLIGENCE_PROMPT_COOLDOWN_RULES)

@@ -1,4 +1,4 @@
-import type { ApiContext } from "./context.ts";
+import type { ApiContext } from './context.ts';
 import {
   mapPatternTagOption,
   readLanguage,
@@ -6,14 +6,14 @@ import {
   type ActivePatternTag,
   type SubmissionPatternTagRecord,
   type TemplateBenchmarkRecord,
-} from "./shared.ts";
+} from './shared.ts';
 import type {
   GraphSubmissionRow,
   PatternTagKind,
   SubmissionRow,
   TemplateBenchmarkResult,
   TemplateCatalogSubmissionRow,
-} from "./types.ts";
+} from './types.ts';
 
 type TagWorkbenchSubmission = {
   id: string;
@@ -103,14 +103,14 @@ function buildTemplateBenchmarkLookup(records: TemplateBenchmarkRecord[]) {
 
     return {
       submissionId,
-      model: rows[0]?.model ?? "",
+      model: rows[0]?.model ?? '',
       excludedGroupKeys: rows[0]?.excludedGroupKeys ?? [],
       scores: rows.map((record) => ({
         key: record.templateKey,
         patternTagId: record.patternTagId,
         score: record.score,
         confidence: record.confidence,
-        reason: record.reason ?? "",
+        reason: record.reason ?? '',
         evidence: record.evidence ?? [],
       })),
     };
@@ -121,8 +121,8 @@ export function createReadModelsApi({ prisma }: ApiContext) {
   const getTagWorkbenchData = async () => {
     const [submissions, tags]: [TagWorkbenchSubmission[], ActivePatternTag[]] = await Promise.all([
       prisma.submission.findMany({
-        where: { status: "Accepted" },
-        orderBy: { createdAt: "desc" },
+        where: { status: 'Accepted' },
+        orderBy: { createdAt: 'desc' },
         take: 250,
         include: {
           SubmissionPatternTag: {
@@ -131,18 +131,20 @@ export function createReadModelsApi({ prisma }: ApiContext) {
                 include: { parent: true },
               },
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: { createdAt: 'asc' },
           },
         },
       }),
       prisma.patternTag.findMany({
         where: { isActive: true },
         include: { parent: true, _count: { select: { SubmissionPatternTag: true } } },
-        orderBy: [{ dimension: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
+        orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { label: 'asc' }],
       }),
     ]);
 
-    const slugs = [...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug)))];
+    const slugs = [
+      ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+    ];
     const questions: TagWorkbenchQuestionRecord[] = await prisma.question.findMany({
       where: { titleSlug: { in: slugs } },
       select: { titleSlug: true, title: true, difficulty: true, content: true, relatedProblems: true },
@@ -165,7 +167,7 @@ export function createReadModelsApi({ prisma }: ApiContext) {
             excludedGroupKeys: true,
             updatedAt: true,
           },
-          orderBy: [{ submissionId: "asc" }, { score: "desc" }, { updatedAt: "desc" }],
+          orderBy: [{ submissionId: 'asc' }, { score: 'desc' }, { updatedAt: 'desc' }],
         })
       : [];
 
@@ -200,8 +202,8 @@ export function createReadModelsApi({ prisma }: ApiContext) {
   const getTemplatesPageData = async () => {
     const [submissions, tags]: [TemplateCatalogSubmission[], ActivePatternTag[]] = await Promise.all([
       prisma.submission.findMany({
-        where: { status: "Accepted" },
-        orderBy: { createdAt: "desc" },
+        where: { status: 'Accepted' },
+        orderBy: { createdAt: 'desc' },
         take: 250,
         select: {
           id: true,
@@ -213,18 +215,20 @@ export function createReadModelsApi({ prisma }: ApiContext) {
                 include: { parent: true },
               },
             },
-            orderBy: { createdAt: "asc" },
+            orderBy: { createdAt: 'asc' },
           },
         },
       }),
       prisma.patternTag.findMany({
         where: { isActive: true },
         include: { parent: true, _count: { select: { SubmissionPatternTag: true } } },
-        orderBy: [{ dimension: "asc" }, { sortOrder: "asc" }, { label: "asc" }],
+        orderBy: [{ dimension: 'asc' }, { sortOrder: 'asc' }, { label: 'asc' }],
       }),
     ]);
 
-    const slugs = [...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug)))];
+    const slugs = [
+      ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+    ];
     const questions: TemplateCatalogQuestionRecord[] = await prisma.question.findMany({
       where: { titleSlug: { in: slugs } },
       select: { titleSlug: true, title: true },
@@ -235,7 +239,7 @@ export function createReadModelsApi({ prisma }: ApiContext) {
       submissions: submissions.map<TemplateCatalogSubmissionRow>((submission) => ({
         id: submission.id,
         titleSlug: submission.titleSlug,
-        title: submission.titleSlug ? questionBySlug.get(submission.titleSlug)?.title ?? null : null,
+        title: submission.titleSlug ? (questionBySlug.get(submission.titleSlug)?.title ?? null) : null,
         createdAt: submission.createdAt.toISOString(),
         tags: mapSubmissionTags(submission.SubmissionPatternTag),
       })),
@@ -245,8 +249,8 @@ export function createReadModelsApi({ prisma }: ApiContext) {
 
   const getGraphPageData = async () => {
     const submissions: GraphSubmission[] = await prisma.submission.findMany({
-      where: { status: "Accepted" },
-      orderBy: { createdAt: "desc" },
+      where: { status: 'Accepted' },
+      orderBy: { createdAt: 'desc' },
       take: 250,
       select: {
         id: true,
@@ -258,12 +262,14 @@ export function createReadModelsApi({ prisma }: ApiContext) {
               include: { parent: true },
             },
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: 'asc' },
         },
       },
     });
 
-    const slugs = [...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug)))];
+    const slugs = [
+      ...new Set(submissions.map((submission) => submission.titleSlug).filter((slug): slug is string => Boolean(slug))),
+    ];
     const questions: GraphQuestionRecord[] = await prisma.question.findMany({
       where: { titleSlug: { in: slugs } },
       select: { titleSlug: true, title: true, difficulty: true, relatedProblems: true },

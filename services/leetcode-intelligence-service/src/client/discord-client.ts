@@ -1,23 +1,20 @@
-import { once } from "node:events";
+import { once } from 'node:events';
 
-import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message, type TextChannel } from "discord.js";
-import type { Logger } from "pino";
+import { ChannelType, Client, EmbedBuilder, GatewayIntentBits, type Message, type TextChannel } from 'discord.js';
+import type { Logger } from 'pino';
 
-import { createLogger } from "../logger.ts";
-import type { PromptDelivery, PromptDispatchSuccess } from "./contracts.ts";
+import { createLogger } from '../logger.ts';
+import type { PromptDelivery, PromptDispatchSuccess } from './contracts.ts';
 
-const baseLogger = createLogger("client/discord");
-const PROMPT_EMBED_COLOR = 0x5865F2;
+const baseLogger = createLogger('client/discord');
+const PROMPT_EMBED_COLOR = 0x5865f2;
 
 const buildPromptEmbed = (promptText: string): EmbedBuilder => {
-  const [firstLine, ...rest] = promptText.split("\n");
-  const title = (firstLine?.trim() || "LeetCode Prompt").slice(0, 256);
-  const description = rest.join("\n").trim().slice(0, 4096) || promptText.slice(0, 4096);
+  const [firstLine, ...rest] = promptText.split('\n');
+  const title = (firstLine?.trim() || 'LeetCode Prompt').slice(0, 256);
+  const description = rest.join('\n').trim().slice(0, 4096) || promptText.slice(0, 4096);
 
-  return new EmbedBuilder()
-    .setColor(PROMPT_EMBED_COLOR)
-    .setTitle(title)
-    .setDescription(description);
+  return new EmbedBuilder().setColor(PROMPT_EMBED_COLOR).setTitle(title).setDescription(description);
 };
 
 export type DiscordClientConfig = {
@@ -47,35 +44,35 @@ export class DiscordClient {
   }
 
   async start(options: DiscordStartOptions = {}): Promise<void> {
-    this.logger.info({ channelId: this.channelId }, "starting client");
-    this.discord.on("error", (error) => {
-      this.logger.error({ err: error }, "discord client error");
+    this.logger.info({ channelId: this.channelId }, 'starting client');
+    this.discord.on('error', (error) => {
+      this.logger.error({ err: error }, 'discord client error');
     });
     if (options.onMessage) {
-      this.discord.on("messageCreate", (message) => void options.onMessage?.(message));
+      this.discord.on('messageCreate', (message) => void options.onMessage?.(message));
     }
-    this.discord.once("clientReady", () => {
+    this.discord.once('clientReady', () => {
       this.logger.info(
         {
-          userTag: this.discord.user?.tag ?? "unknown",
+          userTag: this.discord.user?.tag ?? 'unknown',
           channelId: this.channelId,
         },
-        "ready",
+        'ready',
       );
     });
 
-    this.logger.info("logging in bot");
+    this.logger.info('logging in bot');
     await this.discord.login(this.config.botToken);
     if (options.waitUntilReady && !this.discord.isReady()) {
-      await once(this.discord, "clientReady");
+      await once(this.discord, 'clientReady');
     }
   }
 
   async stop(): Promise<void> {
-    this.logger.info("stopping client");
+    this.logger.info('stopping client');
     this.discord.removeAllListeners();
     await this.discord.destroy().catch(() => undefined);
-    this.logger.info("client stopped");
+    this.logger.info('client stopped');
   }
 
   async renderPrompt(prompt: PromptDispatchSuccess): Promise<PromptDelivery> {
@@ -107,7 +104,7 @@ export class DiscordClient {
 
   private async resolveTextChannel(): Promise<TextChannel> {
     const channel = await this.discord.channels.fetch(this.channelId);
-    if (!(channel?.isTextBased()) || channel.type !== ChannelType.GuildText) {
+    if (!channel?.isTextBased() || channel.type !== ChannelType.GuildText) {
       throw new Error(`Discord channel ${this.channelId} is not a guild text channel.`);
     }
     return channel;

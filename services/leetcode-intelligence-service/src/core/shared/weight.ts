@@ -1,6 +1,6 @@
-import type { IntelligenceConfig } from "../types.ts";
+import type { IntelligenceConfig } from '../types.ts';
 
-export type WeightBoundsConfig = Pick<IntelligenceConfig, "INTELLIGENCE_MIN_WEIGHT" | "INTELLIGENCE_MAX_WEIGHT">;
+export type WeightBoundsConfig = Pick<IntelligenceConfig, 'INTELLIGENCE_MIN_WEIGHT' | 'INTELLIGENCE_MAX_WEIGHT'>;
 
 export interface WeightCalculator {
   readonly defaultWeight: number;
@@ -80,9 +80,11 @@ const defaultWeightCalculator = new LinearWeightCalculator();
 
 export const DEFAULT_QUESTION_WEIGHT = defaultWeightCalculator.defaultWeight;
 export const MIN_SELECTION_WEIGHT = defaultWeightCalculator.minSelectionWeight;
-export const clamp = (value: number, min: number, max: number): number => defaultWeightCalculator.clamp(value, min, max);
+export const clamp = (value: number, min: number, max: number): number =>
+  defaultWeightCalculator.clamp(value, min, max);
 export const scoreToWeightDelta = (score: number): number => defaultWeightCalculator.scoreToWeightDelta(score);
-export const selectionWeight = (weight: number | null | undefined): number => defaultWeightCalculator.selectionWeight(weight);
+export const selectionWeight = (weight: number | null | undefined): number =>
+  defaultWeightCalculator.selectionWeight(weight);
 export const nextWeightFromScore = (previousWeight: number, score: number, config: WeightBoundsConfig): number => {
   return defaultWeightCalculator.nextWeightFromScore(previousWeight, score, config);
 };

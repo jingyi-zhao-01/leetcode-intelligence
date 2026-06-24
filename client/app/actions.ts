@@ -2,17 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import {
-  type GeneratedTemplateDraft,
-  type TemplateBenchmarkResult,
-} from '../lib/data';
+import { type GeneratedTemplateDraft, type TemplateBenchmarkResult } from '../lib/data';
 import { getIntelligenceServiceJson } from '../lib/intelligence-service';
-import {
-  assertWriteAccess,
-  clearWriteSession,
-  isWriteConfigured,
-  setWriteSession,
-} from '../lib/access-control';
+import { assertWriteAccess, clearWriteSession, isWriteConfigured, setWriteSession } from '../lib/access-control';
 
 export async function saveSubmissionTags(submissionId: string, patternTagIds: string[]) {
   await assertWriteAccess();
@@ -79,11 +71,7 @@ export async function createGeneratedTemplate(groupKey: string, draft: Generated
   return template;
 }
 
-export async function createTemplateGroup(input: {
-  label: string;
-  key?: string;
-  description?: string;
-}) {
+export async function createTemplateGroup(input: { label: string; key?: string; description?: string }) {
   await assertWriteAccess();
   const group = await getIntelligenceServiceJson<{ id: string; key: string; label: string }>('/bff/template-groups', {
     method: 'POST',
@@ -97,16 +85,21 @@ export async function createTemplateGroup(input: {
   return group;
 }
 
-export async function moveTemplateToGroup(input: {
-  templateId: string;
-  targetGroupId: string;
-}) {
+export async function moveTemplateToGroup(input: { templateId: string; targetGroupId: string }) {
   await assertWriteAccess();
   const result = await getIntelligenceServiceJson<
     | { status: 'invalid_template' }
     | { status: 'invalid_target_group' }
-    | { status: 'unchanged'; template: { id: string; key: string; label: string }; group: { id: string; key: string; label: string } }
-    | { status: 'moved'; template: { id: string; key: string; label: string }; group: { id: string; key: string; label: string } }
+    | {
+        status: 'unchanged';
+        template: { id: string; key: string; label: string };
+        group: { id: string; key: string; label: string };
+      }
+    | {
+        status: 'moved';
+        template: { id: string; key: string; label: string };
+        group: { id: string; key: string; label: string };
+      }
   >('/bff/templates/move', {
     method: 'POST',
     body: input,

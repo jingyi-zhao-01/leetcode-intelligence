@@ -1,0 +1,26 @@
+# Source: https://github.com/kamyu104/LeetCode-Solutions
+# problem_id: xor-operation-in-an-array
+# source_path: LeetCode-Solutions-master/Python/xor-operation-in-an-array.py
+# solution_class: Solution
+# submission_id: 73594dd25cae4a557a1e74b5449acdeb47d5bc2b
+# seed: 4204152833
+
+# Time:  O(1)
+# Space: O(1)
+
+class Solution(object):
+    def xorOperation(self, n, start):
+        """
+        :type n: int
+        :type start: int
+        :rtype: int
+        """
+        def xorNums(n, start):
+            def xorNumsBeginEven(n, start):
+                assert(start%2 == 0)
+                # 2*i ^ (2*i+1) = 1
+                return ((n//2)%2)^((start+n-1) if n%2 else 0)
+
+            return start^xorNumsBeginEven(n-1, start+1) if start%2 else xorNumsBeginEven(n, start)
+        
+        return int(n%2 and start%2) + 2*xorNums(n, start//2)

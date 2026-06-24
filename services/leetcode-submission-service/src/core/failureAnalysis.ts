@@ -1,5 +1,5 @@
-import { OpenRouter } from "@openrouter/sdk";
-import { OpenRouterFailureStaticAnalyzer, type FailureStaticAnalyzer } from "./staticAnalysis.ts";
+import { OpenRouter } from '@openrouter/sdk';
+import { OpenRouterFailureStaticAnalyzer, type FailureStaticAnalyzer } from './staticAnalysis.ts';
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | { [key: string]: JsonValue } | JsonValue[];
@@ -20,7 +20,7 @@ export type FailureAnalysisRequest = {
 export type FailureAnnotation = {
   line: number;
   reason: string;
-  severity: "error" | "warn";
+  severity: 'error' | 'warn';
   column?: number;
 };
 

@@ -1,9 +1,5 @@
 import type { CompanionChatMessage } from '../../core/companionChat.ts';
-import {
-  MAX_JSON_SECTION_CHARS,
-  MAX_MESSAGE_CHARS,
-  MAX_TEXT_SECTION_CHARS,
-} from './constants.ts';
+import { MAX_JSON_SECTION_CHARS, MAX_MESSAGE_CHARS, MAX_TEXT_SECTION_CHARS } from './constants.ts';
 
 export const readJudgeStatus = (judgeResult: unknown): string | null => {
   if (!judgeResult || typeof judgeResult !== 'object' || Array.isArray(judgeResult)) {

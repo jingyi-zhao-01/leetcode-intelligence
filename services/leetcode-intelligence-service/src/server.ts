@@ -1,21 +1,21 @@
-import { timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from 'node:crypto';
 
-import express from "express";
+import express from 'express';
 
-import { createBffApi } from "./api/index.ts";
-import { ensureServiceEnvLoaded } from "./core/load-env.ts";
-import { createLogger } from "./logger.ts";
-import { runBffRoute } from "./observability/bff.ts";
-import { createHttpTracingMiddleware } from "./observability/http.ts";
-import { configureTracing, shutdownTracing } from "./observability/tracing.ts";
-import { createIntelligenceServiceRuntime } from "./service-runtime/index.ts";
+import { createBffApi } from './api/index.ts';
+import { ensureServiceEnvLoaded } from './core/load-env.ts';
+import { createLogger } from './logger.ts';
+import { runBffRoute } from './observability/bff.ts';
+import { createHttpTracingMiddleware } from './observability/http.ts';
+import { configureTracing, shutdownTracing } from './observability/tracing.ts';
+import { createIntelligenceServiceRuntime } from './service-runtime/index.ts';
 
 ensureServiceEnvLoaded();
 
-const SERVICE_NAME = "leetcode-intelligence-service";
+const SERVICE_NAME = 'leetcode-intelligence-service';
 const STARTUP_RETRY_MS = Number(process.env.INTELLIGENCE_STARTUP_RETRY_MS ?? 5000);
-const logger = createLogger("server");
-const BFF_TOKEN = process.env.BFF_TOKEN?.trim() || process.env.BFF_SERVICE_TOKEN?.trim() || "";
+const logger = createLogger('server');
+const BFF_TOKEN = process.env.BFF_TOKEN?.trim() || process.env.BFF_SERVICE_TOKEN?.trim() || '';
 
 const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -34,8 +34,8 @@ const readBearerToken = (authorizationHeader: string | undefined): string | null
     return null;
   }
 
-  const [scheme, token] = authorizationHeader.split(" ", 2);
-  if (!scheme || !token || scheme.toLowerCase() !== "bearer") {
+  const [scheme, token] = authorizationHeader.split(' ', 2);
+  if (!scheme || !token || scheme.toLowerCase() !== 'bearer') {
     return null;
   }
 
@@ -59,7 +59,7 @@ const tokenMatches = (candidate: string | null): boolean => {
 
 async function main(): Promise<void> {
   if (!BFF_TOKEN) {
-    throw new Error("BFF_TOKEN is required for authenticated HTTP access.");
+    throw new Error('BFF_TOKEN is required for authenticated HTTP access.');
   }
 
   await configureTracing(SERVICE_NAME);
@@ -76,15 +76,15 @@ async function main(): Promise<void> {
     while (!ready) {
       attempt += 1;
       try {
-        logger.info({ attempt }, "startup attempt: connecting dependencies");
+        logger.info({ attempt }, 'startup attempt: connecting dependencies');
         await service.start();
         ready = true;
         startupError = null;
-        logger.info("startup complete");
+        logger.info('startup complete');
         return;
       } catch (error) {
         startupError = error;
-        logger.error({ attempt, err: error }, "startup failed");
+        logger.error({ attempt, err: error }, 'startup failed');
         await sleep(STARTUP_RETRY_MS);
       }
     }
@@ -93,28 +93,28 @@ async function main(): Promise<void> {
   void startInBackground();
 
   const app = express();
-  app.disable("x-powered-by");
-  app.use(express.json({ limit: "1mb" }));
-  app.use("/bff", createHttpTracingMiddleware(SERVICE_NAME, "bff"));
+  app.disable('x-powered-by');
+  app.use(express.json({ limit: '1mb' }));
+  app.use('/bff', createHttpTracingMiddleware(SERVICE_NAME, 'bff'));
   app.use((req, res, next) => {
-    if (req.path === "/health") {
+    if (req.path === '/health') {
       next();
       return;
     }
 
-    const token = readBearerToken(req.header("authorization"));
+    const token = readBearerToken(req.header('authorization'));
     if (!tokenMatches(token)) {
-      res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
     next();
   });
 
-  app.get("/health", async (_req, res) => {
+  app.get('/health', async (_req, res) => {
     if (!ready) {
       res.json({
-        status: startupError ? "degraded" : "starting",
+        status: startupError ? 'degraded' : 'starting',
         service: SERVICE_NAME,
         error: startupError ? formatError(startupError) : undefined,
       });
@@ -124,27 +124,27 @@ async function main(): Promise<void> {
     res.json(await service.health());
   });
 
-  app.get("/bff/tag-workbench", async (req, res) => {
-    await runBffRoute(req, res, "tag_workbench", async () => bffApi.getTagWorkbenchData());
+  app.get('/bff/tag-workbench', async (req, res) => {
+    await runBffRoute(req, res, 'tag_workbench', async () => bffApi.getTagWorkbenchData());
   });
 
-  app.get("/bff/templates-page", async (req, res) => {
-    await runBffRoute(req, res, "templates_page", async () => bffApi.getTemplatesPageData());
+  app.get('/bff/templates-page', async (req, res) => {
+    await runBffRoute(req, res, 'templates_page', async () => bffApi.getTemplatesPageData());
   });
 
-  app.get("/bff/graph-page", async (req, res) => {
-    await runBffRoute(req, res, "graph_page", async () => bffApi.getGraphPageData());
+  app.get('/bff/graph-page', async (req, res) => {
+    await runBffRoute(req, res, 'graph_page', async () => bffApi.getGraphPageData());
   });
 
-  app.post("/bff/submissions/:submissionId/tags", async (req, res) => {
-    await runBffRoute(req, res, "submission_tags", async () => {
-      const submissionId = String(req.params.submissionId ?? "").trim();
+  app.post('/bff/submissions/:submissionId/tags', async (req, res) => {
+    await runBffRoute(req, res, 'submission_tags', async () => {
+      const submissionId = String(req.params.submissionId ?? '').trim();
       const patternTagIds = Array.isArray(req.body?.patternTagIds)
-        ? req.body.patternTagIds.filter((value: unknown): value is string => typeof value === "string")
+        ? req.body.patternTagIds.filter((value: unknown): value is string => typeof value === 'string')
         : [];
 
       if (!submissionId) {
-        res.status(400).json({ error: "submissionId is required." });
+        res.status(400).json({ error: 'submissionId is required.' });
         return;
       }
 
@@ -152,13 +152,13 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/submissions/:submissionId/thought", async (req, res) => {
-    await runBffRoute(req, res, "submission_thought", async () => {
-      const submissionId = String(req.params.submissionId ?? "").trim();
-      const thought = typeof req.body?.thought === "string" ? req.body.thought : "";
+  app.post('/bff/submissions/:submissionId/thought', async (req, res) => {
+    await runBffRoute(req, res, 'submission_thought', async () => {
+      const submissionId = String(req.params.submissionId ?? '').trim();
+      const thought = typeof req.body?.thought === 'string' ? req.body.thought : '';
 
       if (!submissionId) {
-        res.status(400).json({ error: "submissionId is required." });
+        res.status(400).json({ error: 'submissionId is required.' });
         return;
       }
 
@@ -166,15 +166,15 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/submissions/:submissionId/template-benchmark", async (req, res) => {
-    await runBffRoute(req, res, "submission_template_benchmark", async () => {
-      const submissionId = String(req.params.submissionId ?? "").trim();
+  app.post('/bff/submissions/:submissionId/template-benchmark', async (req, res) => {
+    await runBffRoute(req, res, 'submission_template_benchmark', async () => {
+      const submissionId = String(req.params.submissionId ?? '').trim();
       const excludedGroupKeys = Array.isArray(req.body?.excludedGroupKeys)
-        ? req.body.excludedGroupKeys.filter((value: unknown): value is string => typeof value === "string")
+        ? req.body.excludedGroupKeys.filter((value: unknown): value is string => typeof value === 'string')
         : [];
 
       if (!submissionId) {
-        res.status(400).json({ error: "submissionId is required." });
+        res.status(400).json({ error: 'submissionId is required.' });
         return;
       }
 
@@ -182,13 +182,13 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/submissions/:submissionId/template-benchmark-opt-out", async (req, res) => {
-    await runBffRoute(req, res, "submission_template_benchmark_opt_out", async () => {
-      const submissionId = String(req.params.submissionId ?? "").trim();
+  app.post('/bff/submissions/:submissionId/template-benchmark-opt-out', async (req, res) => {
+    await runBffRoute(req, res, 'submission_template_benchmark_opt_out', async () => {
+      const submissionId = String(req.params.submissionId ?? '').trim();
       const templateBenchmarkOptOut = Boolean(req.body?.templateBenchmarkOptOut);
 
       if (!submissionId) {
-        res.status(400).json({ error: "submissionId is required." });
+        res.status(400).json({ error: 'submissionId is required.' });
         return;
       }
 
@@ -196,15 +196,15 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/templates/draft", async (req, res) => {
-    await runBffRoute(req, res, "template_draft", async () => {
-      const groupKey = String(req.body?.groupKey ?? "").trim();
-      const submissionId = String(req.body?.submissionId ?? "").trim();
-      const prompt = String(req.body?.prompt ?? "").trim();
-      const model = typeof req.body?.model === "string" ? req.body.model : undefined;
+  app.post('/bff/templates/draft', async (req, res) => {
+    await runBffRoute(req, res, 'template_draft', async () => {
+      const groupKey = String(req.body?.groupKey ?? '').trim();
+      const submissionId = String(req.body?.submissionId ?? '').trim();
+      const prompt = String(req.body?.prompt ?? '').trim();
+      const model = typeof req.body?.model === 'string' ? req.body.model : undefined;
 
       if (!groupKey || !submissionId || !prompt) {
-        res.status(400).json({ error: "groupKey, submissionId, and prompt are required." });
+        res.status(400).json({ error: 'groupKey, submissionId, and prompt are required.' });
         return;
       }
 
@@ -212,13 +212,13 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/templates/generated", async (req, res) => {
-    await runBffRoute(req, res, "generated_template", async () => {
-      const groupKey = String(req.body?.groupKey ?? "").trim();
+  app.post('/bff/templates/generated', async (req, res) => {
+    await runBffRoute(req, res, 'generated_template', async () => {
+      const groupKey = String(req.body?.groupKey ?? '').trim();
       const draft = req.body?.draft;
 
-      if (!groupKey || !draft || typeof draft !== "object" || Array.isArray(draft)) {
-        res.status(400).json({ error: "groupKey and draft are required." });
+      if (!groupKey || !draft || typeof draft !== 'object' || Array.isArray(draft)) {
+        res.status(400).json({ error: 'groupKey and draft are required.' });
         return;
       }
 
@@ -226,23 +226,23 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/bff/template-groups", async (req, res) => {
-    await runBffRoute(req, res, "template_group_create", async () =>
+  app.post('/bff/template-groups', async (req, res) => {
+    await runBffRoute(req, res, 'template_group_create', async () =>
       bffApi.createTemplateGroup({
-        label: String(req.body?.label ?? ""),
-        key: typeof req.body?.key === "string" ? req.body.key : undefined,
-        description: typeof req.body?.description === "string" ? req.body.description : undefined,
+        label: String(req.body?.label ?? ''),
+        key: typeof req.body?.key === 'string' ? req.body.key : undefined,
+        description: typeof req.body?.description === 'string' ? req.body.description : undefined,
       }),
     );
   });
 
-  app.post("/bff/templates/move", async (req, res) => {
-    await runBffRoute(req, res, "template_move", async () => {
-      const templateId = String(req.body?.templateId ?? "").trim();
-      const targetGroupId = String(req.body?.targetGroupId ?? "").trim();
+  app.post('/bff/templates/move', async (req, res) => {
+    await runBffRoute(req, res, 'template_move', async () => {
+      const templateId = String(req.body?.templateId ?? '').trim();
+      const targetGroupId = String(req.body?.targetGroupId ?? '').trim();
 
       if (!templateId || !targetGroupId) {
-        res.status(400).json({ error: "templateId and targetGroupId are required." });
+        res.status(400).json({ error: 'templateId and targetGroupId are required.' });
         return;
       }
 
@@ -250,11 +250,11 @@ async function main(): Promise<void> {
     });
   });
 
-  app.delete("/bff/templates/:patternTagId", async (req, res) => {
-    await runBffRoute(req, res, "template_delete", async () => {
-      const patternTagId = String(req.params.patternTagId ?? "").trim();
+  app.delete('/bff/templates/:patternTagId', async (req, res) => {
+    await runBffRoute(req, res, 'template_delete', async () => {
+      const patternTagId = String(req.params.patternTagId ?? '').trim();
       if (!patternTagId) {
-        res.status(400).json({ error: "patternTagId is required." });
+        res.status(400).json({ error: 'patternTagId is required.' });
         return;
       }
 
@@ -262,29 +262,29 @@ async function main(): Promise<void> {
     });
   });
 
-  app.post("/trigger", async (_req, res) => {
+  app.post('/trigger', async (_req, res) => {
     try {
       if (!ready) {
-        res.status(503).json({ error: "Service is still starting." });
+        res.status(503).json({ error: 'Service is still starting.' });
         return;
       }
-      res.json(await service.triggerPrompt("manual", { channelId: "http" }));
+      res.json(await service.triggerPrompt('manual', { channelId: 'http' }));
     } catch (error) {
       res.status(500).json({ error: formatError(error) });
     }
   });
 
-  app.post("/reply-by-event", async (req, res) => {
+  app.post('/reply-by-event', async (req, res) => {
     try {
       if (!ready) {
-        res.status(503).json({ ok: false, error: "Service is still starting." });
+        res.status(503).json({ ok: false, error: 'Service is still starting.' });
         return;
       }
-      const promptEventId = String(req.body?.promptEventId ?? "").trim();
-      const rawReply = String(req.body?.rawReply ?? "").trim();
+      const promptEventId = String(req.body?.promptEventId ?? '').trim();
+      const rawReply = String(req.body?.rawReply ?? '').trim();
 
       if (!promptEventId || !rawReply) {
-        res.status(400).json({ ok: false, error: "promptEventId and rawReply are required." });
+        res.status(400).json({ ok: false, error: 'promptEventId and rawReply are required.' });
         return;
       }
 
@@ -294,23 +294,23 @@ async function main(): Promise<void> {
     }
   });
 
-  app.post("/reply-by-message", async (req, res) => {
+  app.post('/reply-by-message', async (req, res) => {
     try {
       if (!ready) {
-        res.status(503).json({ ok: false, error: "Service is still starting." });
+        res.status(503).json({ ok: false, error: 'Service is still starting.' });
         return;
       }
-      const messageId = String(req.body?.messageId ?? "").trim();
-      const rawReply = String(req.body?.rawReply ?? "").trim();
+      const messageId = String(req.body?.messageId ?? '').trim();
+      const rawReply = String(req.body?.rawReply ?? '').trim();
 
       if (!messageId || !rawReply) {
-        res.status(400).json({ ok: false, error: "messageId and rawReply are required." });
+        res.status(400).json({ ok: false, error: 'messageId and rawReply are required.' });
         return;
       }
 
       const result = await service.scorePromptReplyByMessageId(messageId, rawReply);
       if (!result) {
-        res.status(404).json({ ok: false, error: "No prompt event found for this messageId." });
+        res.status(404).json({ ok: false, error: 'No prompt event found for this messageId.' });
         return;
       }
 
@@ -320,10 +320,10 @@ async function main(): Promise<void> {
     }
   });
 
-  app.get("/recommendations", async (req, res) => {
+  app.get('/recommendations', async (req, res) => {
     try {
       if (!ready) {
-        res.status(503).json({ ok: false, error: "Service is still starting." });
+        res.status(503).json({ ok: false, error: 'Service is still starting.' });
         return;
       }
       const limitRaw = Number(req.query.limit);
@@ -334,10 +334,10 @@ async function main(): Promise<void> {
     }
   });
 
-  app.post("/recommendations/trigger", async (req, res) => {
+  app.post('/recommendations/trigger', async (req, res) => {
     try {
       if (!ready) {
-        res.status(503).json({ ok: false, error: "Service is still starting." });
+        res.status(503).json({ ok: false, error: 'Service is still starting.' });
         return;
       }
       const limitRaw = Number(req.body?.limit);
@@ -349,15 +349,15 @@ async function main(): Promise<void> {
   });
 
   const port = Number(process.env.INTELLIGENCE_PORT ?? 8030);
-  const host = process.env.INTELLIGENCE_HOST ?? "0.0.0.0";
+  const host = process.env.INTELLIGENCE_HOST ?? '0.0.0.0';
   app.listen(port, host, () => {
-    logger.info({ host, port }, "HTTP server listening");
+    logger.info({ host, port }, 'HTTP server listening');
   });
 
   const shutdown = async (signal: NodeJS.Signals) => {
     if (!shutdownPromise) {
       shutdownPromise = (async () => {
-        logger.info({ signal }, "shutdown requested");
+        logger.info({ signal }, 'shutdown requested');
         await service.stop();
         await shutdownTracing();
       })();
@@ -367,23 +367,23 @@ async function main(): Promise<void> {
       await shutdownPromise;
       process.exit(0);
     } catch (error) {
-      logger.error({ signal, err: error }, "shutdown failed");
+      logger.error({ signal, err: error }, 'shutdown failed');
       process.exit(1);
     }
   };
 
-  process.on("SIGINT", () => {
-    void shutdown("SIGINT");
+  process.on('SIGINT', () => {
+    void shutdown('SIGINT');
   });
 
-  process.on("SIGTERM", () => {
-    void shutdown("SIGTERM");
+  process.on('SIGTERM', () => {
+    void shutdown('SIGTERM');
   });
 }
 
 try {
   await main();
 } catch (error) {
-  logger.fatal({ err: error }, "unhandled startup error");
+  logger.fatal({ err: error }, 'unhandled startup error');
   process.exit(1);
 }

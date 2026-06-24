@@ -36,7 +36,7 @@ function updateDocstringState(
 }
 
 function appendThoughtFromLine(stripped: string, thoughtLines: string[]): void {
-  if (stripped.startsWith("#")) {
+  if (stripped.startsWith('#')) {
     thoughtLines.push(stripped.slice(1).trim());
   }
 }
@@ -52,7 +52,7 @@ function readThoughtMarker(line: string): string | null {
   if (!/@thought\s*:/.test(line)) {
     return null;
   }
-  return line.replace(/.*@thought\s*:\s*/, "").trim();
+  return line.replace(/.*@thought\s*:\s*/, '').trim();
 }
 
 function collectThoughtLine(
@@ -69,7 +69,7 @@ function collectThoughtLine(
     return inThought;
   }
 
-  if (stripped.startsWith("#")) {
+  if (stripped.startsWith('#')) {
     appendThoughtFromLine(stripped, thoughtLines);
     return inThought;
   }
@@ -89,12 +89,12 @@ function collectThoughtLine(
 function normalizeIndentation(lines: string[]): string[] {
   return lines.map((line) => {
     if (!line.trim()) {
-      return "";
+      return '';
     }
 
     const leading = line.length - line.trimStart().length;
-    const rawLeading = line.slice(0, leading).replaceAll("\t", "    ");
-    const normalizedLeading = " ".repeat(Math.floor(rawLeading.length / 4) * 4);
+    const rawLeading = line.slice(0, leading).replaceAll('\t', '    ');
+    const normalizedLeading = ' '.repeat(Math.floor(rawLeading.length / 4) * 4);
     return `${normalizedLeading}${line.trimStart()}`;
   });
 }
@@ -106,7 +106,7 @@ function removeMultipleEmptyLines(lines: string[]): string[] {
   for (const line of lines) {
     if (!line.trim()) {
       if (!prevEmpty) {
-        result.push("");
+        result.push('');
       }
       prevEmpty = true;
       continue;
@@ -121,14 +121,14 @@ function removeMultipleEmptyLines(lines: string[]): string[] {
 
 function cleanPythonCode(code: string): string {
   if (!code) {
-    return "";
+    return '';
   }
 
-  let lines = code.split("\n").map((line) => line.replace(/\s+$/g, ""));
+  let lines = code.split('\n').map((line) => line.replace(/\s+$/g, ''));
   lines = removeLeadingTrailingEmptyLines(lines);
   lines = normalizeIndentation(lines);
   lines = removeMultipleEmptyLines(lines);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 function findFunctionStart(lines: string[]): number {
@@ -148,21 +148,21 @@ function dedentFunction(lines: string[], startIdx: number, functionIndent: numbe
   const result = [lines[startIdx].trimStart()];
   for (const line of lines.slice(startIdx + 1)) {
     if (!line.trim()) {
-      result.push("");
+      result.push('');
       continue;
     }
     result.push(functionIndent > 0 ? line.slice(functionIndent) : line);
   }
-  return result.join("\n");
+  return result.join('\n');
 }
 
 function extractFunctionOnly(code: string): string {
   const cleaned = cleanPythonCode(code);
-  if (!cleaned.includes("class Solution")) {
+  if (!cleaned.includes('class Solution')) {
     return cleaned;
   }
 
-  const lines = cleaned.split("\n");
+  const lines = cleaned.split('\n');
   const startIdx = findFunctionStart(lines);
   if (startIdx < 0) {
     return cleaned;
@@ -173,7 +173,7 @@ function extractFunctionOnly(code: string): string {
 }
 
 function isAcceptedStatus(status: string): boolean {
-  return status.trim().toLowerCase() === "accepted";
+  return status.trim().toLowerCase() === 'accepted';
 }
 
 export function isPythonFiletype(filetype: string | null): boolean {
@@ -181,11 +181,11 @@ export function isPythonFiletype(filetype: string | null): boolean {
     return false;
   }
   const normalized = filetype.trim().toLowerCase();
-  return normalized === "python" || normalized === "python3" || normalized === "py";
+  return normalized === 'python' || normalized === 'python3' || normalized === 'py';
 }
 
 function repairFlattenedFunctionBody(code: string): string {
-  const lines = code.split("\n");
+  const lines = code.split('\n');
   const startIdx = findFunctionStart(lines);
   if (startIdx < 0 || !/^\s*def\s+.*:\s*(?:#.*)?$/.test(lines[startIdx])) {
     return code;
@@ -198,8 +198,8 @@ function repairFlattenedFunctionBody(code: string): string {
 
   return [
     ...lines.slice(0, startIdx + 1),
-    ...lines.slice(startIdx + 1).map((line) => (line.trim() ? `    ${line}` : "")),
-  ].join("\n");
+    ...lines.slice(startIdx + 1).map((line) => (line.trim() ? `    ${line}` : '')),
+  ].join('\n');
 }
 
 export function normalizeForEmbedding(code: string, extractFunction = true): string {
@@ -227,7 +227,7 @@ export function extractThought(code: string): string | null {
     return null;
   }
 
-  const lines = code.split("\n");
+  const lines = code.split('\n');
   const thoughtLines: string[] = [];
   let inThought = false;
   let inDocstring = false;
@@ -252,6 +252,6 @@ export function extractThought(code: string): string | null {
     inThought = collectThoughtLine(stripped, inThought, inDocstring, thoughtLines);
   }
 
-  const text = thoughtLines.join(" ").trim();
+  const text = thoughtLines.join(' ').trim();
   return text || null;
 }

@@ -133,7 +133,9 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
         templateTags: new Map(
           submission.tags
             .filter((tag) => tag.dimension === 'template' && tag.kind === 'tag')
-            .map((tag) => [tag.key, { label: tag.label, parentKey: tag.parentKey, parentLabel: tag.parentLabel }] as const),
+            .map(
+              (tag) => [tag.key, { label: tag.label, parentKey: tag.parentKey, parentLabel: tag.parentLabel }] as const,
+            ),
         ),
         templateGroups: new Map(),
         templateGroupStats: new Map(),
@@ -207,21 +209,22 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
       return left.title.localeCompare(right.title);
     })
     .map((problem) => ({
-      primaryTemplateGroup: [...problem.templateGroupStats.entries()]
-        .sort((left, right) => {
-          if (right[1].count !== left[1].count) {
-            return right[1].count - left[1].count;
-          }
-          const timeDiff = new Date(right[1].lastSeenAt).getTime() - new Date(left[1].lastSeenAt).getTime();
-          if (timeDiff !== 0) {
-            return timeDiff;
-          }
-          return left[1].label.localeCompare(right[1].label);
-        })
-        .map(([key, entry]) => ({
-          key,
-          label: entry.label,
-        }))[0] ?? null,
+      primaryTemplateGroup:
+        [...problem.templateGroupStats.entries()]
+          .sort((left, right) => {
+            if (right[1].count !== left[1].count) {
+              return right[1].count - left[1].count;
+            }
+            const timeDiff = new Date(right[1].lastSeenAt).getTime() - new Date(left[1].lastSeenAt).getTime();
+            if (timeDiff !== 0) {
+              return timeDiff;
+            }
+            return left[1].label.localeCompare(right[1].label);
+          })
+          .map(([key, entry]) => ({
+            key,
+            label: entry.label,
+          }))[0] ?? null,
       id: problem.slug,
       title: problem.title,
       slug: problem.slug,
@@ -288,7 +291,7 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
   const layoutLinks: GraphLayoutLink[] = edges.map((edge) => ({ ...edge }));
   const nodeById = new Map(nodeState.map((node) => [node.id, node]));
   const resolveLayoutNode = (value: string | GraphLayoutNode) => {
-    return typeof value === 'string' ? nodeById.get(value) ?? null : value;
+    return typeof value === 'string' ? (nodeById.get(value) ?? null) : value;
   };
 
   const simulation = forceSimulation<GraphLayoutNode>(nodeState)
@@ -309,7 +312,10 @@ export function buildSubmissionGraph(submissions: GraphSubmissionRow[]) {
     )
     .force(
       'collide',
-      forceCollide<GraphLayoutNode>().radius((node) => node.radius + 10).strength(0.95).iterations(2),
+      forceCollide<GraphLayoutNode>()
+        .radius((node) => node.radius + 10)
+        .strength(0.95)
+        .iterations(2),
     )
     .force('center', forceCenter(centerX, centerY))
     .force('x', forceX(centerX).strength(0.022))

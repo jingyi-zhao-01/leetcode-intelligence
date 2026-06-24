@@ -1,5 +1,5 @@
-export type PatternTagSource = "seeded" | "manually_created" | "llm_generated";
-export type PatternTagKind = "template_group" | "tag";
+export type PatternTagSource = 'seeded' | 'manually_created' | 'llm_generated';
+export type PatternTagKind = 'template_group' | 'tag';
 
 export type TemplateMetadata = {
   classicProblems?: string[];

@@ -1,5 +1,5 @@
-import type { IntelligenceService } from "../service-runtime/index.ts";
-import { createLogger } from "../logger.ts";
+import type { IntelligenceService } from '../service-runtime/index.ts';
+import { createLogger } from '../logger.ts';
 import type {
   InteractivePromptClient,
   PromptDispatchFailure,
@@ -7,9 +7,9 @@ import type {
   PromptDispatchSuccess,
   PromptRenderClient,
   PromptReplyOutcome,
-} from "./contracts.ts";
+} from './contracts.ts';
 
-const logger = createLogger("client/prompt-flow");
+const logger = createLogger('client/prompt-flow');
 
 export type PromptReplyRequest =
   | {
@@ -22,11 +22,11 @@ export type PromptReplyRequest =
     };
 
 function isPromptDispatchSuccess(result: Record<string, unknown>): result is PromptDispatchSuccess {
-  return result.ok === true && typeof result.promptEventId === "string" && typeof result.promptText === "string";
+  return result.ok === true && typeof result.promptEventId === 'string' && typeof result.promptText === 'string';
 }
 
 function isPromptDispatchFailure(result: Record<string, unknown>): result is PromptDispatchFailure {
-  return result.ok === false && typeof result.message === "string";
+  return result.ok === false && typeof result.message === 'string';
 }
 
 export async function dispatchPrompt(
@@ -37,12 +37,12 @@ export async function dispatchPrompt(
   const result = await service.triggerPrompt(triggerSource, { channelId: client.channelId });
 
   if (isPromptDispatchFailure(result)) {
-    logger.warn({ channelId: client.channelId, triggerSource, message: result.message }, "prompt generation skipped");
+    logger.warn({ channelId: client.channelId, triggerSource, message: result.message }, 'prompt generation skipped');
     return result;
   }
 
   if (!isPromptDispatchSuccess(result)) {
-    throw new Error("Unexpected prompt result shape.");
+    throw new Error('Unexpected prompt result shape.');
   }
 
   const delivery = await client.renderPrompt(result);
@@ -54,7 +54,7 @@ export async function dispatchPrompt(
         messageId: delivery.messageId,
         promptEventId: result.promptEventId,
       },
-      "linked prompt message",
+      'linked prompt message',
     );
   }
 
@@ -101,7 +101,7 @@ export async function scorePromptReply(
   service: IntelligenceService,
   request: PromptReplyRequest,
 ): Promise<PromptReplyOutcome> {
-  if ("promptEventId" in request) {
+  if ('promptEventId' in request) {
     return service.scorePromptReply(request.promptEventId, request.rawReply);
   }
 

@@ -71,13 +71,7 @@ function nodeColor(node: SubmissionGraphNode) {
   const low = difficulty === 'easy' ? '#2e8c7d' : 'transparent';
   const medium = difficulty === 'medium' ? '#2e638b' : 'transparent';
   const high = difficulty === 'hard' ? '#b24f5d' : 'transparent';
-  return difficulty === 'easy'
-    ? low
-    : difficulty === 'medium'
-      ? medium
-      : difficulty === 'hard'
-        ? high
-        : '#7f8a9c';
+  return difficulty === 'easy' ? low : difficulty === 'medium' ? medium : difficulty === 'hard' ? high : '#7f8a9c';
 }
 
 export function SubmissionGraphView({
@@ -130,7 +124,7 @@ export function SubmissionGraphView({
     const primaryClusterAnchors = buildPrimaryClusterAnchors(nodes, canvasWidth, canvasHeight);
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
     const resolveNode = (value: string | LiveGraphNode) => {
-      return typeof value === 'string' ? nodeById.get(value) ?? null : value;
+      return typeof value === 'string' ? (nodeById.get(value) ?? null) : value;
     };
 
     setLayoutNodes(nodes);
@@ -151,7 +145,12 @@ export function SubmissionGraphView({
           })
           .strength(0.24),
       )
-      .force('collide', forceCollide<LiveGraphNode>().radius((node) => nodeRadius(node) + 28).strength(0.9))
+      .force(
+        'collide',
+        forceCollide<LiveGraphNode>()
+          .radius((node) => nodeRadius(node) + 28)
+          .strength(0.9),
+      )
       .force('center', forceCenter(canvasWidth / 2, canvasHeight / 2))
       .force('x', forceX(canvasWidth / 2).strength(0.018))
       .force('y', forceY(canvasHeight / 2).strength(0.018))
@@ -282,10 +281,22 @@ export function SubmissionGraphView({
     <section className="graph-view">
       <div className="graph-toolbar">
         <div className="graph-zoom-controls">
-          <Button type="button" variant="outline" size="icon" onClick={() => applyZoom(zoom * zoomStep)} aria-label="Zoom in">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => applyZoom(zoom * zoomStep)}
+            aria-label="Zoom in"
+          >
             +
           </Button>
-          <Button type="button" variant="outline" size="icon" onClick={() => applyZoom(zoom / zoomStep)} aria-label="Zoom out">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => applyZoom(zoom / zoomStep)}
+            aria-label="Zoom out"
+          >
             -
           </Button>
           <Button type="button" variant="outline" onClick={resetView} aria-label="Reset zoom">
@@ -307,7 +318,8 @@ export function SubmissionGraphView({
       <div className="graph-summary">
         <p>
           {graph.nodes.length} problems, {graph.edges.length} edges,{' '}
-          {graph.nodes.length > 0 ? graph.nodes.reduce((acc, node) => acc + node.attempts, 0) : 0} total accepted attempts
+          {graph.nodes.length > 0 ? graph.nodes.reduce((acc, node) => acc + node.attempts, 0) : 0} total accepted
+          attempts
         </p>
         <p>{selectedCount ? 'One selected question in list' : 'Click a node to focus on a question in this graph'}</p>
       </div>
@@ -334,7 +346,9 @@ export function SubmissionGraphView({
           No related-problem links
         </span>
       </div>
-      {hasOrphanNodes ? <p className="orphan-note">Some problems are isolated because related-problem links were not available.</p> : null}
+      {hasOrphanNodes ? (
+        <p className="orphan-note">Some problems are isolated because related-problem links were not available.</p>
+      ) : null}
 
       <div className="graph-canvas-shell">
         <svg
@@ -359,7 +373,7 @@ export function SubmissionGraphView({
           <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
             <g className="graph-cluster-layer">
               {clusters.map((cluster) => {
-                const hueKey = cluster.kind === 'template' ? cluster.parentKey ?? cluster.key : cluster.key;
+                const hueKey = cluster.kind === 'template' ? (cluster.parentKey ?? cluster.key) : cluster.key;
                 const colors = paletteColor(cluster.kind, cluster.key, clusterHueByKey[hueKey]);
                 const isClusterHighlighted =
                   !effectiveHoveredPrimaryClusterKey ||
@@ -369,10 +383,16 @@ export function SubmissionGraphView({
                   <g
                     key={`cluster-${cluster.id}`}
                     className={`graph-cluster-group ${isClusterHighlighted ? '' : 'dimmed'}`.trim()}
-                    onMouseEnter={() => setHoveredClusterFromGraph(cluster.kind === 'template' ? cluster.parentKey ?? null : cluster.key)}
+                    onMouseEnter={() =>
+                      setHoveredClusterFromGraph(
+                        cluster.kind === 'template' ? (cluster.parentKey ?? null) : cluster.key,
+                      )
+                    }
                     onMouseLeave={() =>
                       setHoveredClusterFromGraph((current) =>
-                        current === (cluster.kind === 'template' ? cluster.parentKey ?? null : cluster.key) ? null : current,
+                        current === (cluster.kind === 'template' ? (cluster.parentKey ?? null) : cluster.key)
+                          ? null
+                          : current,
                       )
                     }
                   >
@@ -421,7 +441,7 @@ export function SubmissionGraphView({
                 const target = nodeById.get(edge.target);
                 if (!source || !target) return null;
 
-                 const isHighlightedEdge =
+                const isHighlightedEdge =
                   !highlightedNodeIds || (highlightedNodeIds.has(source.id) && highlightedNodeIds.has(target.id));
 
                 return (
@@ -481,7 +501,13 @@ export function SubmissionGraphView({
                       {`${node.title} · ${node.slug} · ${node.difficulty ?? 'unknown'} · attempts ${node.attempts}`}
                     </title>
                     {node.connectionCount === 0 ? (
-                      <line x1={node.x - 8} y1={node.y - 8} x2={node.x + 8} y2={node.y + 8} className="graph-node-cross" />
+                      <line
+                        x1={node.x - 8}
+                        y1={node.y - 8}
+                        x2={node.x + 8}
+                        y2={node.y + 8}
+                        className="graph-node-cross"
+                      />
                     ) : null}
                     {(danglingTemplatesByNodeId.get(node.id) ?? []).slice(0, 3).map((marker, index) => {
                       const colors = paletteColor('template', marker.templateKey, clusterHueByKey[marker.parentKey]);

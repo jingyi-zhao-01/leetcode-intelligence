@@ -19,11 +19,7 @@ function readSlug(searchParams: SearchParams | undefined) {
   return raw ?? null;
 }
 
-export default async function GraphPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
+export default async function GraphPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const resolvedSearchParams = await searchParams;
   const [submissions, templateData, canWrite] = await Promise.all([
     getGraphPageData(),
@@ -41,7 +37,11 @@ export default async function GraphPage({
       title="Problem Graph"
       description="Explore solved-question relationships through the current template taxonomy."
     >
-      <GraphWorkbench graph={graph} templateCatalog={templateCatalog} initialSelectedSlug={readSlug(resolvedSearchParams)} />
+      <GraphWorkbench
+        graph={graph}
+        templateCatalog={templateCatalog}
+        initialSelectedSlug={readSlug(resolvedSearchParams)}
+      />
     </WorkspaceShell>
   );
 }

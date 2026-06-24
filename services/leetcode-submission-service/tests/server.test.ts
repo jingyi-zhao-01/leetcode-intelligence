@@ -135,9 +135,7 @@ describe('submission server helpers', () => {
     const parsed = parseFailureAnalysis(
       JSON.stringify({
         summary: '未更新最大利润',
-        annotations: [
-          { line: 4, reason: '应回写 max_profit', severity: 'error' },
-        ],
+        annotations: [{ line: 4, reason: '应回写 max_profit', severity: 'error' }],
       }),
       10,
     );
@@ -605,8 +603,12 @@ describe('submission server helpers', () => {
     assert.equal(mountSessions[0]?.endReason, 'accepted_restart');
     assert.equal(mountSessions[0]?.distinctMistakeCount, 2);
     assert.equal(mountSessions[0]?.failureSummaries?.length, 2);
-    assert.ok((mountSessions[0]?.failureSummaries ?? []).some((summary) => /double-counted the first element/.test(summary)));
-    assert.ok((mountSessions[0]?.failureSummaries ?? []).some((summary) => /Kadane transition was malformed/.test(summary)));
+    assert.ok(
+      (mountSessions[0]?.failureSummaries ?? []).some((summary) => /double-counted the first element/.test(summary)),
+    );
+    assert.ok(
+      (mountSessions[0]?.failureSummaries ?? []).some((summary) => /Kadane transition was malformed/.test(summary)),
+    );
 
     const rendered = renderRecalledSessionRecords(recalled).content;
     assert.match(rendered, /Recalled Session Count: 1/);
@@ -1023,8 +1025,14 @@ describe('submission server helpers', () => {
     (
       server as {
         sessionRecordRecaller: {
-          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
-          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+          recallByTitleSlug: (
+            titleSlug: string,
+          ) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{
+            titleSlug: string;
+            queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] };
+            matches: Array<Record<string, unknown>>;
+          }>;
         };
       }
     ).sessionRecordRecaller = {
@@ -1140,7 +1148,10 @@ describe('submission server helpers', () => {
     assert.match(prepared.request.messages[1]?.content ?? '', /### Recalled Code Excerpt/);
     assert.match(prepared.request.messages[1]?.content ?? '', /return str\(x\) == str\(x\)\[::-1\]/);
     assert.match(prepared.request.messages[2]?.content ?? '', /帮我回忆一下这题之前都发生了什么/);
-    assert.equal((server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope()?.mem0Recall?.recordCount, 2);
+    assert.equal(
+      (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.getActiveScope()?.mem0Recall?.recordCount,
+      2,
+    );
   });
 
   it('returns an on-mount Mem0 recall summary for the current title slug', async () => {
@@ -1149,8 +1160,14 @@ describe('submission server helpers', () => {
     (
       server as {
         sessionRecordRecaller: {
-          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
-          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+          recallByTitleSlug: (
+            titleSlug: string,
+          ) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{
+            titleSlug: string;
+            queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] };
+            matches: Array<Record<string, unknown>>;
+          }>;
         };
       }
     ).sessionRecordRecaller = {
@@ -1243,8 +1260,14 @@ describe('submission server helpers', () => {
     (
       server as {
         sessionRecordRecaller: {
-          recallByTitleSlug: (titleSlug: string) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
-          recallSimilarByQuery: () => Promise<{ titleSlug: string; queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] }; matches: Array<Record<string, unknown>> }>;
+          recallByTitleSlug: (
+            titleSlug: string,
+          ) => Promise<{ titleSlug: string; records: Array<Record<string, unknown>> }>;
+          recallSimilarByQuery: () => Promise<{
+            titleSlug: string;
+            queryProfile: { patternTags: string[]; stateTraits: string[]; errorTags: string[]; domainTags: string[] };
+            matches: Array<Record<string, unknown>>;
+          }>;
         };
       }
     ).sessionRecordRecaller = {
@@ -1289,7 +1312,9 @@ describe('submission server helpers', () => {
     (
       server as {
         failureAnalyzer: {
-          analyze: (request: FailureAnalysisRequest) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
+          analyze: (
+            request: FailureAnalysisRequest,
+          ) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
         };
       }
     ).failureAnalyzer = {
@@ -1312,7 +1337,9 @@ describe('submission server helpers', () => {
       persist: async () => {},
     };
 
-    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start('best-time-to-buy-and-sell-stock');
+    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start(
+      'best-time-to-buy-and-sell-stock',
+    );
     (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
 
     const firstSummary = await (
@@ -1396,7 +1423,9 @@ describe('submission server helpers', () => {
     (
       server as {
         failureAnalyzer: {
-          analyze: (request: FailureAnalysisRequest) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
+          analyze: (
+            request: FailureAnalysisRequest,
+          ) => Promise<{ summary: string; annotations: Array<Record<string, unknown>> }>;
         };
       }
     ).failureAnalyzer = {
@@ -1425,7 +1454,9 @@ describe('submission server helpers', () => {
       },
     };
 
-    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start('best-time-to-buy-and-sell-stock');
+    (server as { timerManager: { start: (titleSlug: string) => void } }).timerManager.start(
+      'best-time-to-buy-and-sell-stock',
+    );
     (server as { sessionScope: ActiveSessionScopeManager }).sessionScope.activate('best-time-to-buy-and-sell-stock');
 
     const response = await (

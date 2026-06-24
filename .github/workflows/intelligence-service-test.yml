@@ -1,90 +1,91 @@
+---
 name: intelligence-service-test
 
 on:
-  pull_request:
-    paths:
-      - "services/leetcode-intelligence-service/**"
-      - "services/shared/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/intelligence-service-test.yml"
-  push:
-    branches:
-      - main
-      - init-simplepy
-    paths:
-      - "services/leetcode-intelligence-service/**"
-      - "services/shared/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/intelligence-service-test.yml"
-  workflow_dispatch:
+    pull_request:
+        paths:
+            - services/leetcode-intelligence-service/**
+            - services/shared/**
+            - package.json
+            - package-lock.json
+            - .github/workflows/intelligence-service-test.yml
+    push:
+        branches:
+            - main
+            - init-simplepy
+        paths:
+            - services/leetcode-intelligence-service/**
+            - services/shared/**
+            - package.json
+            - package-lock.json
+            - .github/workflows/intelligence-service-test.yml
+    workflow_dispatch:
 
 permissions:
-  contents: read
+    contents: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
+    lint:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Lint services
-        run: npm run lint:services
+            - name: Lint services
+              run: npm run lint:services
 
-  build:
-    needs: lint
-    runs-on: ubuntu-latest
+    build:
+        needs: lint
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Build intelligence service
-        run: npm run --workspace services/leetcode-intelligence-service build
+            - name: Build intelligence service
+              run: npm run --workspace services/leetcode-intelligence-service build
 
-  test:
-    needs: build
-    runs-on: ubuntu-latest
+    test:
+        needs: build
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v6
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
+            - name: Set up Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Run intelligence unit tests
-        run: npm run --workspace services/leetcode-intelligence-service test:unit
+            - name: Run intelligence unit tests
+              run: npm run --workspace services/leetcode-intelligence-service test:unit
 
-      - name: Run intelligence integration tests
-        run: npm run --workspace services/leetcode-intelligence-service test:integration
+            - name: Run intelligence integration tests
+              run: npm run --workspace services/leetcode-intelligence-service test:integration

@@ -1,9 +1,9 @@
-import pino, { type Logger } from "pino";
+import pino, { type Logger } from 'pino';
 
 const serviceLogger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
+  level: process.env.LOG_LEVEL ?? 'info',
   base: {
-    service: "leetcode-submission-service",
+    service: 'leetcode-submission-service',
   },
   formatters: {
     level(label, number) {
@@ -25,4 +25,4 @@ export const createLogger = (scope: string): Logger => {
   return serviceLogger.child({ scope });
 };
 
-export const logger = createLogger("app");
+export const logger = createLogger('app');

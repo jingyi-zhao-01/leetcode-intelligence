@@ -1,5 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { createLogger } from "./logger.ts";
+import { randomUUID } from 'node:crypto';
+import { createLogger } from './logger.ts';
 
 export type SubmissionSummary = {
   id: string;
@@ -24,7 +24,7 @@ type TimedCacheEntry<Value> = {
 };
 
 const MAX_CACHE_ENTRIES_PER_SLUG = 100;
-const logger = createLogger("cache");
+const logger = createLogger('cache');
 
 export class TimedCache<Key, Value> {
   private readonly entries = new Map<Key, TimedCacheEntry<Value>>();
@@ -77,7 +77,7 @@ export class Cache {
         isTest: summary.is_test,
         entryCount: this.entriesBySlug.get(summary.title_slug)?.length ?? 0,
       },
-      "Cached pending submission",
+      'Cached pending submission',
     );
     return cacheKey;
   }
@@ -85,13 +85,16 @@ export class Cache {
   markPersisted(titleSlug: string, cacheKey: string, persistedId: string): void {
     const entries = this.entriesBySlug.get(titleSlug);
     if (!entries) {
-      logger.info({ titleSlug, cacheKey, persistedId }, "markPersisted skipped because slug cache was missing");
+      logger.info({ titleSlug, cacheKey, persistedId }, 'markPersisted skipped because slug cache was missing');
       return;
     }
 
     const entry = entries.find((item) => item.cacheKey === cacheKey);
     if (!entry) {
-      logger.info({ titleSlug, cacheKey, persistedId, entryCount: entries.length }, "markPersisted skipped because cache entry was missing");
+      logger.info(
+        { titleSlug, cacheKey, persistedId, entryCount: entries.length },
+        'markPersisted skipped because cache entry was missing',
+      );
       return;
     }
 
@@ -105,7 +108,7 @@ export class Cache {
         persistedId,
         status: entry.summary.submit_result,
       },
-      "Marked cached submission as persisted",
+      'Marked cached submission as persisted',
     );
   }
 
@@ -127,15 +130,13 @@ export class Cache {
           persistedCount: persisted.length,
           entryCount: this.entriesBySlug.get(titleSlug)?.length ?? 0,
         },
-        "Primed cache from persisted submissions",
+        'Primed cache from persisted submissions',
       );
       return persisted;
     }
 
     const seenIds = new Set(
-      cacheEntries
-        .map((entry) => entry.dbId ?? entry.summary.id)
-        .filter((value): value is string => Boolean(value)),
+      cacheEntries.map((entry) => entry.dbId ?? entry.summary.id).filter((value): value is string => Boolean(value)),
     );
 
     for (const summary of persisted) {
@@ -160,7 +161,7 @@ export class Cache {
         persistedCount: persisted.length,
         mergedEntryCount: this.entriesBySlug.get(titleSlug)?.length ?? 0,
       },
-      "Merged persisted submissions into cache",
+      'Merged persisted submissions into cache',
     );
 
     return this.get(titleSlug, persisted.length + cacheEntries.length);
@@ -176,7 +177,7 @@ export class Cache {
         hitCount: result.length,
         cachedEntryCount: entries.length,
       },
-      "Read submissions from cache",
+      'Read submissions from cache',
     );
     return result;
   }

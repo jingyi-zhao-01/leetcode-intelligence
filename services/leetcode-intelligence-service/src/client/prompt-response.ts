@@ -1,11 +1,11 @@
-import { GatewayIntentBits, type Message } from "discord.js";
+import { GatewayIntentBits, type Message } from 'discord.js';
 
-import type { IntelligenceService } from "../service-runtime/index.ts";
-import { createLogger } from "../logger.ts";
-import { DiscordClient } from "./discord-client.ts";
-import { scorePromptReply } from "./prompt-flow.ts";
+import type { IntelligenceService } from '../service-runtime/index.ts';
+import { createLogger } from '../logger.ts';
+import { DiscordClient } from './discord-client.ts';
+import { scorePromptReply } from './prompt-flow.ts';
 
-const logger = createLogger("client/prompt-response");
+const logger = createLogger('client/prompt-response');
 
 export type PromptResponseClientConfig = {
   botToken: string;
@@ -26,23 +26,20 @@ type DiscordScoreResult = {
 };
 
 const isTargetConversation = (message: Message, channelId: string): boolean =>
-  message.channel.id === channelId || message.channel.isThread?.() === true && message.channel.parentId === channelId;
+  message.channel.id === channelId || (message.channel.isThread?.() === true && message.channel.parentId === channelId);
 
 const formatScoreReply = (scored: DiscordScoreResult): string => {
   if (!scored.ok) {
-    return `Evaluation finished but was not accepted: ${scored.message ?? "unknown reason"}`;
+    return `Evaluation finished but was not accepted: ${scored.message ?? 'unknown reason'}`;
   }
 
-  const parts = [
-    `Evaluation result for \`${scored.questionSlug ?? "unknown"}\``,
-    `Score: ${scored.score ?? "n/a"}`,
-  ];
+  const parts = [`Evaluation result for \`${scored.questionSlug ?? 'unknown'}\``, `Score: ${scored.score ?? 'n/a'}`];
 
-  if (typeof scored.previousWeight === "number" && typeof scored.nextWeight === "number") {
+  if (typeof scored.previousWeight === 'number' && typeof scored.nextWeight === 'number') {
     parts.push(`Weight: ${scored.previousWeight.toFixed(2)} -> ${scored.nextWeight.toFixed(2)}`);
   }
   if (Array.isArray(scored.tags) && scored.tags.length > 0) {
-    parts.push(`Tags: ${scored.tags.join(", ")}`);
+    parts.push(`Tags: ${scored.tags.join(', ')}`);
   }
   if (scored.reason) {
     parts.push(`Reason: ${scored.reason}`);
@@ -51,7 +48,7 @@ const formatScoreReply = (scored: DiscordScoreResult): string => {
     parts.push(`Recommended answer:\n${scored.recommendedAnswer}`);
   }
 
-  return parts.join("\n");
+  return parts.join('\n');
 };
 
 export class PromptResponseClient {
@@ -62,7 +59,7 @@ export class PromptResponseClient {
     private readonly config: PromptResponseClientConfig,
   ) {
     this.discord = new DiscordClient({
-      scope: "client/prompt-response",
+      scope: 'client/prompt-response',
       botToken: config.botToken,
       channelId: config.channelId,
       intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
@@ -88,21 +85,21 @@ export class PromptResponseClient {
           authorId: message.author.id,
           bot: message.author.bot,
         },
-        "messageCreate",
+        'messageCreate',
       );
 
       if (message.author.bot) {
-        logger.info({ messageId: message.id }, "ignored bot message");
+        logger.info({ messageId: message.id }, 'ignored bot message');
         return;
       }
       if (!isTargetConversation(message, this.config.channelId)) {
-        logger.info({ messageId: message.id, channelId: message.channel.id }, "ignored non-target channel message");
+        logger.info({ messageId: message.id, channelId: message.channel.id }, 'ignored non-target channel message');
         return;
       }
 
       const referenceMessageId = message.reference?.messageId;
       if (!referenceMessageId) {
-        logger.info({ messageId: message.id }, "ignored message without reference");
+        logger.info({ messageId: message.id }, 'ignored message without reference');
         return;
       }
 
@@ -112,32 +109,32 @@ export class PromptResponseClient {
         rawReply: message.content,
       })) as DiscordScoreResult | null;
       if (!scored) {
-        logger.warn({ messageId: message.id, referenceMessageId }, "no score generated");
+        logger.warn({ messageId: message.id, referenceMessageId }, 'no score generated');
         return;
       }
 
       const feedback = formatScoreReply(scored);
       if (message.channel.isThread?.() === true) {
-        if (!("send" in message.channel) || typeof message.channel.send !== "function") {
+        if (!('send' in message.channel) || typeof message.channel.send !== 'function') {
           throw new Error(`Thread channel ${message.channel.id} is not sendable.`);
         }
         await message.channel.send({ content: feedback });
       } else {
         await this.discord.replyToMessage(message, feedback);
-        await this.discord.addReaction(referenceMessageId, "👍");
+        await this.discord.addReaction(referenceMessageId, '👍');
       }
 
       logger.info(
         {
-          questionSlug: scored.questionSlug ?? "unknown",
+          questionSlug: scored.questionSlug ?? 'unknown',
           score: scored.score ?? null,
           messageId: message.id,
           referenceMessageId,
         },
-        "scored reply",
+        'scored reply',
       );
     } catch (error) {
-      logger.error({ err: error }, "failed handling messageCreate");
+      logger.error({ err: error }, 'failed handling messageCreate');
     }
   }
 }

@@ -35,10 +35,7 @@ function defaultClusterHue(key: string) {
   return 290 + (hash % 90);
 }
 
-function matchesClusterSelection(
-  node: SubmissionGraph['nodes'][number],
-  selectedTemplateGroupKeys: Set<string>,
-) {
+function matchesClusterSelection(node: SubmissionGraph['nodes'][number], selectedTemplateGroupKeys: Set<string>) {
   const hasTemplateGroupFilter = selectedTemplateGroupKeys.size > 0;
 
   if (!hasTemplateGroupFilter) {
@@ -48,11 +45,7 @@ function matchesClusterSelection(
   return node.templateGroups.some((group) => selectedTemplateGroupKeys.has(group.key));
 }
 
-function filterGraph(
-  graph: SubmissionGraph,
-  needle: string,
-  selectedTemplateGroupKeys: Set<string>,
-) {
+function filterGraph(graph: SubmissionGraph, needle: string, selectedTemplateGroupKeys: Set<string>) {
   const filteredNodes = graph.nodes.filter((node) => {
     if (!matchesClusterSelection(node, selectedTemplateGroupKeys)) {
       return false;
@@ -167,11 +160,9 @@ function buildClusterTree(graph: SubmissionGraph, templateCatalog: TemplateGroup
       };
     });
 
-  return [...catalogGroups, ...graphOnlyGroups]
-    .sort(
-      (left, right) =>
-        right.uniqueQuestionCount - left.uniqueQuestionCount || left.label.localeCompare(right.label),
-    );
+  return [...catalogGroups, ...graphOnlyGroups].sort(
+    (left, right) => right.uniqueQuestionCount - left.uniqueQuestionCount || left.label.localeCompare(right.label),
+  );
 }
 
 export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: Props) {
@@ -182,7 +173,9 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
   const [hoveredTemplateGroupKey, setHoveredTemplateGroupKey] = useState<string | null>(null);
   const templateGroupTree = useMemo(() => buildClusterTree(graph, templateCatalog), [graph, templateCatalog]);
   const [clusterHueByKey, setClusterHueByKey] = useState<Record<string, number>>(() =>
-    Object.fromEntries(buildClusterTree(graph, templateCatalog).map((group) => [group.key, defaultClusterHue(group.key)])),
+    Object.fromEntries(
+      buildClusterTree(graph, templateCatalog).map((group) => [group.key, defaultClusterHue(group.key)]),
+    ),
   );
   const filteredGraph = useMemo(
     () => filterGraph(graph, query.trim().toLowerCase(), selectedTemplateGroupKeys),
@@ -251,7 +244,9 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
               />
             </div>
             <div className="graph-toolbar-summary">
-              <span>{selectedTemplateGroupKeys.size ? `${selectedTemplateGroupKeys.size} selected` : 'All groups'}</span>
+              <span>
+                {selectedTemplateGroupKeys.size ? `${selectedTemplateGroupKeys.size} selected` : 'All groups'}
+              </span>
               {selectedTemplateGroupKeys.size ? (
                 <Button type="button" variant="outline" onClick={clearTemplateGroupFilters}>
                   Clear
@@ -271,7 +266,9 @@ export function GraphWorkbench({ graph, templateCatalog, initialSelectedSlug }: 
                     className={`graph-group-list-section graph-group-list-item-${tone} ${isGroupSelected ? 'selected' : ''}`}
                     key={group.key}
                     onMouseEnter={() => setHoveredTemplateGroupKey(group.key)}
-                    onMouseLeave={() => setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))}
+                    onMouseLeave={() =>
+                      setHoveredTemplateGroupKey((current) => (current === group.key ? null : current))
+                    }
                   >
                     <button
                       type="button"

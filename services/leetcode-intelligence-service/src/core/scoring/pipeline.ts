@@ -1,4 +1,4 @@
-import type { PromptCooldownRule, WeightedCandidate } from "../types.ts";
+import type { PromptCooldownRule, WeightedCandidate } from '../types.ts';
 
 export type PromptPipelineEntry = WeightedCandidate & {
   lastPromptAt: Date | null;

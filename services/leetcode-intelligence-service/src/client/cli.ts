@@ -1,18 +1,18 @@
-import type { IntelligenceService } from "../service-runtime/index.ts";
-import { createLogger } from "../logger.ts";
-import { CliClient } from "./cli-client.ts";
-import { runInteractivePromptSession } from "./prompt-flow.ts";
+import type { IntelligenceService } from '../service-runtime/index.ts';
+import { createLogger } from '../logger.ts';
+import { CliClient } from './cli-client.ts';
+import { runInteractivePromptSession } from './prompt-flow.ts';
 
-const logger = createLogger("client/cli");
+const logger = createLogger('client/cli');
 
 export async function runCliIntelligenceClient(service: IntelligenceService): Promise<void> {
   const client = new CliClient();
   await service.start();
 
   try {
-    const session = await runInteractivePromptSession(service, client, "cli");
+    const session = await runInteractivePromptSession(service, client, 'cli');
     if (session.ok !== true) {
-      logger.error({ message: session.message }, "prompt generation failed");
+      logger.error({ message: session.message }, 'prompt generation failed');
       return;
     }
 

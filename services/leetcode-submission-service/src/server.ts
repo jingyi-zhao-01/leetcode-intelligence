@@ -454,7 +454,10 @@ export class SubmissionServer {
     return this.similarRecallCache.set(recalled.titleSlug, recalled, this.getMem0RecallCacheTtlMs());
   }
 
-  private mergeMem0RecallCacheRecord(titleSlug: string, record: NonNullable<SessionRecordRecallResult['records'][number]>): void {
+  private mergeMem0RecallCacheRecord(
+    titleSlug: string,
+    record: NonNullable<SessionRecordRecallResult['records'][number]>,
+  ): void {
     const cached = this.readMem0RecallCache(titleSlug);
     if (!cached) {
       return;
@@ -1122,7 +1125,9 @@ export class SubmissionServer {
 
   private async buildCompanionChatRequest(
     body: Record<string, unknown>,
-  ): Promise<{ ok: true; request: CompanionChatRequest; titleSlug: string } | { ok: false; response: Record<string, unknown> }> {
+  ): Promise<
+    { ok: true; request: CompanionChatRequest; titleSlug: string } | { ok: false; response: Record<string, unknown> }
+  > {
     if (!this.companionChat) {
       return {
         ok: false,

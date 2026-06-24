@@ -1,20 +1,20 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { FlatCompat } from "@eslint/eslintrc";
-import js from "@eslint/js";
-import { defineConfig, globalIgnores } from "eslint/config";
-import globals from "globals";
-import tseslint from "typescript-eslint";
+import { FlatCompat } from '@eslint/eslintrc';
+import js from '@eslint/js';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 export const sharedIgnores = [
-  "**/node_modules/**",
-  "**/dist/**",
-  "**/build/**",
-  "**/.venv/**",
-  "**/__pycache__/**",
-  "services/**/generated/**",
-  "services/**/coverage/**",
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/build/**',
+  '**/.venv/**',
+  '**/__pycache__/**',
+  'services/**/generated/**',
+  'services/**/coverage/**',
 ];
 
 export function moduleDir(importMetaUrl) {
@@ -30,21 +30,21 @@ export function createServiceLintConfig({ serviceFiles, testFiles = [] }) {
       files: serviceFiles,
       extends: [js.configs.recommended, ...tseslint.configs.recommended],
       languageOptions: {
-        ecmaVersion: "latest",
-        sourceType: "module",
+        ecmaVersion: 'latest',
+        sourceType: 'module',
         globals: {
           ...globals.node,
         },
       },
       rules: {
-        "no-console": "off",
-        "@typescript-eslint/no-explicit-any": "off",
-        "@typescript-eslint/no-unused-vars": [
-          "error",
+        'no-console': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-unused-vars': [
+          'error',
           {
-            argsIgnorePattern: "^_",
-            varsIgnorePattern: "^_",
-            caughtErrorsIgnorePattern: "^_",
+            argsIgnorePattern: '^_',
+            varsIgnorePattern: '^_',
+            caughtErrorsIgnorePattern: '^_',
           },
         ],
       },
@@ -70,13 +70,7 @@ export function createNextClientLintConfig(baseDirectory) {
   const compat = new FlatCompat({ baseDirectory });
 
   return defineConfig([
-    ...compat.extends("next/core-web-vitals"),
-    globalIgnores([
-      ...sharedIgnores,
-      ".next/**",
-      "out/**",
-      "build/**",
-      "next-env.d.ts",
-    ]),
+    ...compat.extends('next/core-web-vitals'),
+    globalIgnores([...sharedIgnores, '.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
   ]);
 }

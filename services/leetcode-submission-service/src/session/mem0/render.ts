@@ -166,7 +166,11 @@ export function renderPersistedSessionRecord(scope: ActiveSessionScope, event: S
   }
 
   if (scope.lastFailureAnalysis) {
-    parts.push('', '## Latest Failure Analysis', `- Summary: ${truncate(scope.lastFailureAnalysis.summary, MAX_MESSAGE_CHARS)}`);
+    parts.push(
+      '',
+      '## Latest Failure Analysis',
+      `- Summary: ${truncate(scope.lastFailureAnalysis.summary, MAX_MESSAGE_CHARS)}`,
+    );
 
     if (scope.lastFailureAnalysis.annotations.length > 0) {
       parts.push('- Annotations:');
@@ -228,7 +232,8 @@ function parseRecalledSessionRecord(record: RecalledSessionRecord): NormalizedRe
   const activatedAt =
     readMetadataString(metadata, 'activated_at', 'activatedAt') ?? readRecordLineValue(record.memory, 'Activated At');
   const endedAt = readMetadataString(metadata, 'ended_at', 'endedAt') ?? readRecordLineValue(record.memory, 'Ended At');
-  const endReason = readMetadataString(metadata, 'end_reason', 'endReason') ?? readRecordLineValue(record.memory, 'End Reason');
+  const endReason =
+    readMetadataString(metadata, 'end_reason', 'endReason') ?? readRecordLineValue(record.memory, 'End Reason');
   const runId = readMetadataString(metadata, 'run_id', 'runId') ?? readRecordLineValue(record.memory, 'Run ID');
   const language = readMetadataString(metadata, 'language') ?? readRecordLineValue(record.memory, 'Language');
   const difficulty = readMetadataString(metadata, 'difficulty') ?? readRecordLineValue(record.memory, 'Difficulty');
@@ -291,7 +296,10 @@ function parseRecalledSessionRecord(record: RecalledSessionRecord): NormalizedRe
   };
 }
 
-function mergeRecalledSessions(primary: NormalizedRecalledSession, secondary: NormalizedRecalledSession): NormalizedRecalledSession {
+function mergeRecalledSessions(
+  primary: NormalizedRecalledSession,
+  secondary: NormalizedRecalledSession,
+): NormalizedRecalledSession {
   return {
     id: primary.id,
     sourceRecordIds: uniqueValues([...primary.sourceRecordIds, ...secondary.sourceRecordIds]),
@@ -402,7 +410,13 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
     );
 
     if (session.codeExcerpt) {
-      parts.push('', '### Recalled Code Excerpt', '```text', truncate(session.codeExcerpt, MAX_RECALLED_CODE_CHARS), '```');
+      parts.push(
+        '',
+        '### Recalled Code Excerpt',
+        '```text',
+        truncate(session.codeExcerpt, MAX_RECALLED_CODE_CHARS),
+        '```',
+      );
     }
 
     if (session.failureSnapshot) {
@@ -432,17 +446,19 @@ export function renderRecalledSessionRecords(result: SessionRecordRecallResult) 
 }
 
 export function summarizeRecalledSessionsForMount(result: SessionRecordRecallResult): RecalledMountSessionSummary[] {
-  return normalizeRecalledSessions(result).slice(0, MAX_MOUNT_SUMMARY_RECORDS).map((session) => ({
-    runId: session.runId,
-    endedAt: session.endedAt,
-    endReason: session.endReason,
-    latestFailureStatus: session.latestFailureStatus,
-    distinctMistakeCount: session.failureSummaries.length,
-    failureSummary: session.failureSummary,
-    failureSummaries: session.failureSummaries.slice(0, 3),
-    stuckPoints: session.stuckPoints.slice(0, 3),
-    thoughtProcess: session.thoughtProcess.slice(-3),
-  }));
+  return normalizeRecalledSessions(result)
+    .slice(0, MAX_MOUNT_SUMMARY_RECORDS)
+    .map((session) => ({
+      runId: session.runId,
+      endedAt: session.endedAt,
+      endReason: session.endReason,
+      latestFailureStatus: session.latestFailureStatus,
+      distinctMistakeCount: session.failureSummaries.length,
+      failureSummary: session.failureSummary,
+      failureSummaries: session.failureSummaries.slice(0, 3),
+      stuckPoints: session.stuckPoints.slice(0, 3),
+      thoughtProcess: session.thoughtProcess.slice(-3),
+    }));
 }
 
 export function renderRecalledMountSummary(result: SessionRecordRecallResult): string | undefined {

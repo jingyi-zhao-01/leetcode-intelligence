@@ -1,9 +1,9 @@
-import type { FocusRecommendationResult, IntelligenceConfig, PromptTransport } from "../core/types.ts";
-import { createLogger } from "../logger.ts";
-import type { IntelligenceService } from "./contracts.ts";
-import type { RuntimeComposition } from "./composition.ts";
+import type { FocusRecommendationResult, IntelligenceConfig, PromptTransport } from '../core/types.ts';
+import { createLogger } from '../logger.ts';
+import type { IntelligenceService } from './contracts.ts';
+import type { RuntimeComposition } from './composition.ts';
 
-const logger = createLogger("service-runtime/runtime");
+const logger = createLogger('service-runtime/runtime');
 
 export class IntelligenceRuntimeService implements IntelligenceService {
   constructor(
@@ -17,26 +17,26 @@ export class IntelligenceRuntimeService implements IntelligenceService {
         promptChannelConfigured: Boolean(this.config.PROMPT_DISCORD_CHANNEL_ID),
         recommendChannelConfigured: Boolean(this.config.RECOMMEND_DISCORD_CHANNEL_ID),
       },
-      "initializing service runtime",
+      'initializing service runtime',
     );
   }
 
   async start(): Promise<void> {
-    logger.info("intelligence service runtime ready");
+    logger.info('intelligence service runtime ready');
   }
 
   async stop(): Promise<void> {
-    logger.info("intelligence service runtime stopped");
+    logger.info('intelligence service runtime stopped');
   }
 
   async health(): Promise<Record<string, unknown>> {
     return {
-      status: "ok",
-      service: "leetcode-intelligence-service",
+      status: 'ok',
+      service: 'leetcode-intelligence-service',
     };
   }
 
-  async triggerPrompt(triggerSource = "manual", transport?: PromptTransport): Promise<Record<string, unknown>> {
+  async triggerPrompt(triggerSource = 'manual', transport?: PromptTransport): Promise<Record<string, unknown>> {
     return this.composition.domainServices.promptGenerator.generate(triggerSource, transport);
   }
 

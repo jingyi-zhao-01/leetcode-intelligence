@@ -81,7 +81,10 @@ const truncate = (value: string, maxLength: number): string => {
   return `${value.slice(0, maxLength - 3)}...`;
 };
 
-const normalizeComplexityValue = <TValue extends string>(value: unknown, allowedValues: readonly TValue[]): TValue | null => {
+const normalizeComplexityValue = <TValue extends string>(
+  value: unknown,
+  allowedValues: readonly TValue[],
+): TValue | null => {
   if (typeof value !== 'string') {
     return null;
   }

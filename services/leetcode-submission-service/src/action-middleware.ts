@@ -1,4 +1,4 @@
-import type { Cache, SubmissionSummary } from "./cache.ts";
+import type { Cache, SubmissionSummary } from './cache.ts';
 
 export type ActionContext = {
   cache: Cache;
@@ -34,7 +34,6 @@ type WriteCacheOptions<TArgs extends unknown[], TPending, TResult> = {
   persist: (context: ActionContext, pending: TPending, cacheKey: string) => Promise<void>;
 };
 
-
 export function withReadSubmissionCache<TArgs extends unknown[], TResult>(
   options: ReadCacheOptions<TArgs, TResult>,
 ): ActionHandler<TArgs, TResult> {
@@ -51,7 +50,7 @@ export function withReadSubmissionCache<TArgs extends unknown[], TResult>(
           limit,
           count: cached.length,
         },
-        "Serving cached submissions via middleware",
+        'Serving cached submissions via middleware',
       );
       return options.buildResponse(cached, ...args);
     }
@@ -67,13 +66,12 @@ export function withReadSubmissionCache<TArgs extends unknown[], TResult>(
         cacheCount: cached.length,
         mergedCount: merged.length,
       },
-      "Serving merged submissions via middleware",
+      'Serving merged submissions via middleware',
     );
 
     return options.buildResponse(merged, ...args);
   };
 }
-
 
 export function withWriteThroughSubmissionCache<TArgs extends unknown[], TPending, TResult>(
   options: WriteCacheOptions<TArgs, TPending, TResult>,
@@ -90,7 +88,7 @@ export function withWriteThroughSubmissionCache<TArgs extends unknown[], TPendin
           cacheKey: cached.cacheKey,
           error: error instanceof Error ? error.message : String(error),
         },
-        "Async persistence failed after cache write",
+        'Async persistence failed after cache write',
       );
     });
 

@@ -1,7 +1,7 @@
-import type { FailureAnalysisResult, FailureAnnotation } from "../core/failureAnalysis.ts";
+import type { FailureAnalysisResult, FailureAnnotation } from '../core/failureAnalysis.ts';
 
-const normalizeSeverity = (value: unknown): "error" | "warn" => {
-  return value === "error" ? "error" : "warn";
+const normalizeSeverity = (value: unknown): 'error' | 'warn' => {
+  return value === 'error' ? 'error' : 'warn';
 };
 
 const mergeAnnotations = (items: FailureAnnotation[]): FailureAnnotation[] => {
@@ -17,8 +17,8 @@ const mergeAnnotations = (items: FailureAnnotation[]): FailureAnnotation[] => {
     const reasons = [existing.reason, item.reason].map((value) => value.trim()).filter(Boolean);
     merged.set(item.line, {
       ...existing,
-      severity: existing.severity === "error" || item.severity === "error" ? "error" : "warn",
-      reason: Array.from(new Set(reasons)).join(" | "),
+      severity: existing.severity === 'error' || item.severity === 'error' ? 'error' : 'warn',
+      reason: Array.from(new Set(reasons)).join(' | '),
       column: existing.column ?? item.column,
     });
   }
@@ -28,7 +28,7 @@ const mergeAnnotations = (items: FailureAnnotation[]): FailureAnnotation[] => {
 
 const extractJsonObject = (content: string): string => {
   const trimmed = content.trim();
-  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     return trimmed;
   }
 
@@ -41,7 +41,7 @@ export const parseFailureAnalysis = (content: string, maxLine: number): FailureA
   const rawAnnotations = Array.isArray(parsed.annotations) ? parsed.annotations : [];
   const annotations = rawAnnotations
     .map<FailureAnnotation | null>((item) => {
-      if (!item || typeof item !== "object") {
+      if (!item || typeof item !== 'object') {
         return null;
       }
 
@@ -52,10 +52,10 @@ export const parseFailureAnalysis = (content: string, maxLine: number): FailureA
 
       const columnValue = Number((item as { column?: unknown }).column);
       const rawReason = (item as { reason?: unknown }).reason;
-      const reason = typeof rawReason === "string" ? rawReason.trim() : "";
+      const reason = typeof rawReason === 'string' ? rawReason.trim() : '';
       return {
         line,
-        reason: reason || "Possibly related to the failing result",
+        reason: reason || 'Possibly related to the failing result',
         severity: normalizeSeverity((item as { severity?: unknown }).severity),
         column: Number.isInteger(columnValue) && columnValue > 0 ? columnValue : undefined,
       };
@@ -64,7 +64,7 @@ export const parseFailureAnalysis = (content: string, maxLine: number): FailureA
     .slice(0, 6);
 
   return {
-    summary: String(parsed.summary ?? "").trim(),
+    summary: String(parsed.summary ?? '').trim(),
     annotations: mergeAnnotations(annotations),
   };
 };

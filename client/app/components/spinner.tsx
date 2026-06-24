@@ -14,5 +14,7 @@ function resolveStyle(size: Size) {
 }
 
 export function Spinner({ size = 'medium' }: { size?: Size }) {
-  return <span className={`inline-spinner ${typeof size === 'string' ? size : ''}`.trim()} style={resolveStyle(size)} />;
+  return (
+    <span className={`inline-spinner ${typeof size === 'string' ? size : ''}`.trim()} style={resolveStyle(size)} />
+  );
 }

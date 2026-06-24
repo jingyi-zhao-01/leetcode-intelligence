@@ -1,9 +1,9 @@
-import { Agent, OpenAIProvider, Runner, assistant, user, type AgentInputItem } from "@openai/agents";
-import OpenAI from "openai";
-import { createLogger } from "../logger.ts";
+import { Agent, OpenAIProvider, Runner, assistant, user, type AgentInputItem } from '@openai/agents';
+import OpenAI from 'openai';
+import { createLogger } from '../logger.ts';
 
 export type CompanionChatMessage = {
-  role: "system" | "user" | "assistant";
+  role: 'system' | 'user' | 'assistant';
   content: string;
 };
 
@@ -75,9 +75,9 @@ Rules:
 - If the user explicitly asks for another language, follow the user's request.
 `.trim();
 
-const logger = createLogger("companion-chat");
+const logger = createLogger('companion-chat');
 
-const toText = (value: unknown): string => (typeof value === "string" ? value : "");
+const toText = (value: unknown): string => (typeof value === 'string' ? value : '');
 
 export function sanitizeCompanionMessages(messages: unknown): CompanionChatMessage[] {
   if (!Array.isArray(messages)) {
@@ -85,13 +85,13 @@ export function sanitizeCompanionMessages(messages: unknown): CompanionChatMessa
   }
 
   return messages.flatMap((message) => {
-    if (!message || typeof message !== "object" || Array.isArray(message)) {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) {
       return [];
     }
 
     const role = (message as { role?: unknown }).role;
     const content = toText((message as { content?: unknown }).content).trim();
-    if ((role !== "system" && role !== "user" && role !== "assistant") || content.length === 0) {
+    if ((role !== 'system' && role !== 'user' && role !== 'assistant') || content.length === 0) {
       return [];
     }
 
@@ -101,9 +101,9 @@ export function sanitizeCompanionMessages(messages: unknown): CompanionChatMessa
 
 function toAgentInput(messages: CompanionChatMessage[]): AgentInputItem[] {
   return messages
-    .filter((message) => message.role !== "system")
+    .filter((message) => message.role !== 'system')
     .map((message) => {
-      if (message.role === "assistant") {
+      if (message.role === 'assistant') {
         return assistant(message.content);
       }
 
@@ -112,35 +112,37 @@ function toAgentInput(messages: CompanionChatMessage[]): AgentInputItem[] {
 }
 
 function extractFinalText(output: unknown): string {
-  if (typeof output === "string") {
+  if (typeof output === 'string') {
     return output;
   }
 
   if (Array.isArray(output)) {
     return output
       .map((item) => {
-        if (typeof item === "string") {
+        if (typeof item === 'string') {
           return item;
         }
 
-        if (item && typeof item === "object" && "text" in item && typeof item.text === "string") {
+        if (item && typeof item === 'object' && 'text' in item && typeof item.text === 'string') {
           return item.text;
         }
 
-        return "";
+        return '';
       })
-      .join("")
+      .join('')
       .trim();
   }
 
-  if (output && typeof output === "object" && "text" in output && typeof output.text === "string") {
+  if (output && typeof output === 'object' && 'text' in output && typeof output.text === 'string') {
     return output.text;
   }
 
-  return "";
+  return '';
 }
 
-function summarizeMessages(messages: CompanionChatMessage[]): Array<{ role: CompanionChatMessage["role"]; chars: number; preview: string }> {
+function summarizeMessages(
+  messages: CompanionChatMessage[],
+): Array<{ role: CompanionChatMessage['role']; chars: number; preview: string }> {
   return messages.map((message) => ({
     role: message.role,
     chars: message.content.length,
@@ -164,8 +166,8 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
       apiKey: this.apiKey,
       baseURL: this.baseUrl,
       defaultHeaders: {
-        "HTTP-Referer": this.httpReferer,
-        "X-Title": this.appTitle,
+        'HTTP-Referer': this.httpReferer,
+        'X-Title': this.appTitle,
       },
     });
     this.modelProvider = new OpenAIProvider({
@@ -180,7 +182,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
     const model = request.model?.trim() || this.defaultModel;
 
     return new Agent({
-      name: "LeetCode Companion",
+      name: 'LeetCode Companion',
       instructions: this.systemPrompt,
       model,
     });
@@ -189,7 +191,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
   async chat(request: CompanionChatRequest): Promise<CompanionChatResult> {
     const messages = sanitizeCompanionMessages(request.messages);
     if (messages.length === 0) {
-      throw new Error("At least one user or assistant message is required.");
+      throw new Error('At least one user or assistant message is required.');
     }
 
     const model = request.model?.trim() || this.defaultModel;
@@ -204,7 +206,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
         messageCount: messages.length,
         messages: summarizeMessages(messages),
       },
-      "Companion chat request started",
+      'Companion chat request started',
     );
 
     const runner = new Runner({
@@ -213,7 +215,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
         temperature,
       },
       tracingDisabled: true,
-      workflowName: "companion-service",
+      workflowName: 'companion-service',
     });
 
     const result = await runner.run(agent, toAgentInput(messages), {
@@ -230,20 +232,20 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
         outputChars: content.length,
         outputPreview: content.slice(0, 200),
       },
-      "Companion chat request completed",
+      'Companion chat request completed',
     );
 
     return {
       model,
       content,
-      finishReason: "stop",
+      finishReason: 'stop',
     };
   }
 
   async stream(request: CompanionChatRequest): Promise<AsyncIterable<CompanionChatStreamChunk>> {
     const messages = sanitizeCompanionMessages(request.messages);
     if (messages.length === 0) {
-      throw new Error("At least one user or assistant message is required.");
+      throw new Error('At least one user or assistant message is required.');
     }
 
     const model = request.model?.trim() || this.defaultModel;
@@ -258,7 +260,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
         messageCount: messages.length,
         messages: summarizeMessages(messages),
       },
-      "Companion chat stream started",
+      'Companion chat stream started',
     );
 
     const runner = new Runner({
@@ -267,7 +269,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
         temperature,
       },
       tracingDisabled: true,
-      workflowName: "companion-service",
+      workflowName: 'companion-service',
     });
     const result = await runner.run(agent, toAgentInput(messages), { maxTurns: 1, stream: true });
 
@@ -277,23 +279,23 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
     async function* iterate(): AsyncIterable<CompanionChatStreamChunk> {
       let sentRole = false;
       let outputChars = 0;
-      let outputPreview = "";
+      let outputPreview = '';
       const textStream = result.toTextStream({ compatibleWithNodeStreams: true });
 
       for await (const piece of textStream) {
-        const content = typeof piece === "string" ? piece : String(piece ?? "");
+        const content = typeof piece === 'string' ? piece : String(piece ?? '');
         if (content.length === 0) {
           continue;
         }
 
-        outputChars += content.length
+        outputChars += content.length;
         if (outputPreview.length < 200) {
-          outputPreview = (outputPreview + content).slice(0, 200)
+          outputPreview = (outputPreview + content).slice(0, 200);
         }
 
         yield {
           id: chunkId,
-          object: "chat.completion.chunk",
+          object: 'chat.completion.chunk',
           created,
           model,
           choices: [
@@ -301,7 +303,7 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
               index: 0,
               finishReason: null,
               delta: {
-                role: sentRole ? undefined : "assistant",
+                role: sentRole ? undefined : 'assistant',
                 content,
               },
             },
@@ -321,18 +323,18 @@ class AgentsSdkCompanionChatService implements CompanionChatService {
           outputChars,
           outputPreview,
         },
-        "Companion chat stream completed",
+        'Companion chat stream completed',
       );
 
       yield {
         id: chunkId,
-        object: "chat.completion.chunk",
+        object: 'chat.completion.chunk',
         created,
         model,
         choices: [
           {
             index: 0,
-            finishReason: "stop",
+            finishReason: 'stop',
             delta: {},
           },
         ],
@@ -357,8 +359,8 @@ export const createDefaultCompanionChatService = (
     apiKey,
     model,
     options?.systemPrompt ?? process.env.LEETCODE_COMPANION_SYSTEM_PROMPT ?? DEFAULT_COMPANION_SYSTEM_PROMPT,
-    options?.baseUrl ?? process.env.OPEN_ROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
-    options?.appTitle ?? "companion-service",
-    options?.httpReferer ?? "https://github.com/kawre/leetcode.nvim",
+    options?.baseUrl ?? process.env.OPEN_ROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
+    options?.appTitle ?? 'companion-service',
+    options?.httpReferer ?? 'https://github.com/kawre/leetcode.nvim',
   );
 };

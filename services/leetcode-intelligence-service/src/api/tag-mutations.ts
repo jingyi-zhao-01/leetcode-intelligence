@@ -1,22 +1,22 @@
-import type { ApiContext } from "./context.ts";
-import { slugify } from "./shared.ts";
+import type { ApiContext } from './context.ts';
+import { slugify } from './shared.ts';
 
 export function createTagMutationsApi({ prisma }: ApiContext) {
   const saveSubmissionTags = async (submissionId: string, patternTagIds: string[]) => {
     const submission = await prisma.submission.findFirst({
-      where: { id: submissionId, status: "Accepted" },
+      where: { id: submissionId, status: 'Accepted' },
       select: { id: true },
     });
 
     if (!submission) {
-      return { status: "not_found" as const };
+      return { status: 'not_found' as const };
     }
 
     const allowedTags = await prisma.patternTag.findMany({
       where: {
         id: { in: [...new Set(patternTagIds)] },
         isActive: true,
-        kind: "tag",
+        kind: 'tag',
       },
       select: { id: true },
     });
@@ -35,25 +35,21 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
       }
     });
 
-    return { status: "updated" as const };
+    return { status: 'updated' as const };
   };
 
-  const createTemplateGroup = async (input: {
-    label: string;
-    key?: string;
-    description?: string;
-  }) => {
+  const createTemplateGroup = async (input: { label: string; key?: string; description?: string }) => {
     const label = input.label.trim();
     const description = input.description?.trim() || null;
     const requestedKey = input.key?.trim() || label;
     const baseKey = slugify(requestedKey);
 
     if (!label) {
-      throw new Error("Template group label is required.");
+      throw new Error('Template group label is required.');
     }
 
     if (!baseKey) {
-      throw new Error("Template group key is invalid.");
+      throw new Error('Template group key is invalid.');
     }
 
     let key = baseKey;
@@ -62,7 +58,7 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
     }
 
     const maxSortOrder = await prisma.patternTag.aggregate({
-      where: { dimension: "template", kind: "template_group" },
+      where: { dimension: 'template', kind: 'template_group' },
       _max: { sortOrder: true },
     });
 
@@ -71,9 +67,9 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
         key,
         label,
         description,
-        dimension: "template",
-        kind: "template_group",
-        source: "manually_created",
+        dimension: 'template',
+        kind: 'template_group',
+        source: 'manually_created',
         isActive: true,
         parentId: null,
         sortOrder: (maxSortOrder._max.sortOrder ?? 0) + 100,
@@ -109,21 +105,26 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
       }),
     ]);
 
-    if (!template || !template.isActive || template.dimension !== "template" || template.kind !== "tag") {
-      return { status: "invalid_template" as const };
+    if (!template || !template.isActive || template.dimension !== 'template' || template.kind !== 'tag') {
+      return { status: 'invalid_template' as const };
     }
 
-    if (!targetGroup || !targetGroup.isActive || targetGroup.dimension !== "template" || targetGroup.kind !== "template_group") {
-      return { status: "invalid_target_group" as const };
+    if (
+      !targetGroup ||
+      !targetGroup.isActive ||
+      targetGroup.dimension !== 'template' ||
+      targetGroup.kind !== 'template_group'
+    ) {
+      return { status: 'invalid_target_group' as const };
     }
 
     if (template.id === targetGroup.id) {
-      return { status: "invalid_target_group" as const };
+      return { status: 'invalid_target_group' as const };
     }
 
     if (template.parentId === targetGroup.id) {
       return {
-        status: "unchanged" as const,
+        status: 'unchanged' as const,
         template: { id: template.id, key: template.key, label: template.label },
         group: { id: targetGroup.id, key: targetGroup.key, label: targetGroup.label },
       };
@@ -135,7 +136,7 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
     });
 
     return {
-      status: "moved" as const,
+      status: 'moved' as const,
       template: { id: template.id, key: template.key, label: template.label },
       group: { id: targetGroup.id, key: targetGroup.key, label: targetGroup.label },
     };
@@ -153,7 +154,7 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
         kind: true,
         SubmissionPatternTag: {
           take: 12,
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           select: {
             Submission: {
               select: {
@@ -169,13 +170,13 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
       },
     });
 
-    if (!tag || tag.dimension !== "template" || tag.kind !== "tag" || tag.source === "seeded") {
-      return { status: "not_allowed" as const };
+    if (!tag || tag.dimension !== 'template' || tag.kind !== 'tag' || tag.source === 'seeded') {
+      return { status: 'not_allowed' as const };
     }
 
     if (tag._count.SubmissionPatternTag > 0) {
       return {
-        status: "blocked" as const,
+        status: 'blocked' as const,
         tag: { key: tag.key, label: tag.label },
         assignmentCount: tag._count.SubmissionPatternTag,
         submissions: tag.SubmissionPatternTag.map((entry) => ({
@@ -188,17 +189,17 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
     }
 
     await prisma.patternTag.delete({ where: { id: tag.id } });
-    return { status: "deleted" as const, key: tag.key };
+    return { status: 'deleted' as const, key: tag.key };
   };
 
   const updateSubmissionThought = async (submissionId: string, thought: string) => {
     const submission = await prisma.submission.findFirst({
-      where: { id: submissionId, status: "Accepted" },
+      where: { id: submissionId, status: 'Accepted' },
       select: { id: true },
     });
 
     if (!submission) {
-      return { status: "not_found" as const };
+      return { status: 'not_found' as const };
     }
 
     const normalizedThought = thought.trim();
@@ -210,7 +211,7 @@ export function createTagMutationsApi({ prisma }: ApiContext) {
     });
 
     return {
-      status: "updated" as const,
+      status: 'updated' as const,
       thought: normalizedThought.length > 0 ? normalizedThought : null,
     };
   };

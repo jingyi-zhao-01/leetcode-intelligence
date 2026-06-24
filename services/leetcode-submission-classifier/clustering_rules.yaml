@@ -1,0 +1,126 @@
+# Magic words and family gates for the AST clustering POC.
+# Edit this file when tuning taxonomy vocabulary or cluster grouping rules.
+
+signals:
+  grid:
+    - grid
+    - mat
+    - matrix
+    - board
+    - image
+  graph:
+    - graph
+    - adj
+    - adjacency
+    - edge
+  neighbor:
+    - neighbor
+    - neighbour
+    - directions
+    - dirs
+    - delta
+  left_right_pointers:
+    - left
+    - right
+    - l
+    - r
+  union_find_states:
+    - parent
+    - rank
+  neighbor_states:
+    - neighbors
+    - neighbours
+    - dirs
+    - directions
+  nested_collection_api_names:
+    - getList
+    - isInteger
+    - getInteger
+  dp_states:
+    - dp
+    - memo
+  dict_like_call_names:
+    - dict
+    - defaultdict
+  heap_call_names:
+    - heappush
+    - heappop
+    - heapify
+  sort_call_names:
+    - sorted
+    - sort
+  union_find_call_names:
+    - find
+    - union
+  graph_traversal_call_names:
+    - dfs
+    - bfs
+  deque_import_hints:
+    - deque
+    - collections
+  counter_import_hints:
+    - Counter
+    - collections
+  heap_import_hints:
+    - heapq
+
+labels:
+  default_data_structure: array
+  default_transition: sequential_scan
+  default_answer_timing: unknown
+  queue_transition: frontier_pop_then_expand
+  recursion_transition: recursive_descent
+  midpoint_transition: midpoint_then_boundary_narrow
+  sliding_window_transition: expand_then_shrink_window
+  prefix_transition: accumulate_then_lookup
+  dp_transition: state_transition_update
+  union_find_transition: find_then_union
+  class_api_transition: method_dispatch
+  queue_answer_timing: on_frontier_hit
+  sliding_window_answer_timing: after_shrink
+  midpoint_answer_timing: after_boundary_update
+  dp_answer_timing: during_state_transition
+  scan_answer_timing: inside_scan
+
+cluster_families:
+  default: generic
+  # Earlier rules win. These gates prevent structurally unrelated feature bags
+  # from merging even when their weighted-Jaccard similarity is high.
+  rules:
+    - family: class_api_design
+      keys:
+        - role:class_api_design
+    - family: frontier_bfs
+      keys:
+        - role:frontier_bfs
+        - motif:frontier_pop_then_expand
+    - family: recursive_tree
+      keys:
+        - role:recursive_tree_descent
+    - family: recursive_grid
+      keys:
+        - role:recursive_grid_dfs
+    - family: recursive_nested_collection
+      keys:
+        - role:recursive_nested_collection
+    - family: iterative_tree
+      keys:
+        - role:iterative_tree_walk
+    - family: priority_queue
+      keys:
+        - role:priority_queue_ops
+    - family: union_find
+      keys:
+        - role:union_find_state
+    - family: dp
+      keys:
+        - role:dp_state
+    - family: prefix
+      keys:
+        - role:prefix_state
+    - family: binary_search
+      keys:
+        - motif:midpoint_boundary_narrow
+    - family: sliding_window
+      keys:
+        - motif:expand_then_shrink_window

@@ -1,0 +1,43 @@
+# Source: https://github.com/kamyu104/LeetCode-Solutions
+# problem_id: xor-after-range-multiplication-queries-i
+# source_path: LeetCode-Solutions-master/Python/xor-after-range-multiplication-queries-i.py
+# solution_class: Solution
+# submission_id: 9e23dcb86cd9763759e87af61827e6c10fa05e2a
+# seed: 911524612
+
+# Time:  O(qlogm + (q + n) * sqrt(n))
+# Space: O(n * sqrt(n))
+
+import collections
+
+
+# sqrt decomposition, difference array, fast exponentiation
+
+class Solution(object):
+    def xorAfterQueries(self, nums, queries):
+        """
+        :type nums: List[int]
+        :type queries: List[List[int]]
+        :rtype: int
+        """
+        MOD = 10**9+7
+        def inv(x):
+            return pow(x, MOD-2, MOD)
+
+        block_size = int(len(nums)**0.5)+1
+        diffs = collections.defaultdict(lambda: [1]*len(nums))
+        for l, r, k, v in queries:
+            if k <= block_size:
+                diffs[k][l] = (diffs[k][l]*v)%MOD
+                r += k-(r-l)%k
+                if r < len(nums):
+                    diffs[k][r] = (diffs[k][r]*inv(v))%MOD
+            else:
+                for i in xrange(l, r+1, k):
+                    nums[i] = (nums[i]*v)%MOD
+        for k, diff in diffs.iteritems():
+            for i in xrange(len(diff)):
+                if i-k >= 0:
+                    diff[i] = (diff[i]*diff[i-k])%MOD
+                nums[i] = (nums[i]*diff[i])%MOD
+        return reduce(lambda accu, x: accu^x, nums, 0)

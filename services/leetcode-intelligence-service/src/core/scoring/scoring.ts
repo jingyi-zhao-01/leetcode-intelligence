@@ -1,14 +1,10 @@
-import { OpenRouter } from "@openrouter/sdk";
+import { OpenRouter } from '@openrouter/sdk';
 
-import {
-  type ScoringAlgorithm,
-  type LlmScore,
-  type ScoreRequest,
-} from "../types.ts";
-import { createLogger } from "../../logger.ts";
-import { clamp } from "../shared/weight.ts";
+import { type ScoringAlgorithm, type LlmScore, type ScoreRequest } from '../types.ts';
+import { createLogger } from '../../logger.ts';
+import { clamp } from '../shared/weight.ts';
 
-const logger = createLogger("intelligence/scoring");
+const logger = createLogger('intelligence/scoring');
 
 // The model is asked to judge interview reasoning quality rather than code
 // completeness, so strong approach discussion can still earn a high score.
@@ -48,12 +44,12 @@ const parseStructuredJson = (content: string): LlmScore => {
   const score = Number(parsed.score ?? 3);
   return {
     score: clamp(Number.isFinite(score) ? score : 3, 1, 5),
-    approachSummary: String(parsed.approachSummary ?? ""),
-    complexityNotes: String(parsed.complexityNotes ?? ""),
-    blindSpots: String(parsed.blindSpots ?? ""),
-    recommendedAnswer: String(parsed.recommendedAnswer ?? ""),
+    approachSummary: String(parsed.approachSummary ?? ''),
+    complexityNotes: String(parsed.complexityNotes ?? ''),
+    blindSpots: String(parsed.blindSpots ?? ''),
+    recommendedAnswer: String(parsed.recommendedAnswer ?? ''),
     tags: Array.isArray(parsed.tags) ? parsed.tags.map((tag) => String(tag).trim()).filter(Boolean) : [],
-    reason: String(parsed.reason ?? ""),
+    reason: String(parsed.reason ?? ''),
   };
 };
 
@@ -68,12 +64,12 @@ const fallbackStructuredScore = (rawReply: string): LlmScore => {
 
   return {
     score,
-    approachSummary: truncate(cleanedReply || "No reply provided.", 240),
-    complexityNotes: "Fallback scorer used because OpenRouter scoring is unavailable.",
-    blindSpots: "",
-    recommendedAnswer: cleanedReply || "No recommended answer available because the fallback scorer was used.",
-    tags: ["fallback", "cli-e2e"],
-    reason: "Used local fallback scoring because OpenRouter was unavailable or rejected the API key.",
+    approachSummary: truncate(cleanedReply || 'No reply provided.', 240),
+    complexityNotes: 'Fallback scorer used because OpenRouter scoring is unavailable.',
+    blindSpots: '',
+    recommendedAnswer: cleanedReply || 'No recommended answer available because the fallback scorer was used.',
+    tags: ['fallback', 'cli-e2e'],
+    reason: 'Used local fallback scoring because OpenRouter was unavailable or rejected the API key.',
   };
 };
 
@@ -92,21 +88,21 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
         questionSlug: request.questionSlug,
         replyChars: request.rawReply.length,
       },
-      "requesting OpenRouter score",
+      'requesting OpenRouter score',
     );
 
     const response = await this.openRouter.chat.send({
       chatRequest: {
         model: this.model,
         temperature: 0.2,
-        responseFormat: { type: "json_object" },
+        responseFormat: { type: 'json_object' },
         messages: [
           {
-            role: "system",
+            role: 'system',
             content: INTERVIEW_SCORING_PROMPT,
           },
           {
-            role: "user",
+            role: 'user',
             content: JSON.stringify({
               questionSlug: request.questionSlug,
               promptText: request.promptText,
@@ -122,9 +118,9 @@ export class OpenRouterScoringAlgorithm implements ScoringAlgorithm {
       },
     });
 
-    const text = response.choices?.[0]?.message?.content ?? "{}";
+    const text = response.choices?.[0]?.message?.content ?? '{}';
     if (!response.choices?.length) {
-      logger.warn({ model: this.model, questionSlug: request.questionSlug }, "OpenRouter response had no choices");
+      logger.warn({ model: this.model, questionSlug: request.questionSlug }, 'OpenRouter response had no choices');
     }
     return parseStructuredJson(text);
   }
@@ -152,7 +148,7 @@ export class ReplyScorer {
     try {
       return await this.primary.score(request);
     } catch (error) {
-      logger.warn({ err: error }, "OpenRouter scoring unavailable, using fallback scorer");
+      logger.warn({ err: error }, 'OpenRouter scoring unavailable, using fallback scorer');
       return this.fallback.score(request);
     }
   }

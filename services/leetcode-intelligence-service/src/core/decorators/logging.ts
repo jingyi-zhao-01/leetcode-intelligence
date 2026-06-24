@@ -1,4 +1,4 @@
-import { createLogger } from "../../logger.ts";
+import { createLogger } from '../../logger.ts';
 
 type AsyncMethod<TArgs extends unknown[] = unknown[], TResult = unknown> = (...args: TArgs) => Promise<TResult>;
 type AsyncOperation<TResult = unknown> = () => Promise<TResult>;
@@ -24,7 +24,7 @@ export async function runLoggedOperation<TArgs extends unknown[], TResult>(
     ...(buildMeta ? buildMeta(...args) : {}),
   };
 
-  logger.info(meta, "operation started");
+  logger.info(meta, 'operation started');
 
   try {
     const result = await operationFn();
@@ -33,7 +33,7 @@ export async function runLoggedOperation<TArgs extends unknown[], TResult>(
         ...meta,
         durationMs: Date.now() - startedAt,
       },
-      "operation completed",
+      'operation completed',
     );
     return result;
   } catch (error) {
@@ -43,22 +43,14 @@ export async function runLoggedOperation<TArgs extends unknown[], TResult>(
         durationMs: Date.now() - startedAt,
         err: error,
       },
-      "operation failed",
+      'operation failed',
     );
     throw error;
   }
 }
 
-export function LogOperation(
-  scope: string,
-  operation: string,
-  buildMeta?: OperationMetaBuilder,
-): MethodDecorator {
-  return (
-    _target: object,
-    _propertyKey: string | symbol,
-    descriptor: PropertyDescriptor,
-  ): PropertyDescriptor => {
+export function LogOperation(scope: string, operation: string, buildMeta?: OperationMetaBuilder): MethodDecorator {
+  return (_target: object, _propertyKey: string | symbol, descriptor: PropertyDescriptor): PropertyDescriptor => {
     const original = descriptor.value as AsyncMethod;
 
     descriptor.value = async function (...args: unknown[]): Promise<unknown> {

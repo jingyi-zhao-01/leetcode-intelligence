@@ -173,8 +173,8 @@ After a reply is scored, the service computes the next weight through `WeightCal
 The default `LinearWeightCalculator` uses:
 
 ```ts
-delta = (3 - score) * 0.25
-nextWeight = clamp(previousWeight + delta, INTELLIGENCE_MIN_WEIGHT, INTELLIGENCE_MAX_WEIGHT)
+delta = (3 - score) * 0.25;
+nextWeight = clamp(previousWeight + delta, INTELLIGENCE_MIN_WEIGHT, INTELLIGENCE_MAX_WEIGHT);
 ```
 
 Implications:

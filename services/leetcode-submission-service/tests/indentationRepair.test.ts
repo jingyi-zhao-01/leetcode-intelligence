@@ -26,7 +26,10 @@ describe('submission indentation repair', () => {
   });
 
   it('parses repair JSON payloads', () => {
-    assert.equal(parseIndentationRepairPayload(JSON.stringify({ content: 'def f():\n    pass' })), 'def f():\n    pass');
+    assert.equal(
+      parseIndentationRepairPayload(JSON.stringify({ content: 'def f():\n    pass' })),
+      'def f():\n    pass',
+    );
     assert.equal(parseIndentationRepairPayload('not json'), null);
   });
 

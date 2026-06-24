@@ -1,11 +1,8 @@
-import path from "node:path";
+import path from 'node:path';
 
-import { config as loadDotenv } from "dotenv";
+import { config as loadDotenv } from 'dotenv';
 
-const candidateEnvPaths = [
-  path.resolve(process.cwd(), ".env"),
-  path.resolve(process.cwd(), "../../.env"),
-];
+const candidateEnvPaths = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '../../.env')];
 
 let loaded = false;
 

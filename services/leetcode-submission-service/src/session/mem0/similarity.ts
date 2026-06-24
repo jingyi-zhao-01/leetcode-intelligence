@@ -120,7 +120,9 @@ function uniqueTags(values: Array<string | undefined>, limit?: number): string[]
   const tags: string[] = [];
 
   for (const value of values) {
-    const normalized = readStringValue(value)?.toLowerCase().replace(/[_\s]+/g, '-');
+    const normalized = readStringValue(value)
+      ?.toLowerCase()
+      .replace(/[_\s]+/g, '-');
     if (!normalized || seen.has(normalized)) {
       continue;
     }
@@ -172,11 +174,17 @@ function buildSimilarityProfile(source: SimilaritySource): SimilarityProfile {
     .join('\n');
 
   const topicTags = uniqueTags(source.topicTags ?? []);
-  const patternTags = uniqueTags([...collectRuleTags(combinedText, PATTERN_RULES), ...topicTags.filter((tag) => tag.includes('dp'))], 6);
+  const patternTags = uniqueTags(
+    [...collectRuleTags(combinedText, PATTERN_RULES), ...topicTags.filter((tag) => tag.includes('dp'))],
+    6,
+  );
   const stateTraits = uniqueTags(collectRuleTags(combinedText, STATE_RULES), 6);
   const errorTags = uniqueTags(collectRuleTags(combinedText, ERROR_RULES), 6);
   const domainTags = uniqueTags(
-    [...collectRuleTags(combinedText, DOMAIN_RULES), ...topicTags.filter((tag) => DOMAIN_RULES.some((rule) => rule.tag === tag))],
+    [
+      ...collectRuleTags(combinedText, DOMAIN_RULES),
+      ...topicTags.filter((tag) => DOMAIN_RULES.some((rule) => rule.tag === tag)),
+    ],
     6,
   );
 
@@ -262,10 +270,12 @@ function parseSimilarSessionRecord(record: RecalledSessionRecord): NormalizedSim
     id: record.id,
     sourceRecordIds: [record.id],
     runId: readMetadataString(metadata, 'run_id', 'runId') ?? readRecordLineValue(record.memory, 'Run ID'),
-    titleSlug: readMetadataString(metadata, 'title_slug', 'titleSlug') ?? readRecordLineValue(record.memory, 'Title Slug'),
+    titleSlug:
+      readMetadataString(metadata, 'title_slug', 'titleSlug') ?? readRecordLineValue(record.memory, 'Title Slug'),
     title: readMetadataString(metadata, 'title') ?? readRecordLineValue(record.memory, 'Title'),
     difficulty: readMetadataString(metadata, 'difficulty') ?? readRecordLineValue(record.memory, 'Difficulty'),
-    endReason: readMetadataString(metadata, 'end_reason', 'endReason') ?? readRecordLineValue(record.memory, 'End Reason'),
+    endReason:
+      readMetadataString(metadata, 'end_reason', 'endReason') ?? readRecordLineValue(record.memory, 'End Reason'),
     latestFailureStatus:
       readMetadataString(metadata, 'latest_failure_status', 'latestFailureStatus') ??
       readRecordLineValue(record.memory, 'Judge Status'),
@@ -284,7 +294,10 @@ function parseSimilarSessionRecord(record: RecalledSessionRecord): NormalizedSim
   };
 }
 
-function mergeSimilarSessions(primary: NormalizedSimilarSession, secondary: NormalizedSimilarSession): NormalizedSimilarSession {
+function mergeSimilarSessions(
+  primary: NormalizedSimilarSession,
+  secondary: NormalizedSimilarSession,
+): NormalizedSimilarSession {
   return {
     ...primary,
     sourceRecordIds: uniqueStrings([...primary.sourceRecordIds, ...secondary.sourceRecordIds]),
@@ -330,7 +343,10 @@ function overlap(left: string[], right: string[]): string[] {
   return left.filter((value) => rightSet.has(value));
 }
 
-function scoreSimilarity(queryProfile: SimilarityProfile, candidateProfile: SimilarityProfile): { score: number; overlap: SimilarProblemMatch['overlap'] } {
+function scoreSimilarity(
+  queryProfile: SimilarityProfile,
+  candidateProfile: SimilarityProfile,
+): { score: number; overlap: SimilarProblemMatch['overlap'] } {
   const patternOverlap = overlap(queryProfile.patternTags, candidateProfile.patternTags);
   const stateOverlap = overlap(queryProfile.stateTraits, candidateProfile.stateTraits);
   const errorOverlap = overlap(queryProfile.errorTags, candidateProfile.errorTags);
@@ -391,7 +407,9 @@ export function summarizeSimilarProblemRecall(
   return {
     titleSlug: query.titleSlug,
     queryProfile,
-    matches: [...bestBySlug.values()].sort((left, right) => right.score - left.score || left.titleSlug.localeCompare(right.titleSlug)).slice(0, 5),
+    matches: [...bestBySlug.values()]
+      .sort((left, right) => right.score - left.score || left.titleSlug.localeCompare(right.titleSlug))
+      .slice(0, 5),
   };
 }
 

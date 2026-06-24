@@ -29,13 +29,12 @@ const buttonVariants = cva(
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & VariantProps<typeof buttonVariants>;
 
-export function Button({
-  className,
-  variant = 'default',
-  size = 'default',
-  ...props
-}: ButtonProps) {
-  const classes = cn(buttonVariants({ variant, size }), className === 'primary' ? 'bg-accent text-accent-foreground' : null, className);
+export function Button({ className, variant = 'default', size = 'default', ...props }: ButtonProps) {
+  const classes = cn(
+    buttonVariants({ variant, size }),
+    className === 'primary' ? 'bg-accent text-accent-foreground' : null,
+    className,
+  );
 
   return <button className={classes} {...props} />;
 }

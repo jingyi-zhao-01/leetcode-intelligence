@@ -62,6 +62,7 @@ helm upgrade --install leetcode-intelligence <chart-path> -f homelab.value.yaml
 ```
 
 Suggested secret source:
+
 - SSM Parameter Store or AWS External Secrets Operator
 - Mount or sync the secret into `leetcode-intelligence-service-secrets`
 - Keep `DATABASE_URL`, `OPEN_ROUTER_API_KEY`, and `DISCORD_BOT_TOKEN` out of Helm values
@@ -75,12 +76,12 @@ Use the checked-in manifest file in this directory:
 ### 1) Prepare configuration
 
 - Edit `homelab-k3s.yml` placeholders before deployment:
-	- `<owner>` in image path
-	- `<postgres-url>`
-	- `<openrouter-key>`
-	- `<discord-bot-token>`
-	- `<prompt-channel-id>`
-	- `<recommend-channel-id>`
+  - `<owner>` in image path
+  - `<postgres-url>`
+  - `<openrouter-key>`
+  - `<discord-bot-token>`
+  - `<prompt-channel-id>`
+  - `<recommend-channel-id>`
 
 ### 2) Apply resources
 

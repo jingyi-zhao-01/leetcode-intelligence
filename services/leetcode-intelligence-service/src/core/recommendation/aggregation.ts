@@ -1,11 +1,8 @@
-import { createLogger } from "../../logger.ts";
-import { isFailedStatus } from "./util.ts";
-import type {
-  ScoringAggregate,
-  SubmissionAggregate,
-} from "./algorithm.ts";
+import { createLogger } from '../../logger.ts';
+import { isFailedStatus } from './util.ts';
+import type { ScoringAggregate, SubmissionAggregate } from './algorithm.ts';
 
-const logger = createLogger("intelligence/recommendation");
+const logger = createLogger('intelligence/recommendation');
 
 export class RecommendationAggregationBuilder {
   /**
@@ -48,7 +45,7 @@ export class RecommendationAggregationBuilder {
           ...aggregate,
         })),
       },
-      "built submission aggregate",
+      'built submission aggregate',
     );
 
     return submissionAgg;
@@ -65,7 +62,7 @@ export class RecommendationAggregationBuilder {
     for (const event of promptEvents) {
       const current = scoringAgg.get(event.questionSlug) ?? { count: 0, scoreSum: 0, scoreCount: 0 };
       current.count += 1;
-      if (typeof event.responseScore === "number") {
+      if (typeof event.responseScore === 'number') {
         current.scoreSum += event.responseScore;
         current.scoreCount += 1;
       }
@@ -80,7 +77,7 @@ export class RecommendationAggregationBuilder {
           ...aggregate,
         })),
       },
-      "built scoring aggregate",
+      'built scoring aggregate',
     );
 
     return scoringAgg;

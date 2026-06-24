@@ -119,14 +119,18 @@ export function buildTemplateCatalog(
 
     const cluster = ensureCluster(
       targetId,
-      targetId === FALLBACK_CLUSTER.id ? FALLBACK_CLUSTER.key : clusters.get(tag.parentId)?.key ?? FALLBACK_CLUSTER.key,
-      targetId === FALLBACK_CLUSTER.id ? FALLBACK_CLUSTER.label : clusters.get(tag.parentId)?.label ?? FALLBACK_CLUSTER.label,
+      targetId === FALLBACK_CLUSTER.id
+        ? FALLBACK_CLUSTER.key
+        : (clusters.get(tag.parentId)?.key ?? FALLBACK_CLUSTER.key),
+      targetId === FALLBACK_CLUSTER.id
+        ? FALLBACK_CLUSTER.label
+        : (clusters.get(tag.parentId)?.label ?? FALLBACK_CLUSTER.label),
       targetId === FALLBACK_CLUSTER.id
         ? FALLBACK_CLUSTER.description
-        : clusters.get(tag.parentId)?.description ?? null,
+        : (clusters.get(tag.parentId)?.description ?? null),
       targetId === FALLBACK_CLUSTER.id
         ? FALLBACK_CLUSTER.sortOrder
-        : clusters.get(tag.parentId)?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+        : (clusters.get(tag.parentId)?.sortOrder ?? Number.MAX_SAFE_INTEGER),
     );
 
     cluster.templates.push({ template: tag, problems });
@@ -138,11 +142,7 @@ export function buildTemplateCatalog(
       templates: cluster.templates
         .filter((template) => template.template.parentId)
         .sort((left, right) => {
-          if (
-            left.template.parentId &&
-            right.template.parentId &&
-            left.template.parentId === right.template.parentId
-          ) {
+          if (left.template.parentId && right.template.parentId && left.template.parentId === right.template.parentId) {
             return left.template.sortOrder - right.template.sortOrder;
           }
 

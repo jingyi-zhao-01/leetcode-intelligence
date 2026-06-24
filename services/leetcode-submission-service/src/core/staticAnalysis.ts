@@ -1,7 +1,7 @@
-import { OpenRouter } from "@openrouter/sdk";
-import type { FailureAnalysisRequest, FailureAnalysisResult } from "./failureAnalysis.ts";
-import { parseFailureAnalysis } from "../utils/failureAnalysisParser.ts";
-import { createLogger } from "../logger.ts";
+import { OpenRouter } from '@openrouter/sdk';
+import type { FailureAnalysisRequest, FailureAnalysisResult } from './failureAnalysis.ts';
+import { parseFailureAnalysis } from '../utils/failureAnalysisParser.ts';
+import { createLogger } from '../logger.ts';
 
 const FAILURE_ANALYSIS_PROMPT = `
 你在分析一次 LeetCode 失败测试。
@@ -33,7 +33,7 @@ const FAILURE_ANALYSIS_PROMPT = `
 - 不要解释，不要寒暄，不要输出 JSON 之外的任何文字。
 `.trim();
 
-const logger = createLogger("static-analysis");
+const logger = createLogger('static-analysis');
 
 const truncate = (value: string, maxLength: number): string => {
   if (value.length <= maxLength) {
@@ -44,8 +44,8 @@ const truncate = (value: string, maxLength: number): string => {
 };
 
 const numberedText = (content: string): string => {
-  const lines = content.split("\n");
-  return lines.map((line, index) => `${String(index + 1).padStart(4, " ")} | ${line}`).join("\n");
+  const lines = content.split('\n');
+  return lines.map((line, index) => `${String(index + 1).padStart(4, ' ')} | ${line}`).join('\n');
 };
 
 export type FailureStaticAnalyzer = {
@@ -59,33 +59,33 @@ export class OpenRouterFailureStaticAnalyzer implements FailureStaticAnalyzer {
   ) {}
 
   async analyze(request: FailureAnalysisRequest): Promise<FailureAnalysisResult> {
-    const maxLine = Math.max(1, request.editorContent.split("\n").length);
+    const maxLine = Math.max(1, request.editorContent.split('\n').length);
     const startedAt = Date.now();
     const numberedBuffer = numberedText(request.editorContent);
 
     try {
       logger.info(
         {
-          analyzer: "openrouter-llm",
+          analyzer: 'openrouter-llm',
           titleSlug: request.titleSlug,
-          filetype: request.filetype || "text",
+          filetype: request.filetype || 'text',
           editorContent: numberedBuffer,
         },
-        "Static analysis editor content",
+        'Static analysis editor content',
       );
 
       const response = await this.openRouter.chat.send({
         chatRequest: {
           model: this.model,
           temperature: 0,
-          responseFormat: { type: "json_object" },
+          responseFormat: { type: 'json_object' },
           messages: [
             {
-              role: "system",
+              role: 'system',
               content: FAILURE_ANALYSIS_PROMPT,
             },
             {
-              role: "user",
+              role: 'user',
               content: JSON.stringify({
                 question: {
                   titleSlug: request.titleSlug,
@@ -93,7 +93,7 @@ export class OpenRouterFailureStaticAnalyzer implements FailureStaticAnalyzer {
                   description: truncate(request.questionContent, 4000),
                 },
                 editor: {
-                  filetype: request.filetype || "text",
+                  filetype: request.filetype || 'text',
                   numberedBuffer,
                 },
                 submissionSentToLeetCode: truncate(request.submissionContent, 6000),
@@ -107,26 +107,26 @@ export class OpenRouterFailureStaticAnalyzer implements FailureStaticAnalyzer {
 
       logger.info(
         {
-          analyzer: "openrouter-llm",
+          analyzer: 'openrouter-llm',
           titleSlug: request.titleSlug,
           model: this.model,
           durationMs: Date.now() - startedAt,
         },
-        "Static analysis completed",
+        'Static analysis completed',
       );
 
-      const text = response.choices?.[0]?.message?.content ?? "{}";
+      const text = response.choices?.[0]?.message?.content ?? '{}';
       return parseFailureAnalysis(text, maxLine);
     } catch (error) {
       logger.error(
         {
           err: error,
-          analyzer: "openrouter-llm",
+          analyzer: 'openrouter-llm',
           titleSlug: request.titleSlug,
           model: this.model,
           durationMs: Date.now() - startedAt,
         },
-        "Static analysis failed",
+        'Static analysis failed',
       );
       throw error;
     }

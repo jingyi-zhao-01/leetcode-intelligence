@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from '@prisma/client';
 import type {
   GeneratedTemplateDraft,
   PatternTagKind,
@@ -9,7 +9,7 @@ import type {
   TemplateBenchmarkResult,
   TemplateBenchmarkScore,
   TemplateMetadata,
-} from "./types.ts";
+} from './types.ts';
 
 export type PatternTagParentRecord = {
   id: string;
@@ -62,22 +62,22 @@ export type TemplateCandidate = {
   metadata: TemplateMetadata | null;
 };
 
-export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-export const DEFAULT_TEMPLATE_ANALYZER_MODEL = "qwen/qwen3-coder-next";
-export const DEFAULT_TEMPLATE_GENERATOR_MODEL = "qwen/qwen3-coder-next";
+export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+export const DEFAULT_TEMPLATE_ANALYZER_MODEL = 'qwen/qwen3-coder-next';
+export const DEFAULT_TEMPLATE_GENERATOR_MODEL = 'qwen/qwen3-coder-next';
 
 export function readStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
 export function readTemplateMetadata(metadata: unknown): TemplateMetadata | null {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
     return null;
   }
 
   const record = metadata as Record<string, unknown>;
   const complexity =
-    record.defaultComplexity && typeof record.defaultComplexity === "object" && !Array.isArray(record.defaultComplexity)
+    record.defaultComplexity && typeof record.defaultComplexity === 'object' && !Array.isArray(record.defaultComplexity)
       ? (record.defaultComplexity as Record<string, unknown>)
       : {};
 
@@ -89,8 +89,8 @@ export function readTemplateMetadata(metadata: unknown): TemplateMetadata | null
     pseudocode: readStringArray(record.pseudocode),
     invariants: readStringArray(record.invariants),
     defaultComplexity: {
-      time: typeof complexity.time === "string" ? complexity.time : undefined,
-      space: typeof complexity.space === "string" ? complexity.space : undefined,
+      time: typeof complexity.time === 'string' ? complexity.time : undefined,
+      space: typeof complexity.space === 'string' ? complexity.space : undefined,
     },
     relatedDataStructures: readStringArray(record.relatedDataStructures),
     similarTemplates: readStringArray(record.similarTemplates),
@@ -98,13 +98,13 @@ export function readTemplateMetadata(metadata: unknown): TemplateMetadata | null
 }
 
 export function readLanguage(details: unknown): string | null {
-  if (!details || typeof details !== "object" || Array.isArray(details)) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
     return null;
   }
 
   const record = details as Record<string, unknown>;
   const language = record.lang ?? record.language ?? record.programming_language;
-  return typeof language === "string" && language.trim() ? language : null;
+  return typeof language === 'string' && language.trim() ? language : null;
 }
 
 export function readQuestionDescription(content: string | null): string | null {
@@ -113,20 +113,20 @@ export function readQuestionDescription(content: string | null): string | null {
   }
 
   const text = content
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|pre|ul|ol|h[1-6])>/gi, "\n")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, "\"")
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|pre|ul|ol|h[1-6])>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '- ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return text || null;
@@ -141,7 +141,7 @@ export function truncate(value: string, maxLength: number) {
 }
 
 export function clampScore(value: unknown) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return 0;
   }
 
@@ -156,15 +156,15 @@ export function slugify(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
     .slice(0, 80);
 }
 
 export function readMetadata(value: unknown): Required<TemplateMetadata> {
-  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const record = value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
   const complexity =
-    record.defaultComplexity && typeof record.defaultComplexity === "object" && !Array.isArray(record.defaultComplexity)
+    record.defaultComplexity && typeof record.defaultComplexity === 'object' && !Array.isArray(record.defaultComplexity)
       ? (record.defaultComplexity as Record<string, unknown>)
       : {};
 
@@ -172,20 +172,20 @@ export function readMetadata(value: unknown): Required<TemplateMetadata> {
     classicProblems: readStringArray(record.classicProblems),
     whenToUse: readStringArray(record.whenToUse).length
       ? readStringArray(record.whenToUse)
-      : ["Use when this canonical algorithm skeleton fits the problem."],
+      : ['Use when this canonical algorithm skeleton fits the problem.'],
     whenNotToUse: readStringArray(record.whenNotToUse).length
       ? readStringArray(record.whenNotToUse)
-      : ["Do not use when a simpler canonical template matches better."],
+      : ['Do not use when a simpler canonical template matches better.'],
     signals: readStringArray(record.signals),
     pseudocode: readStringArray(record.pseudocode).length
       ? readStringArray(record.pseudocode)
-      : ["state = initialize()", "for item in input:", "  update state and answer"],
+      : ['state = initialize()', 'for item in input:', '  update state and answer'],
     invariants: readStringArray(record.invariants).length
       ? readStringArray(record.invariants)
-      : ["State has one stable meaning throughout the algorithm."],
+      : ['State has one stable meaning throughout the algorithm.'],
     defaultComplexity: {
-      time: typeof complexity.time === "string" && complexity.time.trim() ? complexity.time : "O(n)",
-      space: typeof complexity.space === "string" && complexity.space.trim() ? complexity.space : "O(1) or O(n)",
+      time: typeof complexity.time === 'string' && complexity.time.trim() ? complexity.time : 'O(n)',
+      space: typeof complexity.space === 'string' && complexity.space.trim() ? complexity.space : 'O(1) or O(n)',
     },
     relatedDataStructures: readStringArray(record.relatedDataStructures),
     similarTemplates: readStringArray(record.similarTemplates),
@@ -201,12 +201,12 @@ export function parseBenchmarkPayload(payload: string, candidates: TemplateCandi
 
     return scores
       .map((entry) => {
-        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
           return null;
         }
 
         const record = entry as Record<string, unknown>;
-        const key = typeof record.key === "string" ? record.key : "";
+        const key = typeof record.key === 'string' ? record.key : '';
         const candidate = candidateByKey.get(key);
         if (!candidate) {
           return null;
@@ -217,8 +217,10 @@ export function parseBenchmarkPayload(payload: string, candidates: TemplateCandi
           patternTagId: candidate.id,
           score: clampScore(record.score),
           confidence: clampScore(record.confidence),
-          reason: typeof record.reason === "string" ? record.reason.trim() : "",
-          evidence: readStringArray(record.evidence).map((item) => item.trim()).filter(Boolean),
+          reason: typeof record.reason === 'string' ? record.reason.trim() : '',
+          evidence: readStringArray(record.evidence)
+            .map((item) => item.trim())
+            .filter(Boolean),
         };
       })
       .filter((entry): entry is TemplateBenchmarkScore => Boolean(entry))
@@ -230,8 +232,9 @@ export function parseBenchmarkPayload(payload: string, candidates: TemplateCandi
 
 export async function persistTemplateBenchmarkResult(prisma: PrismaClient, result: TemplateBenchmarkResult) {
   await prisma.$transaction(
-    result.scores.map((score) =>
-      prisma.$executeRaw`
+    result.scores.map(
+      (score) =>
+        prisma.$executeRaw`
         INSERT INTO "TemplateBenchmarkScore" (
           "id",
           "submissionId",
@@ -305,32 +308,32 @@ JSON format:
 
 Candidate templates:
 ${JSON.stringify(
-    candidates.map((candidate) => ({
-      key: candidate.key,
-      label: candidate.label,
-      description: candidate.description,
-      classicProblems: candidate.metadata?.classicProblems ?? [],
-      whenToUse: candidate.metadata?.whenToUse ?? [],
-      whenNotToUse: candidate.metadata?.whenNotToUse ?? [],
-      defaultComplexity: candidate.metadata?.defaultComplexity ?? null,
-      signals: candidate.metadata?.signals ?? [],
-      pseudocode: candidate.metadata?.pseudocode ?? [],
-    })),
-  )}
+  candidates.map((candidate) => ({
+    key: candidate.key,
+    label: candidate.label,
+    description: candidate.description,
+    classicProblems: candidate.metadata?.classicProblems ?? [],
+    whenToUse: candidate.metadata?.whenToUse ?? [],
+    whenNotToUse: candidate.metadata?.whenNotToUse ?? [],
+    defaultComplexity: candidate.metadata?.defaultComplexity ?? null,
+    signals: candidate.metadata?.signals ?? [],
+    pseudocode: candidate.metadata?.pseudocode ?? [],
+  })),
+)}
 `.trim();
 }
 
-export function readString(value: unknown, fallback = "") {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+export function readString(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
 export function parseDraftPayload(payload: string, prompt: string): GeneratedTemplateDraft {
   const parsed = JSON.parse(payload) as Record<string, unknown>;
-  const label = readString(parsed.label, prompt || "Generated Template");
+  const label = readString(parsed.label, prompt || 'Generated Template');
   const key = slugify(readString(parsed.key, label));
 
   if (!key) {
-    throw new Error("Template generator returned an invalid key.");
+    throw new Error('Template generator returned an invalid key.');
   }
 
   return {

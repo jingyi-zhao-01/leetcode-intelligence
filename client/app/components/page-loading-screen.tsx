@@ -23,7 +23,9 @@ function LoadingHeader({ title, description }: { title: string; description: str
       <div className="min-w-0">
         <div className="mb-2 flex items-center gap-2">
           <LoaderCircle className="h-4 w-4 animate-spin text-accent" aria-hidden="true" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Loading workspace</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Loading workspace
+          </span>
         </div>
         <h1 className="text-base font-semibold text-foreground">{title}</h1>
         <p className="mt-1 text-xs text-muted-foreground">{description}</p>
@@ -111,7 +113,10 @@ function SubmissionLoadingBody() {
 function TemplateLoadingBody() {
   return (
     <main className="h-full overflow-hidden bg-background p-5">
-      <LoadingHeader title="Template Groups" description="Loading canonical template groups and associated submissions." />
+      <LoadingHeader
+        title="Template Groups"
+        description="Loading canonical template groups and associated submissions."
+      />
       <div className="mt-5 grid h-[calc(100%-92px)] grid-cols-5 gap-4">
         {Array.from({ length: 5 }).map((_, column) => (
           <section className="flex min-h-0 flex-col rounded-lg border border-border bg-card" key={column}>
@@ -150,7 +155,10 @@ function GraphLoadingBody() {
         </div>
       </aside>
       <section className="relative flex-1 overflow-hidden">
-        <LoadingHeader title="Problem Graph" description="Building solved-question relationship nodes and template clusters." />
+        <LoadingHeader
+          title="Problem Graph"
+          description="Building solved-question relationship nodes and template clusters."
+        />
         <div className="relative h-[calc(100%-74px)]">
           {Array.from({ length: 5 }).map((_, index) => (
             <Skeleton
@@ -168,8 +176,8 @@ function GraphLoadingBody() {
             <Skeleton
               className="absolute h-8 w-8 rounded-full bg-accent/40"
               style={{
-                left: `${18 + (index * 13) % 68}%`,
-                top: `${18 + (index * 17) % 58}%`,
+                left: `${18 + ((index * 13) % 68)}%`,
+                top: `${18 + ((index * 17) % 58)}%`,
               }}
               key={index}
             />

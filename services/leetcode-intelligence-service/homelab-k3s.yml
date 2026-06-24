@@ -1,147 +1,148 @@
+---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: leetcode
+    name: leetcode
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: leetcode-intelligence-secrets
-  namespace: leetcode
+    name: leetcode-intelligence-secrets
+    namespace: leetcode
 type: Opaque
 stringData:
-  DATABASE_URL: "<postgres-url>"
-  OPEN_ROUTER_API_KEY: "<openrouter-key>"
-  DISCORD_BOT_TOKEN: "<discord-bot-token>"
+    DATABASE_URL: <postgres-url>
+    OPEN_ROUTER_API_KEY: <openrouter-key>
+    DISCORD_BOT_TOKEN: <discord-bot-token>
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: leetcode-intelligence-config
-  namespace: leetcode
+    name: leetcode-intelligence-config
+    namespace: leetcode
 data:
-  MODEL: "openai/gpt-4o-mini"
-  INTELLIGENCE_HOST: "0.0.0.0"
-  INTELLIGENCE_PORT: "8030"
-  PROMPT_DISCORD_CHANNEL_ID: "<prompt-channel-id>"
-  RECOMMEND_DISCORD_CHANNEL_ID: "<recommend-channel-id>"
-  INTELLIGENCE_PROMPT_CRON: "0 9 * * *"
-  INTELLIGENCE_RECOMMEND_CRON: "0 20 * * *"
-  INTELLIGENCE_RECOMMEND_TOP_K: "10"
-  INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: "30"
-  TZ: "UTC"
+    MODEL: openai/gpt-4o-mini
+    INTELLIGENCE_HOST: 0.0.0.0
+    INTELLIGENCE_PORT: '8030'
+    PROMPT_DISCORD_CHANNEL_ID: <prompt-channel-id>
+    RECOMMEND_DISCORD_CHANNEL_ID: <recommend-channel-id>
+    INTELLIGENCE_PROMPT_CRON: 0 9 * * *
+    INTELLIGENCE_RECOMMEND_CRON: 0 20 * * *
+    INTELLIGENCE_RECOMMEND_TOP_K: '10'
+    INTELLIGENCE_RECOMMEND_LOOKBACK_DAYS: '30'
+    TZ: UTC
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: intelligence-server
-  namespace: leetcode
+    name: intelligence-server
+    namespace: leetcode
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: intelligence-server
-  template:
-    metadata:
-      labels:
-        app: intelligence-server
-    spec:
-      containers:
-        - name: app
-          image: ghcr.io/<owner>/leetcode-intelligence-service:latest
-          command: ["npm", "run", "--workspace", "services/leetcode-intelligence-service", "intelligence-server"]
-          ports:
-            - containerPort: 8030
-          envFrom:
-            - secretRef:
-                name: leetcode-intelligence-secrets
-            - configMapRef:
-                name: leetcode-intelligence-config
+    replicas: 1
+    selector:
+        matchLabels:
+            app: intelligence-server
+    template:
+        metadata:
+            labels:
+                app: intelligence-server
+        spec:
+            containers:
+                - name: app
+                  image: ghcr.io/<owner>/leetcode-intelligence-service:latest
+                  command: [npm, run, --workspace, services/leetcode-intelligence-service, intelligence-server]
+                  ports:
+                      - containerPort: 8030
+                  envFrom:
+                      - secretRef:
+                            name: leetcode-intelligence-secrets
+                      - configMapRef:
+                            name: leetcode-intelligence-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: intelligence-server
-  namespace: leetcode
+    name: intelligence-server
+    namespace: leetcode
 spec:
-  selector:
-    app: intelligence-server
-  ports:
-    - name: http
-      port: 8030
-      targetPort: 8030
+    selector:
+        app: intelligence-server
+    ports:
+        - name: http
+          port: 8030
+          targetPort: 8030
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: intelligence-prompt-listener
-  namespace: leetcode
+    name: intelligence-prompt-listener
+    namespace: leetcode
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: intelligence-prompt-listener
-  template:
-    metadata:
-      labels:
-        app: intelligence-prompt-listener
-    spec:
-      containers:
-        - name: app
-          image: ghcr.io/<owner>/leetcode-intelligence-service:latest
-          command: ["npm", "run", "--workspace", "services/leetcode-intelligence-service", "intelligence-prompt-listener"]
-          envFrom:
-            - secretRef:
-                name: leetcode-intelligence-secrets
-            - configMapRef:
-                name: leetcode-intelligence-config
+    replicas: 1
+    selector:
+        matchLabels:
+            app: intelligence-prompt-listener
+    template:
+        metadata:
+            labels:
+                app: intelligence-prompt-listener
+        spec:
+            containers:
+                - name: app
+                  image: ghcr.io/<owner>/leetcode-intelligence-service:latest
+                  command: [npm, run, --workspace, services/leetcode-intelligence-service, intelligence-prompt-listener]
+                  envFrom:
+                      - secretRef:
+                            name: leetcode-intelligence-secrets
+                      - configMapRef:
+                            name: leetcode-intelligence-config
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: intelligence-prompt-dispatch
-  namespace: leetcode
+    name: intelligence-prompt-dispatch
+    namespace: leetcode
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: intelligence-prompt-dispatch
-  template:
-    metadata:
-      labels:
-        app: intelligence-prompt-dispatch
-    spec:
-      containers:
-        - name: app
-          image: ghcr.io/<owner>/leetcode-intelligence-service:latest
-          command: ["npm", "run", "--workspace", "services/leetcode-intelligence-service", "intelligence-prompt-dispatch"]
-          envFrom:
-            - secretRef:
-                name: leetcode-intelligence-secrets
-            - configMapRef:
-                name: leetcode-intelligence-config
+    replicas: 1
+    selector:
+        matchLabels:
+            app: intelligence-prompt-dispatch
+    template:
+        metadata:
+            labels:
+                app: intelligence-prompt-dispatch
+        spec:
+            containers:
+                - name: app
+                  image: ghcr.io/<owner>/leetcode-intelligence-service:latest
+                  command: [npm, run, --workspace, services/leetcode-intelligence-service, intelligence-prompt-dispatch]
+                  envFrom:
+                      - secretRef:
+                            name: leetcode-intelligence-secrets
+                      - configMapRef:
+                            name: leetcode-intelligence-config
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: intelligence-recommender
-  namespace: leetcode
+    name: intelligence-recommender
+    namespace: leetcode
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: intelligence-recommender
-  template:
-    metadata:
-      labels:
-        app: intelligence-recommender
-    spec:
-      containers:
-        - name: app
-          image: ghcr.io/<owner>/leetcode-intelligence-service:latest
-          command: ["npm", "run", "--workspace", "services/leetcode-intelligence-service", "intelligence-recommender"]
-          envFrom:
-            - secretRef:
-                name: leetcode-intelligence-secrets
-            - configMapRef:
-                name: leetcode-intelligence-config
+    replicas: 1
+    selector:
+        matchLabels:
+            app: intelligence-recommender
+    template:
+        metadata:
+            labels:
+                app: intelligence-recommender
+        spec:
+            containers:
+                - name: app
+                  image: ghcr.io/<owner>/leetcode-intelligence-service:latest
+                  command: [npm, run, --workspace, services/leetcode-intelligence-service, intelligence-recommender]
+                  envFrom:
+                      - secretRef:
+                            name: leetcode-intelligence-secrets
+                      - configMapRef:
+                            name: leetcode-intelligence-config

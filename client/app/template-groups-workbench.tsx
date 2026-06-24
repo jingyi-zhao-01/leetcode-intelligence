@@ -13,15 +13,7 @@ import type { TemplateGroupCatalog } from '../lib/template-catalog';
 const UNKNOWN_TIME = 'unknown';
 const GROUP_TONES = ['teal', 'blue', 'amber', 'purple', 'green'] as const;
 
-function AsyncLabel({
-  isPending,
-  idle,
-  pending,
-}: {
-  isPending: boolean;
-  idle: string;
-  pending: string;
-}) {
+function AsyncLabel({ isPending, idle, pending }: { isPending: boolean; idle: string; pending: string }) {
   if (!isPending) {
     return <>{idle}</>;
   }
@@ -168,7 +160,8 @@ export function TemplateGroupsWorkbench({
         <div>
           <h1>Template Group Builder</h1>
           <p className="template-builder-stats">
-            {clusters.length} groups · {clusters.reduce((count, cluster) => count + cluster.templates.length, 0)} templates
+            {clusters.length} groups · {clusters.reduce((count, cluster) => count + cluster.templates.length, 0)}{' '}
+            templates
           </p>
         </div>
         <div className="template-builder-actions">
@@ -208,133 +201,141 @@ export function TemplateGroupsWorkbench({
               .slice(0, 5);
 
             return (
-            <section
-              className={[
-                'template-builder-cluster',
-                `template-builder-cluster-${tone}`,
-                canWrite ? 'template-builder-cluster-droppable' : '',
-                dropTargetGroupKey === cluster.id ? 'drop-target-active' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              key={cluster.id}
-              onDragOver={(event) => {
-                if (!canWrite || !draggingTemplateId) return;
-                event.preventDefault();
-                setDropTargetGroupKey(cluster.id);
-              }}
-              onDragEnter={(event) => {
-                if (!canWrite || !draggingTemplateId) return;
-                event.preventDefault();
-                setDropTargetGroupKey(cluster.id);
-              }}
-              onDragLeave={(event) => {
-                if (!canWrite) return;
-                const nextTarget = event.relatedTarget;
-                if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-                  return;
-                }
-                setDropTargetGroupKey((current) => (current === cluster.id ? null : current));
-              }}
-              onDrop={(event) => {
-                if (!canWrite || !draggingTemplateId) return;
-                event.preventDefault();
-                handleDrop(cluster.id);
-              }}
-            >
-              <div className="template-cluster-heading">
-                <div>
-                  <span className="template-cluster-dot" aria-hidden="true" />
-                  <h2>{cluster.label}</h2>
-                  <span className="template-cluster-count">{cluster.templates.length}</span>
+              <section
+                className={[
+                  'template-builder-cluster',
+                  `template-builder-cluster-${tone}`,
+                  canWrite ? 'template-builder-cluster-droppable' : '',
+                  dropTargetGroupKey === cluster.id ? 'drop-target-active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                key={cluster.id}
+                onDragOver={(event) => {
+                  if (!canWrite || !draggingTemplateId) return;
+                  event.preventDefault();
+                  setDropTargetGroupKey(cluster.id);
+                }}
+                onDragEnter={(event) => {
+                  if (!canWrite || !draggingTemplateId) return;
+                  event.preventDefault();
+                  setDropTargetGroupKey(cluster.id);
+                }}
+                onDragLeave={(event) => {
+                  if (!canWrite) return;
+                  const nextTarget = event.relatedTarget;
+                  if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+                    return;
+                  }
+                  setDropTargetGroupKey((current) => (current === cluster.id ? null : current));
+                }}
+                onDrop={(event) => {
+                  if (!canWrite || !draggingTemplateId) return;
+                  event.preventDefault();
+                  handleDrop(cluster.id);
+                }}
+              >
+                <div className="template-cluster-heading">
+                  <div>
+                    <span className="template-cluster-dot" aria-hidden="true" />
+                    <h2>{cluster.label}</h2>
+                    <span className="template-cluster-count">{cluster.templates.length}</span>
+                  </div>
+                  <span className="template-cluster-chevron" aria-hidden="true">
+                    ⌄
+                  </span>
                 </div>
-                <span className="template-cluster-chevron" aria-hidden="true">⌄</span>
-              </div>
-
-              {canWrite ? (
-                <p className="template-drop-hint">
-                  {dropTargetGroupKey === cluster.id && draggingTemplateLabel
-                    ? `Release to move ${draggingTemplateLabel} here`
-                    : 'Drag a template card here to reorganize this group'}
-                </p>
-              ) : null}
-
-              <div className="template-directory" id={`template-directory-${cluster.id}`}>
-                {cluster.templates.map((entry) => {
-                  const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
-                  const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
-                  const sourceClass = entry.template.source.replaceAll('_', '-');
-
-                  return (
-                    <article
-                      key={entry.template.id}
-                      className={[
-                        'template-directory-item',
-                        canWrite ? 'template-directory-item-draggable' : '',
-                        draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      draggable={canWrite}
-                      onDragStart={(event) => {
-                        beginDrag(entry.template.id, entry.template.label);
-                        event.dataTransfer.effectAllowed = 'move';
-                        event.dataTransfer.setData('text/plain', entry.template.id);
-                      }}
-                      onDragEnd={clearDragState}
-                    >
-                      <div className="template-directory-item-header">
-                        <div className="template-directory-item-heading">
-                          <h3>{entry.template.label}</h3>
-                          <p>{entry.template.key}</p>
-                        </div>
-                      </div>
-                      <div className="template-directory-item-meta">
-                        <span className={`template-source-tag source-${sourceClass}`}>
-                          {entry.template.source === 'seeded' ? 'seeded' : entry.template.source.replaceAll('_', ' ')}
-                        </span>
-                        <span className={`template-doc-state ${entry.template.metadata ? 'documented' : 'undocumented'}`}>
-                          {entry.template.metadata ? 'Documented' : 'Needs docs'}
-                        </span>
-                      </div>
-                      <p className="template-complexity">
-                        <span>Time {complexityTime}</span>
-                        <span>Space {complexitySpace}</span>
-                        <strong>{entry.template.assignmentCount || entry.problems.length || 0} uses</strong>
-                        <span>{entry.problems.length} probs</span>
-                      </p>
-                      <div className="template-card-accent" aria-hidden="true" />
-                    </article>
-                  );
-                })}
 
                 {canWrite ? (
-                  <button className="template-directory-create" type="button" onClick={() => openTemplateGenerationHint(cluster.label)}>
-                    <span className="template-create-icon">+</span>
-                    <div>
-                      <strong>Generate template</strong>
-                      <small>{cluster.label}</small>
-                    </div>
-                  </button>
+                  <p className="template-drop-hint">
+                    {dropTargetGroupKey === cluster.id && draggingTemplateLabel
+                      ? `Release to move ${draggingTemplateLabel} here`
+                      : 'Drag a template card here to reorganize this group'}
+                  </p>
                 ) : null}
-              </div>
 
-              <div className="template-associated-problems">
-                <h3>Associated Problems</h3>
-                {associatedProblems.length ? (
-                  <ul>
-                    {associatedProblems.map((problem) => (
-                      <li key={problem.id}>
-                        <span aria-hidden="true" />
-                        <p>{problem.title}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="template-empty-problem">No associated problems yet.</p>
-                )}
-              </div>
-            </section>
+                <div className="template-directory" id={`template-directory-${cluster.id}`}>
+                  {cluster.templates.map((entry) => {
+                    const complexityTime = entry.template.metadata?.defaultComplexity?.time ?? UNKNOWN_TIME;
+                    const complexitySpace = entry.template.metadata?.defaultComplexity?.space ?? UNKNOWN_TIME;
+                    const sourceClass = entry.template.source.replaceAll('_', '-');
+
+                    return (
+                      <article
+                        key={entry.template.id}
+                        className={[
+                          'template-directory-item',
+                          canWrite ? 'template-directory-item-draggable' : '',
+                          draggingTemplateId === entry.template.id ? 'dragging-template-card' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        draggable={canWrite}
+                        onDragStart={(event) => {
+                          beginDrag(entry.template.id, entry.template.label);
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', entry.template.id);
+                        }}
+                        onDragEnd={clearDragState}
+                      >
+                        <div className="template-directory-item-header">
+                          <div className="template-directory-item-heading">
+                            <h3>{entry.template.label}</h3>
+                            <p>{entry.template.key}</p>
+                          </div>
+                        </div>
+                        <div className="template-directory-item-meta">
+                          <span className={`template-source-tag source-${sourceClass}`}>
+                            {entry.template.source === 'seeded' ? 'seeded' : entry.template.source.replaceAll('_', ' ')}
+                          </span>
+                          <span
+                            className={`template-doc-state ${entry.template.metadata ? 'documented' : 'undocumented'}`}
+                          >
+                            {entry.template.metadata ? 'Documented' : 'Needs docs'}
+                          </span>
+                        </div>
+                        <p className="template-complexity">
+                          <span>Time {complexityTime}</span>
+                          <span>Space {complexitySpace}</span>
+                          <strong>{entry.template.assignmentCount || entry.problems.length || 0} uses</strong>
+                          <span>{entry.problems.length} probs</span>
+                        </p>
+                        <div className="template-card-accent" aria-hidden="true" />
+                      </article>
+                    );
+                  })}
+
+                  {canWrite ? (
+                    <button
+                      className="template-directory-create"
+                      type="button"
+                      onClick={() => openTemplateGenerationHint(cluster.label)}
+                    >
+                      <span className="template-create-icon">+</span>
+                      <div>
+                        <strong>Generate template</strong>
+                        <small>{cluster.label}</small>
+                      </div>
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="template-associated-problems">
+                  <h3>Associated Problems</h3>
+                  {associatedProblems.length ? (
+                    <ul>
+                      {associatedProblems.map((problem) => (
+                        <li key={problem.id}>
+                          <span aria-hidden="true" />
+                          <p>{problem.title}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="template-empty-problem">No associated problems yet.</p>
+                  )}
+                </div>
+              </section>
             );
           })}
         </section>
@@ -344,13 +345,25 @@ export function TemplateGroupsWorkbench({
 
       {isCreateModalOpen ? (
         <div className="modal-backdrop" role="presentation">
-            <section className="template-group-modal" role="dialog" aria-modal="true" aria-labelledby="template-group-modal-title">
+          <section
+            className="template-group-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="template-group-modal-title"
+          >
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Template Group</p>
                 <h2 id="template-group-modal-title">Create new template group</h2>
               </div>
-              <Button type="button" variant="ghost" size="icon" className="modal-close" onClick={closeCreateModal} aria-label="Close create template group modal">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="modal-close"
+                onClick={closeCreateModal}
+                aria-label="Close create template group modal"
+              >
                 ×
               </Button>
             </div>
@@ -358,11 +371,19 @@ export function TemplateGroupsWorkbench({
             <div className="template-group-form-grid">
               <Label>
                 <span>Label</span>
-                <Input value={groupLabel} onChange={(event) => setGroupLabel(event.target.value)} placeholder="e.g. Interval scheduling and greedy" />
+                <Input
+                  value={groupLabel}
+                  onChange={(event) => setGroupLabel(event.target.value)}
+                  placeholder="e.g. Interval scheduling and greedy"
+                />
               </Label>
               <Label>
                 <span>Key</span>
-                <Input value={groupKey} onChange={(event) => setGroupKey(event.target.value)} placeholder="Optional; auto-slugged from label" />
+                <Input
+                  value={groupKey}
+                  onChange={(event) => setGroupKey(event.target.value)}
+                  placeholder="Optional; auto-slugged from label"
+                />
               </Label>
               <Label className="template-group-form-tall">
                 <span>Description</span>

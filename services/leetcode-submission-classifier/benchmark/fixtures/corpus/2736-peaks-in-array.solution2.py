@@ -1,0 +1,58 @@
+# Source: https://github.com/kamyu104/LeetCode-Solutions
+# problem_id: peaks-in-array
+# source_path: LeetCode-Solutions-master/Python/peaks-in-array.py
+# solution_class: Solution2
+# submission_id: 03387f6b692ff5e5005c93e20ab0e17ffb286c1a
+# seed: 2094735231
+
+# Time:  O(n + qlogn)
+# Space: O(n)
+
+# bit, fenwick tree
+
+class Solution2(object):
+    def countOfPeaks(self, nums, queries):
+        """
+        :type nums: List[int]
+        :type queries: List[List[int]]
+        :rtype: List[int]
+        """
+        class BIT(object):  # 0-indexed.
+            def __init__(self, n):
+                self.__bit = [0]*(n+1)  # Extra one for dummy node.
+
+            def add(self, i, val):
+                i += 1  # Extra one for dummy node.
+                while i < len(self.__bit):
+                    self.__bit[i] += val
+                    i += (i & -i)
+
+            def query(self, i):
+                i += 1  # Extra one for dummy node.
+                ret = 0
+                while i > 0:
+                    ret += self.__bit[i]
+                    i -= (i & -i)
+                return ret
+
+        def check(i):
+            return nums[i-1] < nums[i] > nums[i+1]
+
+        def update(x, d):
+            for i in xrange(max(x-1, 1), min((x+1)+1, len(nums)-1)):
+                if check(i):
+                    bit.add(i, d)
+
+        bit = BIT(len(nums))
+        for i in xrange(1, len(nums)-1):
+            if check(i):
+                bit.add(i, +1)
+        result = []
+        for t, x, y in queries:
+            if t == 1:
+                result.append(bit.query(y-1)-bit.query((x+1)-1) if y-1 >= x+1 else 0)
+                continue
+            update(x, -1)
+            nums[x] = y
+            update(x, +1)
+        return result

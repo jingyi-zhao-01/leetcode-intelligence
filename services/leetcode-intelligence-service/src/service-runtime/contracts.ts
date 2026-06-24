@@ -1,4 +1,4 @@
-import type { FocusRecommendationResult, PromptTransport } from "../core/types.ts";
+import type { FocusRecommendationResult, PromptTransport } from '../core/types.ts';
 
 export interface IntelligenceService {
   start(): Promise<void>;

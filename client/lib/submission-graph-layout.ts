@@ -47,11 +47,13 @@ export function buildPrimaryClusterAnchors(
   canvasWidth: number,
   canvasHeight: number,
 ) {
-  const uniqueGroups = [...new Map(
-    nodes
-      .filter((node) => node.primaryTemplateGroup)
-      .map((node) => [node.primaryTemplateGroup!.key, node.primaryTemplateGroup!]),
-  ).values()].sort((left, right) => left.label.localeCompare(right.label));
+  const uniqueGroups = [
+    ...new Map(
+      nodes
+        .filter((node) => node.primaryTemplateGroup)
+        .map((node) => [node.primaryTemplateGroup!.key, node.primaryTemplateGroup!]),
+    ).values(),
+  ].sort((left, right) => left.label.localeCompare(right.label));
 
   if (!uniqueGroups.length) {
     return new Map<string, ClusterAnchor>();

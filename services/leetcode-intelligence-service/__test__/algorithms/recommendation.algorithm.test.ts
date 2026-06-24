@@ -1,13 +1,13 @@
-import assert from "node:assert/strict";
-import { describe, it, vi } from "vitest";
+import assert from 'node:assert/strict';
+import { describe, it, vi } from 'vitest';
 
 import {
   HeuristicFocusRecommendationAlgorithm,
   PlaceholderFocusRecommendationAlgorithm,
   type RecommendationAlgorithmInput,
-} from "../../src/core/recommendation/algorithm.ts";
-import type { WeightCalculator } from "../../src/core/shared/weight.ts";
-import type { FocusRecommendation } from "../../src/core/types.ts";
+} from '../../src/core/recommendation/algorithm.ts';
+import type { WeightCalculator } from '../../src/core/shared/weight.ts';
+import type { FocusRecommendation } from '../../src/core/types.ts';
 
 const createInput = (): RecommendationAlgorithmInput => ({
   lookbackDays: 30,
@@ -15,23 +15,23 @@ const createInput = (): RecommendationAlgorithmInput => ({
   maxWeight: 5,
   weights: [
     {
-      questionSlug: "medium-retry",
+      questionSlug: 'medium-retry',
       weight: 2,
       lastPromptAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
       lastResponseAt: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000),
-      Question: { title: "Medium Retry", difficulty: "Medium" },
+      Question: { title: 'Medium Retry', difficulty: 'Medium' },
     },
     {
-      questionSlug: "easy-fresh",
+      questionSlug: 'easy-fresh',
       weight: 1,
       lastPromptAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
       lastResponseAt: new Date(),
-      Question: { title: "Easy Fresh", difficulty: "Easy" },
+      Question: { title: 'Easy Fresh', difficulty: 'Easy' },
     },
   ],
   submissionAgg: new Map([
     [
-      "medium-retry",
+      'medium-retry',
       {
         total: 3,
         failed: 2,
@@ -40,7 +40,7 @@ const createInput = (): RecommendationAlgorithmInput => ({
       },
     ],
     [
-      "easy-fresh",
+      'easy-fresh',
       {
         total: 1,
         failed: 0,
@@ -50,16 +50,16 @@ const createInput = (): RecommendationAlgorithmInput => ({
     ],
   ]),
   scoringAgg: new Map([
-    ["medium-retry", { count: 2, scoreSum: 4, scoreCount: 2 }],
-    ["easy-fresh", { count: 1, scoreSum: 4, scoreCount: 1 }],
+    ['medium-retry', { count: 2, scoreSum: 4, scoreCount: 2 }],
+    ['easy-fresh', { count: 1, scoreSum: 4, scoreCount: 1 }],
   ]),
 });
 
-describe("algorithms/recommendation", () => {
-  it("HeuristicFocusRecommendationAlgorithm can use a mocked weight policy", () => {
-    const normalizedSignal = vi.fn<WeightCalculator["normalizedSignal"]>().mockImplementation((weight) =>
-      weight >= 2 ? 1 : 0.1
-    );
+describe('algorithms/recommendation', () => {
+  it('HeuristicFocusRecommendationAlgorithm can use a mocked weight policy', () => {
+    const normalizedSignal = vi
+      .fn<WeightCalculator['normalizedSignal']>()
+      .mockImplementation((weight) => (weight >= 2 ? 1 : 0.1));
     const weightCalculator: WeightCalculator = {
       defaultWeight: 1,
       minSelectionWeight: 0.01,
@@ -74,17 +74,17 @@ describe("algorithms/recommendation", () => {
     const recommendations = algorithm.rank(createInput());
 
     assert.equal(normalizedSignal.mock.calls.length, 2);
-    assert.equal(recommendations[0]?.questionSlug, "medium-retry");
+    assert.equal(recommendations[0]?.questionSlug, 'medium-retry');
     assert.equal(recommendations[0]?.signals.estimatedSolveMinutes, 30);
-    assert.match(recommendations[0]?.reason ?? "", /estimatedTime=30m/);
+    assert.match(recommendations[0]?.reason ?? '', /estimatedTime=30m/);
   });
 
-  it("PlaceholderFocusRecommendationAlgorithm can return a mocked result directly", () => {
+  it('PlaceholderFocusRecommendationAlgorithm can return a mocked result directly', () => {
     const mockedResult: FocusRecommendation[] = [
       {
-        questionSlug: "mocked-question",
-        title: "Mocked Question",
-        difficulty: "Hard",
+        questionSlug: 'mocked-question',
+        title: 'Mocked Question',
+        difficulty: 'Hard',
         priority: 7.7,
         signals: {
           weight: 3,
@@ -97,7 +97,7 @@ describe("algorithms/recommendation", () => {
           recentFailureStreak: 3,
           recentSubmissionDays: 1,
         },
-        reason: "mocked reason",
+        reason: 'mocked reason',
       },
     ];
     const rank = vi.fn().mockReturnValue(mockedResult);

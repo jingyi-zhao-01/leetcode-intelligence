@@ -1,13 +1,13 @@
-import { PromptResponseClient } from "../client/index.ts";
-import { createLogger } from "../logger.ts";
-import { createIntelligenceService, loadIntelligenceConfig } from "../service-runtime/index.ts";
+import { PromptResponseClient } from '../client/index.ts';
+import { createLogger } from '../logger.ts';
+import { createIntelligenceService, loadIntelligenceConfig } from '../service-runtime/index.ts';
 
-const logger = createLogger("prompt-response");
+const logger = createLogger('prompt-response');
 
 async function main(): Promise<void> {
   const config = loadIntelligenceConfig();
   if (!config.DISCORD_BOT_TOKEN || !config.PROMPT_DISCORD_CHANNEL_ID) {
-    throw new Error("DISCORD_BOT_TOKEN and PROMPT_DISCORD_CHANNEL_ID are required for prompt response mode.");
+    throw new Error('DISCORD_BOT_TOKEN and PROMPT_DISCORD_CHANNEL_ID are required for prompt response mode.');
   }
 
   const service = await createIntelligenceService();
@@ -22,6 +22,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  logger.fatal({ err: error }, "unhandled error");
+  logger.fatal({ err: error }, 'unhandled error');
   process.exit(1);
 }

@@ -64,11 +64,7 @@ function getClientIp(req: NextRequest) {
   return 'unknown';
 }
 
-function buildRateLimitResponse(result: {
-  limit: number;
-  remaining: number;
-  reset: number;
-}) {
+function buildRateLimitResponse(result: { limit: number; remaining: number; reset: number }) {
   const retryAfterSeconds = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
   return new NextResponse('Too Many Requests', {
     status: 429,

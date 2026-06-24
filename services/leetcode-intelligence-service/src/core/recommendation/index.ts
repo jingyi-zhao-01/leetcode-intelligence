@@ -1,27 +1,22 @@
-import { OpenRouter } from "@openrouter/sdk";
+import { OpenRouter } from '@openrouter/sdk';
 
-import type {
-  FocusRecommendationResult,
-  IntelligenceConfig,
-} from "../types.ts";
-import { createLogger } from "../../logger.ts";
-import {
-  DAY_MS,
-} from "./util.ts";
+import type { FocusRecommendationResult, IntelligenceConfig } from '../types.ts';
+import { createLogger } from '../../logger.ts';
+import { DAY_MS } from './util.ts';
 import {
   HeuristicFocusRecommendationAlgorithm,
   type FocusRecommendationAlgorithm,
   type RecommendationWeightRecord,
-} from "./algorithm.ts";
-import { RecommendationAggregationBuilder } from "./aggregation.ts";
+} from './algorithm.ts';
+import { RecommendationAggregationBuilder } from './aggregation.ts';
 import {
   FallbackRecommendationNarrativeGenerator,
   OpenRouterRecommendationNarrativeGenerator,
   type RecommendationNarrativeGenerator,
-} from "./narrative.ts";
-import { LinearWeightCalculator, type WeightCalculator } from "../shared/weight.ts";
+} from './narrative.ts';
+import { LinearWeightCalculator, type WeightCalculator } from '../shared/weight.ts';
 
-const logger = createLogger("intelligence/recommendation");
+const logger = createLogger('intelligence/recommendation');
 
 export class FocusRecommendationService {
   private readonly aggregationBuilder = new RecommendationAggregationBuilder();
@@ -40,8 +35,9 @@ export class FocusRecommendationService {
   ) {
     const weightCalculator = deps.weightCalculator ?? new LinearWeightCalculator();
     this.algorithm = deps.algorithm ?? new HeuristicFocusRecommendationAlgorithm(weightCalculator);
-    this.narrativeGenerator = deps.narrativeGenerator
-      ?? (this.openRouter
+    this.narrativeGenerator =
+      deps.narrativeGenerator ??
+      (this.openRouter
         ? new OpenRouterRecommendationNarrativeGenerator(this.openRouter, this.config)
         : new FallbackRecommendationNarrativeGenerator());
   }
@@ -57,7 +53,7 @@ export class FocusRecommendationService {
     const topK = Math.max(1, Math.min(limit, 50));
 
     const weights = (await this.prisma.intelligenceWeight.findMany({
-      orderBy: { weight: "desc" },
+      orderBy: { weight: 'desc' },
       take: this.config.INTELLIGENCE_MAX_CANDIDATES,
       include: { Question: true },
     })) as RecommendationWeightRecord[];
@@ -67,7 +63,7 @@ export class FocusRecommendationService {
         generatedAt: new Date().toISOString(),
         lookbackDays,
         recommendations: [],
-        narrative: "No intelligence weights found yet. Trigger a few prompts first.",
+        narrative: 'No intelligence weights found yet. Trigger a few prompts first.',
       };
     }
 
@@ -78,7 +74,7 @@ export class FocusRecommendationService {
         titleSlug: { in: slugs },
         createdAt: { gte: since },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       select: {
         titleSlug: true,
         status: true,
@@ -92,7 +88,7 @@ export class FocusRecommendationService {
         submissionCount: submissions.length,
         submissions,
       },
-      "fetched recommendation submissions",
+      'fetched recommendation submissions',
     );
 
     const promptEvents = (await this.prisma.intelligencePromptEvent.findMany({
@@ -125,7 +121,7 @@ export class FocusRecommendationService {
         recommendationCount: recommendations.length,
         recommendations,
       },
-      "ranked recommendations",
+      'ranked recommendations',
     );
 
     const narrative = await this.narrativeGenerator.generate(recommendations);

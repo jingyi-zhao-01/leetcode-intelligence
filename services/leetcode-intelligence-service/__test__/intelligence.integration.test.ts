@@ -1,17 +1,11 @@
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "vitest";
+import assert from 'node:assert/strict';
+import { afterEach, describe, it } from 'vitest';
 
-import cron from "node-cron";
-import { ChannelType, Client } from "discord.js";
+import cron from 'node-cron';
+import { ChannelType, Client } from 'discord.js';
 
-import {
-  PromptDispatchClient,
-  runPromptDispatchOnce,
-} from "../src/client/prompt-dispatch.ts";
-import {
-  RecommendationDispatchClient,
-  runRecommendationDispatchOnce,
-} from "../src/client/recommendation-dispatch.ts";
+import { PromptDispatchClient, runPromptDispatchOnce } from '../src/client/prompt-dispatch.ts';
+import { RecommendationDispatchClient, runRecommendationDispatchOnce } from '../src/client/recommendation-dispatch.ts';
 
 type PromptResult = {
   ok: true;
@@ -86,7 +80,7 @@ const installCronStub = (): void => {
 };
 
 const installDiscordStub = (): void => {
-  Client.prototype.login = (async function loginStub(this: Client) {
+  Client.prototype.login = async function loginStub(this: Client) {
     (this as Client & { channels: { fetch: (channelId: string) => Promise<unknown> } }).channels = {
       fetch: async (channelId: string) => ({
         type: ChannelType.GuildText,
@@ -97,16 +91,16 @@ const installDiscordStub = (): void => {
             channelId,
             content,
             embeds: Array.isArray(embeds)
-              ? embeds.map((embed) => (typeof embed?.toJSON === "function" ? embed.toJSON() : embed))
+              ? embeds.map((embed) => (typeof embed?.toJSON === 'function' ? embed.toJSON() : embed))
               : undefined,
           });
           return { id: messageId };
         },
       }),
     };
-    this.emit("clientReady", this);
-    return "stub-token";
-  }) as typeof Client.prototype.login;
+    this.emit('clientReady', this);
+    return 'stub-token';
+  } as typeof Client.prototype.login;
 
   Client.prototype.isReady = (() => true) as typeof Client.prototype.isReady;
   Client.prototype.destroy = (async () => undefined) as typeof Client.prototype.destroy;
@@ -129,8 +123,8 @@ const createFakeService = (): FakeService => {
       service.triggerPromptCalls.push({ triggerSource, transport });
       return {
         ok: true,
-        promptEventId: "prompt-event-1",
-        promptText: "Solve two-sum",
+        promptEventId: 'prompt-event-1',
+        promptText: 'Solve two-sum',
       };
     },
     attachPromptMessage: async (promptEventId, messageId) => {
@@ -139,12 +133,12 @@ const createFakeService = (): FakeService => {
     recommendFocus: async (topK) => {
       service.recommendFocusCalls.push(topK);
       return {
-        narrative: "Focus on array review first.",
+        narrative: 'Focus on array review first.',
         recommendations: [
           {
-            questionSlug: "two-sum",
-            title: "Two Sum",
-            difficulty: "Easy",
+            questionSlug: 'two-sum',
+            title: 'Two Sum',
+            difficulty: 'Easy',
             priority: 1.25,
             signals: {
               weight: 1.25,
@@ -156,7 +150,7 @@ const createFakeService = (): FakeService => {
               recentFailureStreak: 1,
               recentSubmissionDays: 0.5,
             },
-            reason: "weight=1.25",
+            reason: 'weight=1.25',
           },
         ],
       };
@@ -170,56 +164,56 @@ afterEach(() => {
   resetStubs();
 });
 
-describe("intelligence integration modes", () => {
-  it("runPromptDispatchOnce sends one prompt and never schedules node-cron", async () => {
+describe('intelligence integration modes', () => {
+  it('runPromptDispatchOnce sends one prompt and never schedules node-cron', async () => {
     installCronStub();
     installDiscordStub();
     const service = createFakeService();
 
     await runPromptDispatchOnce(service as never, {
-      botToken: "bot-token",
-      channelId: "prompt-channel",
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
     });
 
     assert.equal(service.startCalls, 1);
     assert.equal(service.stopCalls, 1);
     assert.deepEqual(service.triggerPromptCalls, [
       {
-        triggerSource: "scheduled-once",
-        transport: { channelId: "prompt-channel" },
+        triggerSource: 'scheduled-once',
+        transport: { channelId: 'prompt-channel' },
       },
     ]);
     assert.deepEqual(service.attachPromptMessageCalls, [
       {
-        promptEventId: "prompt-event-1",
-        messageId: "message-1",
+        promptEventId: 'prompt-event-1',
+        messageId: 'message-1',
       },
     ]);
     assert.equal(scheduleCalls, 0);
     assert.deepEqual(sentMessages, [
       {
-        channelId: "prompt-channel",
+        channelId: 'prompt-channel',
         content: undefined,
         embeds: [
           {
             color: 5793266,
-            title: "Solve two-sum",
-            description: "Solve two-sum",
+            title: 'Solve two-sum',
+            description: 'Solve two-sum',
           },
         ],
       },
     ]);
   });
 
-  it("PromptDispatchClient schedules node-cron in long-running mode", async () => {
+  it('PromptDispatchClient schedules node-cron in long-running mode', async () => {
     installCronStub();
     installDiscordStub();
     const service = createFakeService();
     const client = new PromptDispatchClient(service as never, {
-      botToken: "bot-token",
-      channelId: "prompt-channel",
-      cronSchedule: "*/2 * * * *",
-      timezone: "UTC",
+      botToken: 'bot-token',
+      channelId: 'prompt-channel',
+      cronSchedule: '*/2 * * * *',
+      timezone: 'UTC',
     });
 
     await client.start();
@@ -230,14 +224,14 @@ describe("intelligence integration modes", () => {
     assert.equal(service.stopCalls, 1);
   });
 
-  it("runRecommendationDispatchOnce sends one recommendation message and never schedules node-cron", async () => {
+  it('runRecommendationDispatchOnce sends one recommendation message and never schedules node-cron', async () => {
     installCronStub();
     installDiscordStub();
     const service = createFakeService();
 
     await runRecommendationDispatchOnce(service as never, {
-      botToken: "bot-token",
-      channelId: "recommend-channel",
+      botToken: 'bot-token',
+      channelId: 'recommend-channel',
       topK: 3,
     });
 
@@ -246,25 +240,25 @@ describe("intelligence integration modes", () => {
     assert.deepEqual(service.recommendFocusCalls, [3]);
     assert.equal(scheduleCalls, 0);
     assert.equal(sentMessages.length, 1);
-    assert.equal(sentMessages[0]?.channelId, "recommend-channel");
-    assert.match(sentMessages[0]?.content ?? "", /## Focus Recommendation/);
-    assert.match(sentMessages[0]?.content ?? "", /\*\*Summary\*\*/);
-    assert.match(sentMessages[0]?.content ?? "", /\*\*Recommended Problems\*\*/);
-    assert.match(sentMessages[0]?.content ?? "", /### 1\. \*\*Two Sum\*\*/);
-    assert.match(sentMessages[0]?.content ?? "", /`two-sum`/);
-    assert.match(sentMessages[0]?.content ?? "", /Recent submissions/);
+    assert.equal(sentMessages[0]?.channelId, 'recommend-channel');
+    assert.match(sentMessages[0]?.content ?? '', /## Focus Recommendation/);
+    assert.match(sentMessages[0]?.content ?? '', /\*\*Summary\*\*/);
+    assert.match(sentMessages[0]?.content ?? '', /\*\*Recommended Problems\*\*/);
+    assert.match(sentMessages[0]?.content ?? '', /### 1\. \*\*Two Sum\*\*/);
+    assert.match(sentMessages[0]?.content ?? '', /`two-sum`/);
+    assert.match(sentMessages[0]?.content ?? '', /Recent submissions/);
   });
 
-  it("RecommendationDispatchClient schedules node-cron in long-running mode", async () => {
+  it('RecommendationDispatchClient schedules node-cron in long-running mode', async () => {
     installCronStub();
     installDiscordStub();
     const service = createFakeService();
     const client = new RecommendationDispatchClient(service as never, {
-      botToken: "bot-token",
-      channelId: "recommend-channel",
-      cronSchedule: "0 19 * * *",
+      botToken: 'bot-token',
+      channelId: 'recommend-channel',
+      cronSchedule: '0 19 * * *',
       topK: 5,
-      timezone: "UTC",
+      timezone: 'UTC',
     });
 
     await client.start();
