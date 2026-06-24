@@ -379,6 +379,7 @@ def build_structured_fingerprint(features: dict[str, Any]) -> dict[str, Any]:
     ops: set[str] = set()
     state_vars: set[str] = set()
     transition_order: set[str] = set()
+    roles = algorithm_roles(features)
 
     if features["forCount"] > 0:
         loops.add("for")
@@ -502,6 +503,7 @@ def build_structured_fingerprint(features: dict[str, Any]) -> dict[str, Any]:
         "recursion": features["hasRecursion"],
         "dataStructures": sorted(data_structures),
         "ops": sorted(ops),
+        "roles": sorted(roles),
         "stateVars": sorted(state_vars),
         "transitionOrder": sorted(transition_order),
         "answerUpdateTiming": answer_update_timing,
@@ -515,6 +517,7 @@ def build_cluster_key(fingerprint: dict[str, Any]) -> str:
         f"rec={'y' if fingerprint['recursion'] else 'n'}",
         f"ds={'+'.join(fingerprint['dataStructures']) or 'none'}",
         f"ops={'+'.join(fingerprint['ops']) or 'none'}",
+        f"roles={'+'.join(fingerprint.get('roles', [])) or 'none'}",
         f"state={'+'.join(fingerprint['stateVars']) or 'none'}",
         f"transition={'+'.join(fingerprint['transitionOrder']) or 'none'}",
         f"answer={fingerprint['answerUpdateTiming']}",
@@ -523,6 +526,64 @@ def build_cluster_key(fingerprint: dict[str, Any]) -> str:
 
 def add_feature(bag: dict[str, float], key: str, value: float = 1) -> None:
     bag[key] = bag.get(key, 0) + value
+
+
+def algorithm_roles(features: dict[str, Any]) -> set[str]:
+    roles: set[str] = set()
+    has_tree = features["hasTreeSignal"]
+    has_grid = features["hasGridSignal"]
+    has_graph = features["hasGraphSignal"] or features["hasNeighborSignal"]
+    has_nested_collection = any(name in NESTED_COLLECTION_API_NAMES for name in features["attributeNames"])
+    has_left_right_while = features["hasLeftRightPointers"] and features["whileCount"] > 0
+    has_nested_loop = features["maxLoopDepth"] >= NESTED_LOOP_MIN_DEPTH or features["forCount"] + features["whileCount"] >= NESTED_LOOP_MIN_TOTAL_LOOPS
+
+    if features["hasDpSignal"] and not features["hasRecursion"]:
+        if "min" in features["calledFunctions"]:
+            roles.add("minimizing_dp")
+        if "max" in features["calledFunctions"]:
+            roles.add("maximizing_dp")
+        if has_grid:
+            roles.add("grid_dp")
+        elif has_nested_loop:
+            roles.add("nested_dp")
+        else:
+            roles.add("linear_dp")
+
+    if features["hasQueueLoopSignal"]:
+        if has_tree:
+            roles.add("tree_level_order")
+        elif has_grid:
+            roles.add("grid_bfs")
+        elif has_graph:
+            roles.add("graph_bfs")
+        else:
+            roles.add("frontier_bfs")
+
+    if features["hasRecursion"]:
+        if has_tree:
+            roles.add("recursive_tree_descent")
+        elif has_grid:
+            roles.add("recursive_grid_dfs")
+        elif has_graph:
+            roles.add("recursive_graph_dfs")
+        elif has_nested_collection:
+            roles.add("recursive_nested_collection")
+        elif features["hasDpSignal"]:
+            roles.add("memoized_recursion")
+        elif features["forCount"] > 0:
+            roles.add("backtracking_search")
+
+    if features["hasSortedOrSort"]:
+        if has_left_right_while:
+            roles.add("sort_two_pointer")
+        elif has_nested_loop:
+            roles.add("sort_nested_scan")
+        else:
+            roles.add("sort_linear_scan")
+    elif has_left_right_while and not features["hasMid"] and not features["hasCounter"] and not features["hasDict"] and not features["hasSet"]:
+        roles.add("two_pointer_scan")
+
+    return roles
 
 
 def build_feature_bag(features: dict[str, Any]) -> dict[str, float]:
@@ -600,6 +661,17 @@ def build_feature_bag(features: dict[str, Any]) -> dict[str, float]:
         add_feature(bag, "motif:accumulate_then_lookup", PREFIX_LOOKUP_MOTIF_BAG_SCORE)
     if features["hasMid"] and features["whileCount"] > 0:
         add_feature(bag, "motif:midpoint_boundary_narrow", MIDPOINT_BOUNDARY_MOTIF_BAG_SCORE)
+
+    for role in algorithm_roles(features):
+        key = f"role:{role}"
+        if key in bag:
+            continue
+        score = QUEUE_MOTIF_BAG_SCORE if role.endswith("_bfs") or role == "tree_level_order" else DIRECT_RECURSION_BAG_SCORE
+        if role.endswith("_dp") or role.startswith("sort_"):
+            score = MIDPOINT_BOUNDARY_MOTIF_BAG_SCORE
+        if role in {"sort_two_pointer", "two_pointer_scan"}:
+            score = LEFT_RIGHT_WHILE_BAG_SCORE
+        add_feature(bag, key, score)
 
     if not features["parseOk"]:
         add_feature(bag, "source:lexical_fallback", LEXICAL_FALLBACK_BAG_SCORE)

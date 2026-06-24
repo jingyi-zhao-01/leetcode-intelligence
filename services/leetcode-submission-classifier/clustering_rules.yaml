@@ -117,6 +117,33 @@ cluster_families:
     - family: class_api_design
       keys:
         - role:class_api_design
+    - family: memoized_recursion
+      keys:
+        - role:memoized_recursion
+    - family: recursive_tree
+      keys:
+        - role:recursive_tree_descent
+    - family: recursive_grid
+      keys:
+        - role:recursive_grid_dfs
+    - family: recursive_graph
+      keys:
+        - role:recursive_graph_dfs
+    - family: recursive_nested_collection
+      keys:
+        - role:recursive_nested_collection
+    - family: grid_dp
+      keys:
+        - role:grid_dp
+    - family: grid_bfs
+      keys:
+        - role:grid_bfs
+    - family: graph_bfs
+      keys:
+        - role:graph_bfs
+    - family: tree_level_order
+      keys:
+        - role:tree_level_order
     - family: indexed_grid
       keys:
         - role:indexed_grid_state
@@ -124,21 +151,24 @@ cluster_families:
       keys:
         - role:frontier_bfs
         - motif:frontier_pop_then_expand
-    - family: recursive_tree
-      keys:
-        - role:recursive_tree_descent
-    - family: recursive_grid
-      keys:
-        - role:recursive_grid_dfs
-    - family: recursive_nested_collection
-      keys:
-        - role:recursive_nested_collection
     - family: iterative_tree
       keys:
         - role:iterative_tree_walk
     - family: priority_queue
       keys:
         - role:priority_queue_ops
+    - family: minimizing_dp
+      keys:
+        - role:minimizing_dp
+    - family: maximizing_dp
+      keys:
+        - role:maximizing_dp
+    - family: nested_dp
+      keys:
+        - role:nested_dp
+    - family: linear_dp
+      keys:
+        - role:linear_dp
     - family: dp
       keys:
         - role:dp_state
@@ -151,6 +181,18 @@ cluster_families:
     - family: sliding_window
       keys:
         - motif:expand_then_shrink_window
+    - family: two_pointer_scan
+      keys:
+        - role:two_pointer_scan
+    - family: sort_two_pointer
+      keys:
+        - role:sort_two_pointer
+    - family: sort_nested_scan
+      keys:
+        - role:sort_nested_scan
+    - family: sort_linear_scan
+      keys:
+        - role:sort_linear_scan
     - family: sorting
       keys:
         - call:sorted_or_sort
