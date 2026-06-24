@@ -58,6 +58,7 @@ HEAP_CALL_NAMES = rule_tuple("signals", "heap_call_names")
 SORT_CALL_NAMES = rule_tuple("signals", "sort_call_names")
 UNION_FIND_CALL_NAMES = rule_tuple("signals", "union_find_call_names")
 GRAPH_TRAVERSAL_CALL_NAMES = rule_tuple("signals", "graph_traversal_call_names")
+DESIGN_CLASS_API_METHOD_NAMES = tuple(name.lower() for name in rule_tuple("signals", "design_class_api_methods"))
 DEQUE_IMPORT_HINTS = rule_tuple("signals", "deque_import_hints")
 COUNTER_IMPORT_HINTS = rule_tuple("signals", "counter_import_hints")
 HEAP_IMPORT_HINTS = rule_tuple("signals", "heap_import_hints")
@@ -130,7 +131,7 @@ SLIDING_WINDOW_MOTIF_BAG_SCORE = 3.0
 PREFIX_LOOKUP_MOTIF_BAG_SCORE = 3.0
 MIDPOINT_BOUNDARY_MOTIF_BAG_SCORE = 3.0
 LEXICAL_FALLBACK_BAG_SCORE = 0.5
-EXPLICIT_STATE_INIT_BAG_SCORE = 1.0
+EXPLICIT_STATE_INIT_BAG_SCORE = 0.0
 
 # Weighted-Jaccard feature weights. These tune how much each feature namespace
 # matters when deciding whether two submissions are structurally similar.

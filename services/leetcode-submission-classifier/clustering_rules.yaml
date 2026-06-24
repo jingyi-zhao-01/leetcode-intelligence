@@ -51,18 +51,42 @@ signals:
     - sort
   union_find_call_names:
     - find
+    - find_set
     - union
+    - union_set
   graph_traversal_call_names:
     - dfs
     - bfs
   deque_import_hints:
     - deque
-    - collections
   counter_import_hints:
     - Counter
-    - collections
   heap_import_hints:
     - heapq
+  design_class_api_methods:
+    - add
+    - addWord
+    - book
+    - change
+    - check
+    - dec
+    - follow
+    - get
+    - getRandom
+    - hasNext
+    - inc
+    - insert
+    - next
+    - peek
+    - ping
+    - pop
+    - push
+    - remove
+    - reserve
+    - search
+    - snap
+    - tweet
+    - unfollow
 
 labels:
   default_data_structure: array
@@ -87,9 +111,15 @@ cluster_families:
   # Earlier rules win. These gates prevent structurally unrelated feature bags
   # from merging even when their weighted-Jaccard similarity is high.
   rules:
+    - family: union_find
+      keys:
+        - role:union_find_state
     - family: class_api_design
       keys:
         - role:class_api_design
+    - family: indexed_grid
+      keys:
+        - role:indexed_grid_state
     - family: frontier_bfs
       keys:
         - role:frontier_bfs
@@ -109,9 +139,6 @@ cluster_families:
     - family: priority_queue
       keys:
         - role:priority_queue_ops
-    - family: union_find
-      keys:
-        - role:union_find_state
     - family: dp
       keys:
         - role:dp_state
@@ -124,3 +151,13 @@ cluster_families:
     - family: sliding_window
       keys:
         - motif:expand_then_shrink_window
+    - family: sorting
+      keys:
+        - call:sorted_or_sort
+    - family: frequency_counter
+      keys:
+        - var_op:init:Call:Counter
+    - family: hash_map
+      keys:
+        - var_op:init:Call:defaultdict
+        - var_op:init:Dict

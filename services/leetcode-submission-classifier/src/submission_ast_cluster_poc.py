@@ -10,6 +10,7 @@ import os
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 from urllib import error, request
@@ -34,6 +35,7 @@ from config import (
     DEQUE_INIT_BAG_SCORE,
     DICT_INIT_BAG_SCORE,
     DICT_LIKE_CALL_NAMES,
+    DESIGN_CLASS_API_METHOD_NAMES,
     DIRECT_RECURSION_BAG_SCORE,
     DP_ANSWER_TIMING_LABEL,
     DP_STATE_NAMES,
@@ -115,6 +117,10 @@ from submission_ast_cluster_inputs import (
 LOGGER = logging.getLogger("submission_ast_cluster_poc")
 
 
+def has_word_signal(text: str, tokens: tuple[str, ...]) -> bool:
+    return any(re.search(rf"\b{re.escape(token.lower())}\b", text) for token in tokens)
+
+
 def apply_lexical_signals(base: dict[str, Any], code: str) -> None:
     lowered = code.lower()
     lines = [line.strip().lower() for line in code.splitlines() if line.strip()]
@@ -134,9 +140,9 @@ def apply_lexical_signals(base: dict[str, Any], code: str) -> None:
     base["hasDpSignal"] = base["hasDpSignal"] or bool(re.search(r"\bdp\b|\bmemo\b", lowered))
     base["hasUnionFindSignal"] = base["hasUnionFindSignal"] or ("parent" in lowered and ("find(" in lowered or "union(" in lowered))
     base["hasTreeSignal"] = base["hasTreeSignal"] or ("treenode" in lowered or ((".left" in lowered or ".right" in lowered) and ".val" in lowered))
-    base["hasGridSignal"] = base["hasGridSignal"] or any(token in lowered for token in GRID_SIGNAL_TOKENS)
-    base["hasGraphSignal"] = base["hasGraphSignal"] or any(token in lowered for token in GRAPH_SIGNAL_TOKENS)
-    base["hasNeighborSignal"] = base["hasNeighborSignal"] or any(token in lowered for token in NEIGHBOR_SIGNAL_TOKENS)
+    base["hasGridSignal"] = base["hasGridSignal"] or has_word_signal(lowered, GRID_SIGNAL_TOKENS)
+    base["hasGraphSignal"] = base["hasGraphSignal"] or has_word_signal(lowered, GRAPH_SIGNAL_TOKENS)
+    base["hasNeighborSignal"] = base["hasNeighborSignal"] or has_word_signal(lowered, NEIGHBOR_SIGNAL_TOKENS)
     base["forCount"] = max(base["forCount"], sum(1 for line in lines if line.startswith("for ")))
     base["whileCount"] = max(base["whileCount"], sum(1 for line in lines if line.startswith("while ")))
     base["ifCount"] = max(base["ifCount"], sum(1 for line in lines if line.startswith("if ")))
@@ -183,6 +189,8 @@ def extract_features_from_code(code: str) -> dict[str, Any]:
         "hasGraphSignal": False,
         "hasNeighborSignal": False,
         "hasQueueLoopSignal": False,
+        "hasDesignApiSignal": False,
+        "hasNonSolutionClass": False,
     }
 
     try:
@@ -202,10 +210,15 @@ def extract_features_from_code(code: str) -> dict[str, Any]:
     class Visitor(ast.NodeVisitor):
         def __init__(self) -> None:
             self.loop_depth = 0
+            self.class_depth = 0
 
         def visit_ClassDef(self, node: ast.ClassDef) -> None:
             base["classCount"] += 1
+            if node.name != "Solution":
+                base["hasNonSolutionClass"] = True
+            self.class_depth += 1
             self.generic_visit(node)
+            self.class_depth -= 1
 
         def visit_Import(self, node: ast.Import) -> None:
             for alias in node.names:
@@ -221,6 +234,8 @@ def extract_features_from_code(code: str) -> dict[str, Any]:
 
         def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
             base["functionCount"] += 1
+            if self.class_depth > 0 and not current_functions and node.name.lower() in DESIGN_CLASS_API_METHOD_NAMES:
+                base["hasDesignApiSignal"] = True
             current_functions.append(node.name)
             assigned.add(node.name)
             self.generic_visit(node)
@@ -324,7 +339,7 @@ def extract_features_from_code(code: str) -> dict[str, Any]:
                     base["hasAppendleft"] = True
                 if is_direct_call and current_functions and lowered == current_functions[-1]:
                     base["hasRecursion"] = True
-                if lowered in UNION_FIND_CALL_NAMES:
+                if is_direct_call and lowered in UNION_FIND_CALL_NAMES:
                     base["hasUnionFindSignal"] = True
                 if lowered in GRAPH_TRAVERSAL_CALL_NAMES:
                     base["hasGraphSignal"] = True
@@ -390,7 +405,9 @@ def build_structured_fingerprint(features: dict[str, Any]) -> dict[str, Any]:
         data_structures.add("graph_state")
     if features["hasUnionFindSignal"]:
         data_structures.add("parent_array")
-    if features["classCount"] > 0 and features["functionCount"] >= 3:
+    has_design_api = features["hasNonSolutionClass"] and features["hasDesignApiSignal"] and features["functionCount"] >= 2
+
+    if has_design_api:
         data_structures.add("class_api")
     if not data_structures:
         data_structures.add(DEFAULT_DATA_STRUCTURE_LABEL)
@@ -430,7 +447,7 @@ def build_structured_fingerprint(features: dict[str, Any]) -> dict[str, Any]:
         state_vars.add("dp")
     if features["hasUnionFindSignal"]:
         state_vars.update({"parent", "rank"})
-    if features["classCount"] > 0 and features["functionCount"] >= 3:
+    if has_design_api:
         state_vars.add("object_state")
     if features["hasTreeSignal"]:
         state_vars.add("node_children")
@@ -451,7 +468,7 @@ def build_structured_fingerprint(features: dict[str, Any]) -> dict[str, Any]:
         transition_order.add(DP_TRANSITION_LABEL)
     if features["hasUnionFindSignal"]:
         transition_order.add(UNION_FIND_TRANSITION_LABEL)
-    if features["classCount"] > 0 and features["functionCount"] >= 3:
+    if has_design_api:
         transition_order.add(CLASS_API_TRANSITION_LABEL)
     if not transition_order:
         transition_order.add(DEFAULT_TRANSITION_LABEL)
@@ -561,7 +578,8 @@ def build_feature_bag(features: dict[str, Any]) -> dict[str, float]:
         add_feature(bag, "role:dp_state")
     if features["hasUnionFindSignal"]:
         add_feature(bag, "role:union_find_state", UNION_FIND_BAG_SCORE)
-    if features["classCount"] > 0 and features["functionCount"] >= 3:
+    has_design_api = features["hasNonSolutionClass"] and features["hasDesignApiSignal"] and features["functionCount"] >= 2
+    if has_design_api:
         add_feature(bag, "role:class_api_design", CLASS_API_BAG_SCORE)
     if features["hasTreeSignal"] and features["hasRecursion"]:
         add_feature(bag, "role:recursive_tree_descent", RECURSIVE_TREE_BAG_SCORE)
