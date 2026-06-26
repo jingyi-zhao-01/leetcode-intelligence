@@ -19,7 +19,7 @@ import {
 } from '../src/session/index.ts';
 import { parseSubmissionComplexity } from '../src/core/submissionComplexity.ts';
 import { parseFailureAnalysis } from '../src/utils/failureAnalysisParser.ts';
-import { formatPacificTimestamp, inferIsTestSubmission } from '../src/server.ts';
+import { formatPacificTimestamp, inferIsCheatSubmission, inferIsTestSubmission } from '../src/server.ts';
 
 describe('submission server helpers', () => {
   it('formats timestamps in America/Los_Angeles time', () => {
@@ -47,6 +47,28 @@ describe('submission server helpers', () => {
     });
 
     assert.equal(isTest, false);
+  });
+
+  it('marks non-test submissions as cheat when ai assist was on in nvim', () => {
+    const isCheat = inferIsCheatSubmission("print('hello')", {
+      lcnvim_ai_assist: true,
+      _: {
+        submission: true,
+      },
+    });
+
+    assert.equal(isCheat, true);
+  });
+
+  it('does not mark test submissions as cheat even when ai assist was on in nvim', () => {
+    const isCheat = inferIsCheatSubmission("print('hello')", {
+      lcnvim_ai_assist: true,
+      _: {
+        submission: false,
+      },
+    });
+
+    assert.equal(isCheat, false);
   });
 
   it('serves recent submissions from cache in descending order', () => {

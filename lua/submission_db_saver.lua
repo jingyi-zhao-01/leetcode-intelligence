@@ -183,6 +183,10 @@ function M.save_submission(question, buffer, item)
   --   item: Full judge result item object containing status_msg and other fields
   
   local title_slug = question.q.title_slug
+  local ai_assist_enabled = false
+  if question and type(question.is_auto_ai_assist_enabled) == "function" then
+    ai_assist_enabled = question:is_auto_ai_assist_enabled()
+  end
   
   -- Convert buffer to string (handle both array of lines and string)
   local content
@@ -193,11 +197,14 @@ function M.save_submission(question, buffer, item)
   end
 
   -- Build JSON request
+  local submission_item = type(item) == "table" and vim.deepcopy(item) or {}
+  submission_item.lcnvim_ai_assist = ai_assist_enabled
+
   local request = json_request({
     action = "save_submission",
     title_slug = title_slug,
     content = content,
-    item = item or {}
+    item = submission_item
   })
   
   send_request(request, {

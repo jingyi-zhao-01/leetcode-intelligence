@@ -253,6 +253,24 @@ export function inferIsTestSubmission(content: string, item: SubmissionItem): bo
   return content.includes('#TEST#');
 }
 
+export function inferIsCheatSubmission(content: string, item: SubmissionItem, isTest?: boolean): boolean {
+  const normalizedIsTest = typeof isTest === 'boolean' ? isTest : inferIsTestSubmission(content, item);
+  const topLevelFlag = readSubmissionFlag(item, 'lcnvim_ai_assist');
+  if (typeof topLevelFlag === 'boolean') {
+    return topLevelFlag && !normalizedIsTest;
+  }
+
+  const metadata = item._;
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const nestedFlag = readSubmissionFlag(metadata, 'lcnvim_ai_assist');
+    if (typeof nestedFlag === 'boolean') {
+      return nestedFlag && !normalizedIsTest;
+    }
+  }
+
+  return content.includes('#CHEAT#');
+}
+
 function inferSubmissionFiletype(item: SubmissionItem): string | null {
   const directCandidates = ['lang', 'language', 'lang_name', 'filetype'];
   for (const key of directCandidates) {
@@ -772,7 +790,7 @@ export class SubmissionServer {
   private createPendingSubmission(titleSlug: string, content: string, item: SubmissionItem): PendingSubmission {
     const status = readString(item.status_msg, 'Unknown');
     const isTest = inferIsTestSubmission(content, item);
-    const isCheat = content.includes('#CHEAT#');
+    const isCheat = inferIsCheatSubmission(content, item, isTest);
 
     let timeSpentMinutes: number | null = null;
     if (this.timerManager.hasActiveTimer(titleSlug)) {
