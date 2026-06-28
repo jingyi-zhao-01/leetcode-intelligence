@@ -1,0 +1,141 @@
+name: intelligence-preview-deploy
+
+on:
+  push:
+    branches:
+      - preview
+    paths:
+      - "services/leetcode-intelligence-service/**"
+      - "services/shared/**"
+      - "package.json"
+      - "package-lock.json"
+      - "docker/leetcode-intelligence-service.Dockerfile"
+      - ".github/workflows/intelligence-preview-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PREVIEW_ID: preview
+  PREVIEW_IMAGE_TAG: preview
+  HOMELAB_CLOUD_REPO: jingyi-zhao-01/homelab-cloud
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build intelligence service
+        run: npm run --workspace services/leetcode-intelligence-service build
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run intelligence unit tests
+        run: npm run --workspace services/leetcode-intelligence-service test:unit
+
+      - name: Run intelligence integration tests
+        run: npm run --workspace services/leetcode-intelligence-service test:integration
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/leetcode-intelligence-service
+          tags: |
+            type=raw,value=preview
+            type=sha
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/leetcode-intelligence-service.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  notify-homelab-cloud:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch preview deployment to homelab-cloud
+        env:
+          GH_TOKEN: ${{ secrets.HOMELAB_CLOUD_DISPATCH_TOKEN }}
+          TARGET_REPO: ${{ env.HOMELAB_CLOUD_REPO }}
+          IMAGE_REPOSITORY: ghcr.io/${{ github.repository_owner }}/leetcode-intelligence-service
+          IMAGE_TAG: ${{ env.PREVIEW_IMAGE_TAG }}
+          PREVIEW_ID: ${{ env.PREVIEW_ID }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "HOMELAB_CLOUD_DISPATCH_TOKEN is missing"
+            exit 1
+          fi
+
+          payload=$(jq -n \
+            --arg preview_id "$PREVIEW_ID" \
+            --arg image_repository "$IMAGE_REPOSITORY" \
+            --arg image_tag "$IMAGE_TAG" \
+            '{
+              event_type: "leetcode-intelligence-preview-deploy",
+              client_payload: {
+                preview_id: $preview_id,
+                image_repository: $image_repository,
+                image_tag: $image_tag
+              }
+            }')
+
+          curl -fsS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${TARGET_REPO}/dispatches \
+            -d "$payload"
